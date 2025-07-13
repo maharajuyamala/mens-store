@@ -1,0 +1,27 @@
+[
+    {
+      "id": 1,
+      "name": "Jet Black Shirt",
+      "price": "₹1,499",
+      "image": "http://m.media-amazon.com/images/I/51g48fV-vPL._AC_SX679_.jpg"
+    },
+    {
+      "id": 2,
+      "name": "Burnt Orange Casual",
+      "price": "₹1,199",
+      "image": "https://m.media-amazon.com/images/I/71F4P1t80EL._AC_SX679_.jpg"
+    },
+    {
+      "id": 3,
+      "name": "Steel Gray Slim Fit",
+      "price": "₹1,299",
+      "image": "https://m.media-amazon.com/images/S/aplus-media/vc/de18d352-62ba-4cfd-b962-34f6ffbe09c3.__CR0,0,650,350_PT0_SX650_V1___.jpg"
+    },
+    {
+      "id": 4,
+      "name": "Modern White Tee",
+      "price": "₹999",
+      "image": "https://m.media-amazon.com/images/I/7152rNTyLqL._AC_SY879_.jpg"
+    }
+  ]
+  
