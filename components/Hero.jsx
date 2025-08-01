@@ -44,7 +44,7 @@ export const Hero = () => {
               className="absolute z-0 top-0 w-auto min-w-full min-h-full max-w-none opacity-30 object-cover object-top"
           >
             
-              <source src="http://localhost:3000/shirts.mov" type="video/mp4" />
+              <source src="https://www.secondskinmensworld.com/shirts.mov" type="video/mp4" />
               Your browser does not support the video tag.
           </video>
            {/* Overlay */}
