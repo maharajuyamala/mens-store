@@ -32,17 +32,6 @@ const testimonials = [
 ];
 
 // --- UTILITY HOOK ---
-export const useScrollAnimation = () => {
-    const ref = useRef(null);
-    const [inView, setInView] = useState(false);
-    useEffect(() => {
-        const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) { setInView(true); observer.unobserve(entry.target); } }, { threshold: 0.1 });
-        const currentRef = ref.current;
-        if (currentRef) { observer.observe(currentRef); }
-        return () => { if (currentRef) { observer.unobserve(currentRef); } };
-    }, []);
-    return [ref, inView];
-};
 
 const ProductCard = ({ product }) => (
     <Link href={`/product-details?id=₹{product?.id}`}>
