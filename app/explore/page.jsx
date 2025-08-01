@@ -6,7 +6,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import Link from 'next/link';
 // --- DUMMY DATA ---
-export const allProducts = [
+const allProducts = [
     { id: 1, name: "Onyx Silk-Blend Shirt", price: "₹120.00", image: "https://thefoomer.in/cdn/shop/products/jpeg-optimizer_PATP5125.jpg?v=1680162476", tags: ['formal', 'shirts', 'luxury'] },
     { id: 2, name: "Urban Explorer Tee", price: "₹45.00", image: "https://pinksupply.in/cdn/shop/files/male-model-wearing-blue-striped-button-down-collar-linen-shirt.jpg?v=1735708363&width=480", tags: ['casual', 'shirts'] },
     { id: 3, name: "Crimson Performance Polo", price: "₹75.00", image: "https://m.media-amazon.com/images/I/91UdxhZ+GcL._UY1100_.jpg", tags: ['sport', 'shirts'] },
