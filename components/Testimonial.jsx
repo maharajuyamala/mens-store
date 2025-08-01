@@ -72,7 +72,7 @@ export const Testimonials = () => {
                     <button
                         key={index}
                         onClick={() => setCurrentIndex(index)}
-                        className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-orange-500' : 'bg-gray-600 hover:bg-gray-500'}`}
+                        className={`w-3 h-3 rounded-full transition-colors ₹{currentIndex === index ? 'bg-orange-500' : 'bg-gray-600 hover:bg-gray-500'}`}
                     />
                 ))}
             </div>

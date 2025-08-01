@@ -4,18 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight, Search } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import Link from 'next/link';
 // --- DUMMY DATA ---
-const allProducts = [
-    { id: 1, name: "Onyx Silk-Blend Shirt", price: "$120.00", image: "https://thefoomer.in/cdn/shop/products/jpeg-optimizer_PATP5125.jpg?v=1680162476", tags: ['formal', 'shirts', 'luxury'] },
-    { id: 2, name: "Urban Explorer Tee", price: "$45.00", image: "https://pinksupply.in/cdn/shop/files/male-model-wearing-blue-striped-button-down-collar-linen-shirt.jpg?v=1735708363&width=480", tags: ['casual', 'shirts'] },
-    { id: 3, name: "Crimson Performance Polo", price: "$75.00", image: "https://m.media-amazon.com/images/I/91UdxhZ+GcL._UY1100_.jpg", tags: ['sport', 'shirts'] },
-    { id: 4, name: "Azure Linen Button-Down", price: "$95.00", image: "https://images-cdn.ubuy.co.in/6621c81885d4910d0a49cd4b-coofandy-men-39-s-casual-shirts.jpg", tags: ['casual', 'shirts', 'smart-casual'] },
-    { id: 5, name: "Midnight Corduroy Pants", price: "$110.00", image: "https://i.pinimg.com/736x/e1/5a/f4/e15af453d4946a74f4edbdb6b9ae7c8f.jpg", tags: ['casual', 'pants', 'vintage'] },
-    { id: 6, name: "Forest Green Flannel", price: "$85.00", image: "https://m.media-amazon.com/images/I/81Kd7bcYg+L._UY350_.jpg", tags: ['casual', 'shirts', 'outdoor'] },
-    { id: 7, name: "Tech-Knit Joggers", price: "$90.00", image: "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTd7cgAwLqElMaN3SGFzH_EnFYwHcuaylA9dyrjL4HIIh0uH3xfD-nmBqkLST45m0e5SATcQ3-dx680kHjwgjEb2Mrzht0AQloXpl9Rw1gfo-6QG3ZpZhgIKQ", tags: ['sport', 'pants'] },
-    { id: 8, name: "Classic Chino Shorts", price: "$60.00", image: "https://m.media-amazon.com/images/I/71RU3gVcLrL._UY1100_.jpg", tags: ['casual', 'shorts'] },
-    { id: 9, name: "Tailored Wool Trousers", price: "$150.00", image: "https://cdn-images.farfetch-contents.com/15/96/62/99/15966299_29856966_600.jpg", tags: ['formal', 'pants'] },
-    { id: 10, name: "Essential Boxer Briefs", price: "$35.00", image: "https://images-na.ssl-images-amazon.com/images/I/41Cb2HFGNEL._UL500_.jpg", tags: ['undergarments'] },
+export const allProducts = [
+    { id: 1, name: "Onyx Silk-Blend Shirt", price: "₹120.00", image: "https://thefoomer.in/cdn/shop/products/jpeg-optimizer_PATP5125.jpg?v=1680162476", tags: ['formal', 'shirts', 'luxury'] },
+    { id: 2, name: "Urban Explorer Tee", price: "₹45.00", image: "https://pinksupply.in/cdn/shop/files/male-model-wearing-blue-striped-button-down-collar-linen-shirt.jpg?v=1735708363&width=480", tags: ['casual', 'shirts'] },
+    { id: 3, name: "Crimson Performance Polo", price: "₹75.00", image: "https://m.media-amazon.com/images/I/91UdxhZ+GcL._UY1100_.jpg", tags: ['sport', 'shirts'] },
+    { id: 4, name: "Azure Linen Button-Down", price: "₹95.00", image: "https://images-cdn.ubuy.co.in/6621c81885d4910d0a49cd4b-coofandy-men-39-s-casual-shirts.jpg", tags: ['casual', 'shirts', 'smart-casual'] },
+    { id: 5, name: "Midnight Corduroy Pants", price: "₹110.00", image: "https://i.pinimg.com/736x/e1/5a/f4/e15af453d4946a74f4edbdb6b9ae7c8f.jpg", tags: ['casual', 'pants', 'vintage'] },
+    { id: 6, name: "Forest Green Flannel", price: "₹85.00", image: "https://m.media-amazon.com/images/I/81Kd7bcYg+L._UY350_.jpg", tags: ['casual', 'shirts', 'outdoor'] },
+    { id: 7, name: "Tech-Knit Joggers", price: "₹90.00", image: "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTd7cgAwLqElMaN3SGFzH_EnFYwHcuaylA9dyrjL4HIIh0uH3xfD-nmBqkLST45m0e5SATcQ3-dx680kHjwgjEb2Mrzht0AQloXpl9Rw1gfo-6QG3ZpZhgIKQ", tags: ['sport', 'pants'] },
+    { id: 8, name: "Classic Chino Shorts", price: "₹60.00", image: "https://m.media-amazon.com/images/I/71RU3gVcLrL._UY1100_.jpg", tags: ['casual', 'shorts'] },
+    { id: 9, name: "Tailored Wool Trousers", price: "₹150.00", image: "https://cdn-images.farfetch-contents.com/15/96/62/99/15966299_29856966_600.jpg", tags: ['formal', 'pants'] },
+    { id: 10, name: "Essential Boxer Briefs", price: "₹35.00", image: "https://images-na.ssl-images-amazon.com/images/I/41Cb2HFGNEL._UL500_.jpg", tags: ['undergarments'] },
   ];
 
 const categories = [
@@ -44,6 +45,7 @@ export const useScrollAnimation = () => {
 };
 
 const ProductCard = ({ product }) => (
+    <Link href={`/product-details?id=₹{product?.id}`}>
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.95 }}
@@ -64,6 +66,7 @@ const ProductCard = ({ product }) => (
         <p className="text-orange-400 text-sm sm:text-base">{product.price}</p>
       </div>
     </motion.div>
+    </Link>
   );
   
 
@@ -119,7 +122,7 @@ export default function ExplorePage () {
                         <button
                             key={tag}
                             onClick={() => setActiveTag(tag)}
-                            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+                            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ₹{
                                 activeTag === tag
                                     ? 'bg-orange-500 text-white'
                                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
