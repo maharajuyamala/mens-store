@@ -19,7 +19,7 @@ export const Header = () => {
     return () => (document.body.style.overflow = 'auto');
   }, [isMenuOpen]);
 
-  const navLinks = ["Home", "Shop", "Collections", "Contact"];
+  const navLinks = [{label:"Home",link:"/"}, {label:"Shop",link:"/explore"}, {label:"Collections",link:"/"}, {label:"Contact", link:"/"}];
 
   const menuVariants = {
     hidden: { opacity: 0, y: -20 },
@@ -44,7 +44,7 @@ export const Header = () => {
         className="fixed top-0 left-0 w-[100svw] text-white px-4 sm:px-8 py-4 flex items-center justify-between z-50 overflow-x-hidden"
       >
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2 text-white text-2xl font-bold tracking-wider">
+        <a href="/" className="flex items-center gap-2 text-white text-2xl font-bold tracking-wider">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
             xmlns="http://www.w3.org/2000/svg" className="text-orange-500">
             <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z"
@@ -66,12 +66,12 @@ export const Header = () => {
         >
           {navLinks.map(link => (
             <motion.a
-              key={link}
-              href="#"
+              key={link?.link}
+              href={link?.link}
               variants={linkVariants}
               className="relative group"
             >
-              {link}
+              {link?.label}
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 group-hover:w-full transition-all duration-300"></span>
             </motion.a>
           ))}
@@ -120,12 +120,12 @@ export const Header = () => {
               <nav className="flex flex-col gap-8 mt-16 text-lg">
                 {navLinks.map(link => (
                   <a
-                    key={link}
-                    href="#"
+                    key={link?.link}
+                    href={link?.link}
                     className="text-gray-200 hover:text-orange-500 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    {link}
+                    {link?.label}
                   </a>
                 ))}
               </nav>
