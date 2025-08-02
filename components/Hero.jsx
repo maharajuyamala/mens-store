@@ -1,7 +1,9 @@
+"use client"
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight } from 'lucide-react';
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // 2. HERO SECTION COMPONENT
 export const Hero = () => {
@@ -63,14 +65,16 @@ export const Hero = () => {
               <p className="text-lg md:text-xl max-w-2xl mx-auto text-gray-300 mb-8">
                   Discover curated collections where premium craftsmanship meets contemporary design.
               </p>
+              <Link href="/explore">
               <motion.button
                   whileHover={{ scale: 1.05, boxShadow: "0px 0px 20px rgba(249, 115, 22, 0.5)" }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={()=>route.push("/explore")}
+                  
                   className="bg-orange-500 text-white font-bold py-3 px-8 rounded-full text-lg transition-all duration-300 flex items-center gap-2 mx-auto"
               >
                   Explore Collection <ArrowRight className="h-5 w-5" />
               </motion.button>
+              </Link>
           </motion.div>
       </section>
   );

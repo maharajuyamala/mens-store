@@ -5,6 +5,7 @@ import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight, Search
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import Link from 'next/link';
+
 // --- DUMMY DATA ---
 const allProducts = [
     { id: 1, name: "Onyx Silk-Blend Shirt", price: "₹1200.00", image: "https://thefoomer.in/cdn/shop/products/jpeg-optimizer_PATP5125.jpg?v=1680162476", tags: ['formal', 'shirts', 'luxury'] },
@@ -19,20 +20,7 @@ const allProducts = [
     { id: 10, name: "Essential Boxer Briefs", price: "₹350.00", image: "https://images-na.ssl-images-amazon.com/images/I/41Cb2HFGNEL._UL500_.jpg", tags: ['undergarments'] },
   ];
 
-const categories = [
-    { name: "The Formal Edit", image: "https://images.unsplash.com/photo-1594938384914-29a4491a7a72?q=80&w=1887" },
-    { name: "Casual Collection", image: "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?q=80&w=1887" },
-    { name: "Active & Sport", image: "https://images.unsplash.com/photo-1552674605-db6ffd5e259b?q=80&w=1887" }
-];
-
-const testimonials = [
-    { id: 1, quote: "The quality is unparalleled. SecondSkin has become my go-to for statement pieces that are both stylish and comfortable.", name: "Alex Thompson", role: "Fashion Blogger", avatar: "https://placehold.co/100x100/ffffff/000000?text=AT" },
-    { id: 2, quote: "I'm constantly impressed by the unique designs and the attention to detail. Every piece feels custom-made.", name: "David Chen", role: "Creative Director", avatar: "https://placehold.co/100x100/ffffff/000000?text=DC" },
-    { id: 3, quote: "Finally, a brand that understands modern masculinity. The fit, the fabric, the feel—it's all perfect.", name: "Marcus Reid", role: "Entrepreneur", avatar: "https://placehold.co/100x100/ffffff/000000?text=MR" }
-];
-
 // --- UTILITY HOOK ---
-
 const ProductCard = ({ product }) => (
     <Link href={`/product-details?id=${product?.id}`}>
     <motion.div
@@ -47,7 +35,7 @@ const ProductCard = ({ product }) => (
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+          className="w-full scale-[1.02] h-full object-cover transition-transform duration-500 hover:scale-105"
         />
       </div>
       <div className="p-3 sm:p-4">
@@ -89,7 +77,6 @@ export default function ExplorePage () {
             className="bg-black text-white min-h-screen pt-28 "
         >
             <div className="max-w-7xl mx-auto">
-            <Header />
                 <div className="text-center mb-12 px-4 sm:px-8">
                     <h1 className="text-5xl md:text-6xl font-bold mb-4">Explore the Collection</h1>
                     <p className="text-gray-400 text-lg">Find your next signature piece.</p>
@@ -111,7 +98,7 @@ export default function ExplorePage () {
                         <button
                             key={tag}
                             onClick={() => setActiveTag(tag)}
-                            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ₹{
+                            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
                                 activeTag === tag
                                     ? 'bg-orange-500 text-white'
                                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -139,7 +126,6 @@ export default function ExplorePage () {
                     </div>
                 )}
             </div>
-            <Footer />
         </motion.div>
     );
 };

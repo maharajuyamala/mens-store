@@ -1,6 +1,8 @@
+"use client"
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,7 +46,7 @@ export const Header = () => {
         className="fixed top-0 left-0 w-[100svw] text-white px-4 sm:px-8 py-4 flex items-center justify-between z-50 overflow-x-hidden"
       >
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2 text-white text-2xl font-bold tracking-wider">
+        <Link href="/" className="flex items-center gap-2 text-white text-2xl font-bold tracking-wider">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
             xmlns="http://www.w3.org/2000/svg" className="text-orange-500">
             <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z"
@@ -55,7 +57,7 @@ export const Header = () => {
               stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
           </svg>
           SecondSkin
-        </a>
+        </Link>
 
         {/* Desktop Nav */}
         <motion.nav
@@ -66,7 +68,7 @@ export const Header = () => {
         >
           {navLinks.map(link => (
             <motion.a
-              key={link?.link}
+              key={link?.label}
               href={link?.link}
               variants={linkVariants}
               className="relative group"
@@ -120,7 +122,7 @@ export const Header = () => {
               <nav className="flex flex-col gap-8 mt-16 text-lg">
                 {navLinks.map(link => (
                   <a
-                    key={link?.link}
+                    key={link?.label}
                     href={link?.link}
                     className="text-gray-200 hover:text-orange-500 transition-colors"
                     onClick={() => setIsMenuOpen(false)}

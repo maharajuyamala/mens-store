@@ -5,6 +5,7 @@ import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight, Search
 import { useSearchParams } from 'next/navigation';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
+import Link from 'next/link';
 
 const ProductDetailPage = () => {
     const params = useSearchParams()
@@ -100,21 +101,21 @@ const ProductDetailPage = () => {
         return (
             <div className="bg-black text-white min-h-screen pt-28 px-4 sm:px-8 text-center">
                 <h1 className="text-4xl text-red-500">Product not found</h1>
-                <a href="#/explore" className="text-orange-500 mt-4 inline-block">Back to Shop</a>
+                <Link href="/explore" className="text-orange-500 mt-4 inline-block">Back to Shop</Link>
             </div>
         );
     }
 
     return (<>
-    <Header/>
+   
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-black text-white min-h-screen pt-28 px-4 sm:px-8">
             <div className="max-w-6xl mx-auto pb-5">
-                <a href="/explore" className="flex items-center gap-2 text-gray-400 hover:text-white mb-8">
+                <Link href="/explore" className="flex items-center gap-2 text-gray-400 hover:text-white mb-8">
                     <ChevronLeft className="h-5 w-5" />
                     Back to Shop
-                </a>
+                </Link>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <motion.div layoutId={`product-image-₹{product.id}`} className="rounded-2xl overflow-hidden">
+                    <motion.div layoutId={`product-image-${product.id}`} className="rounded-2xl overflow-hidden">
                         <img src={product.image} alt={product.name} className="scale-[1.02] w-full h-full object-cover" />
                     </motion.div>
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
@@ -124,8 +125,8 @@ const ProductDetailPage = () => {
                         <div className="mb-8">
                             <h3 className="text-lg font-semibold mb-3">Select Size</h3>
                             <div className="flex gap-3">
-                                {sizes.map(size => (
-                                    <button key={size} onClick={() => setSelectedSize(size)} className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors ₹{selectedSize === size ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-600 text-gray-300 hover:border-orange-500'}`}>
+                                {sizes.map((size, index) => (
+                                    <button key={`${size}${index} `} onClick={() => setSelectedSize(size)} className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors ${selectedSize === size ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-600 text-gray-300 hover:border-orange-500'}`}>
                                         {size}
                                     </button>
                                 ))}
@@ -147,7 +148,6 @@ const ProductDetailPage = () => {
                 </div>
             </div>
         </motion.div>
-            <Footer/>
             </>
 
     );
