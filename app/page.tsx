@@ -1,11 +1,8 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight } from 'lucide-react';
-import { Header } from '@/components/Header';
 import { Hero } from '@/components/Hero';
 import { ShirtSection } from '@/components/ShirtSection';
-import { Footer } from '@/components/Footer';
 import { Testimonials } from '@/components/Testimonial';
 import { WhyChooseUs } from '@/components/WhyUs';
 import { CategorySection } from '@/components/ShopByCategory';
@@ -67,13 +64,11 @@ export default function App() {
 
           {!loading && (
               <main className="bg-black">
-                  <Header />
                   <Hero />
                   <ShirtSection />
                   <CategorySection/>
                   <WhyChooseUs />
                   <Testimonials />
-                  <Footer />
               </main>
           )}
       </>

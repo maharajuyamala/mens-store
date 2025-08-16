@@ -3,8 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight, Search, ChevronLeft, Plus, Minus } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { Footer } from '@/components/Footer';
-import { Header } from '@/components/Header';
 import Link from 'next/link';
 
 const ProductDetailPage = () => {

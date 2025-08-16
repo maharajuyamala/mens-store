@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { AddItemDialog } from './AddDialogue';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -89,6 +90,8 @@ export const Header = () => {
               <span className="relative inline-flex rounded-full h-4 w-4 bg-orange-500 text-white text-xs items-center justify-center">3</span>
             </span>
           </motion.button>
+
+          <AddItemDialog/>
 
           <div className="md:hidden">
             <motion.button whileTap={{ scale: 0.9 }} onClick={() => setIsMenuOpen(true)} className="text-white">
