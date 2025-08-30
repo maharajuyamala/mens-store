@@ -1,8 +1,9 @@
 "use client"
-import React, { useState, useEffect } from 'react';
+import React,   {useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Menu, X, PlusCircle, UploadCloud, Loader2 } from 'lucide-react';
+import { ShoppingCart, Menu, X, PlusCircle, UploadCloud, Loader2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
+import imageCompression from 'browser-image-compression';
 
 // --- Firebase Imports ---
 import { db, storage } from "../app/firebase";
@@ -26,8 +27,7 @@ export const AddItemDialog = () => {
     const [productName, setProductName] = useState("");
     const [price, setPrice] = useState("");
     const [selectedColor, setSelectedColor] = useState("");
-    // ---- MODIFIED ---- Changed from single string to array for multi-select
-    const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+    const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({});
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -54,18 +54,19 @@ export const AddItemDialog = () => {
         );
     };
 
-    // ---- NEW ---- Handler for multi-select sizes
-    const handleSizeToggle = (size: string) => {
-        setSelectedSizes(prev => 
-            prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
-        );
+    const handleQuantityChange = (size: string, newQuantity: number) => {
+        const quantity = Math.max(0, newQuantity);
+        setSizeQuantities(prev => ({
+            ...prev,
+            [size]: quantity
+        }));
     };
 
     const resetForm = () => {
         setProductName("");
         setPrice("");
         setSelectedColor("");
-        setSelectedSizes([]);
+        setSizeQuantities({});
         setSelectedTags([]);
         setImageFile(null);
         setImagePreview(null);
@@ -74,37 +75,74 @@ export const AddItemDialog = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // --- MODIFIED ---- Updated form validation for multi-select size
-        if (!productName || !price || !imageFile || !selectedColor || selectedSizes.length === 0 || selectedTags.length === 0) {
-            setError("Please fill out all fields, select an image, and choose at least one size and category.");
+    
+        // Prepare data
+        const finalPrice = parseFloat(price);
+        const sizesToSubmit = Object.entries(sizeQuantities)
+            .filter(([_, quantity]) => quantity > 0)
+            .reduce((acc, [size, quantity]) => {
+                acc[size] = quantity;
+                return acc;
+            }, {} as Record<string, number>);
+    
+        // Validate data STRICTLY before sending
+        if (
+            !productName ||
+            !price ||
+            isNaN(finalPrice) ||
+            !imageFile ||
+            !selectedColor ||
+            Object.keys(sizesToSubmit).length === 0 ||
+            selectedTags.length === 0
+        ) {
+            setError("Please fill all fields. Price must be a number and at least one size must have stock.");
             return;
         }
-        
+    
         setIsLoading(true);
         setError(null);
-
+    
         try {
+            // Step 1: Upload image
             const imageRef = ref(storage, `products/${Date.now()}-${imageFile.name}`);
-            await uploadBytes(imageRef, imageFile);
+            const options = {
+                maxSizeMB: 1,          // (Max file size in MB)
+                maxWidthOrHeight: 1024,  // (Max width or height in pixels)
+                useWebWorker: true
+              }
+          
+              const compressedFile = await imageCompression(imageFile, options);
+              
+              // Now, upload the 'compressedFile' instead of the original 'imageFile'
+            await uploadBytes(imageRef, compressedFile);
+            // await uploadBytes(imageRef, imageFile);
             const imageUrl = await getDownloadURL(imageRef);
-
+    
+            // Step 2: Create the final, clean data object
             const productData = {
+                id: `${Date.now()}`,
                 name: productName,
-                price: parseFloat(price),
+                price: finalPrice,
                 image: imageUrl,
                 tags: selectedTags,
                 color: selectedColor,
-                size: selectedSizes // ---- MODIFIED ---- Use the array of selected sizes
+                description: "This is a description",
+                size: [sizesToSubmit]
             };
-
+    
+            // 🧐 This console log will show you the exact data being sent
+            console.log("Submitting to Firestore:", productData);
+            
+            // Step 3: Write to Firestore
             await addDoc(collection(db, "products"), productData);
+            
             alert("Product added successfully!");
             resetForm();
             setOpen(false);
-
+    
         } catch (err) {
             console.error("Error adding product: ", err);
-            setError("Failed to add product. Please check console and CORS settings.");
+            setError("Failed to add product. Check the console for the data object and verify your Firestore rules.");
         } finally {
             setIsLoading(false);
         }
@@ -139,12 +177,29 @@ export const AddItemDialog = () => {
                     </div>
                     <div className="space-y-2"><Label>Color</Label><Select value={selectedColor} onValueChange={setSelectedColor}><SelectTrigger className="w-full bg-gray-800 border-gray-700"><SelectValue placeholder="Select a color" /></SelectTrigger><SelectContent className="bg-gray-800 border-gray-700 text-white">{availableColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
                     
-                    {/* ---- NEW ---- Multi-select chips for Sizes */}
-                    <div className="space-y-2">
-                        <Label>Available Sizes (select multiple)</Label>
-                        <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="space-y-3">
+                        <Label>Available Sizes & Stock Quantity</Label>
+                        {/* ---- MODIFIED ---- Changed grid classes for responsiveness */}
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {availableSizes.map(size => (
-                                <button type="button" key={size} onClick={() => handleSizeToggle(size)} className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-orange-500 ${selectedSizes.includes(size) ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{size}</button>
+                                <div key={size} className="flex flex-col items-center justify-between p-2 bg-gray-800 rounded-md">
+                                    <span className="font-medium text-sm text-gray-300">{size}</span>
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-gray-700" onClick={() => handleQuantityChange(size, (sizeQuantities[size] || 0) - 1)}>
+                                            <Minus className="h-4 w-4" />
+                                        </Button>
+                                        <Input
+                                            type="number"
+                                            className="w-14 h-8 text-center bg-gray-900/50 border-gray-700 focus:ring-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            value={sizeQuantities[size] || 0}
+                                            onChange={(e) => handleQuantityChange(size, parseInt(e.target.value, 10) || 0)}
+                                            min="0"
+                                        />
+                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-gray-700" onClick={() => handleQuantityChange(size, (sizeQuantities[size] || 0) + 1)}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>

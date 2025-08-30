@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from 'next/link';
 
 const ProductCard = ({ product }) => (
-    <Link href={`/product-details?id=${product?.id}`}>
+    <Link href={`/product-details?id=${product?.doc_id}`}>
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.95 }}
@@ -41,9 +41,9 @@ export default function ExplorePage() {
   useEffect(() => {
     async function fetchProducts() {
       const snap = await getDocs(collection(db, "products"));
-      console.log(snap)
+      console.log({dsz:snap.docs})
       const products = snap.docs.map(doc => ({
-        id: doc.id,
+        doc_id: doc.id,
         // tags: JSON.parse(doc?.tags),
         ...(doc.data())
         
