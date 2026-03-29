@@ -28,7 +28,10 @@ function readFirebaseOptions(): FirebaseOptions | null {
   if (missing.length) {
     if (typeof window !== "undefined") {
       console.warn(
-        `[firebase] Missing env: ${missing.join(", ")}. Add them to .env.local.`
+        `[firebase] Missing env: ${missing.join(", ")}. ` +
+          "Set these in .env.local (local) or in Vercel → Settings → Environment Variables. " +
+          "Names must match exactly (NEXT_PUBLIC_…). On Vercel, redeploy after adding them—" +
+          "NEXT_PUBLIC_* values are baked in at build time."
       );
     }
     return null;
@@ -86,7 +89,9 @@ export function getDb(): Firestore {
   const c = getClientFirebase();
   if (!c) {
     throw new Error(
-      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+      "Firebase is not configured. Set all required NEXT_PUBLIC_FIREBASE_* variables " +
+        "(see .env.example). On Vercel: Project → Settings → Environment Variables, " +
+        "then trigger a new Production deployment so the client bundle picks them up."
     );
   }
   return c.db;
@@ -96,7 +101,7 @@ export function getFirebaseAuth(): Auth {
   const c = getClientFirebase();
   if (!c) {
     throw new Error(
-      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables (.env.local or Vercel) and redeploy."
     );
   }
   return c.auth;
@@ -106,7 +111,7 @@ export function getFirebaseStorage(): FirebaseStorage {
   const c = getClientFirebase();
   if (!c) {
     throw new Error(
-      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables (.env.local or Vercel) and redeploy."
     );
   }
   return c.storage;
@@ -116,7 +121,7 @@ export function getFirebaseApp(): FirebaseApp {
   const c = getClientFirebase();
   if (!c) {
     throw new Error(
-      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables (.env.local or Vercel) and redeploy."
     );
   }
   return c.app;
