@@ -1,6 +1,6 @@
-
 import { useEffect, useState } from "react";
 import React from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight } from 'lucide-react';
 import { useScrollAnimation } from "./ShirtSection";
@@ -60,7 +60,7 @@ export const Testimonials = () => {
                         transition={{ duration: 0.5 }}
                         className="absolute inset-0 flex flex-col items-center justify-center text-center bg-gray-900 p-8 rounded-lg"
                     >
-                        <img src={testimonials[currentIndex].avatar} alt={testimonials[currentIndex].name} className="w-16 h-16 rounded-full mb-4 border-2 border-orange-500"/>
+                        <Image src={testimonials[currentIndex].avatar} alt={testimonials[currentIndex].name} width={64} height={64} className="w-16 h-16 rounded-full mb-4 border-2 border-orange-500" unoptimized />
                         <p className="text-lg italic text-gray-300 mb-4">"{testimonials[currentIndex].quote}"</p>
                         <h4 className="font-bold text-white">{testimonials[currentIndex].name}</h4>
                         <p className="text-sm text-orange-400">{testimonials[currentIndex].role}</p>

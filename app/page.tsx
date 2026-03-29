@@ -6,6 +6,7 @@ import { ShirtSection } from '@/components/ShirtSection';
 import { Testimonials } from '@/components/Testimonial';
 import { WhyChooseUs } from '@/components/WhyUs';
 import { CategorySection } from '@/components/ShopByCategory';
+import { RecentlyViewedSection } from '@/components/RecentlyViewedSection';
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
                   <Hero />
                   <ShirtSection />
                   <CategorySection/>
+                  <RecentlyViewedSection variant="dark" />
                   <WhyChooseUs />
                   <Testimonials />
               </main>

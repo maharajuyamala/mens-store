@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight } from 'lucide-react';
 import { useScrollAnimation } from './ShirtSection';
@@ -24,7 +25,7 @@ export const BrandStory = () => {
                     initial="hidden"
                     animate={inView ? "visible" : "hidden"}
                 >
-                    <img src="https://images.unsplash.com/photo-1550928433-ceb94b010143?q=80&w=1887&auto=format&fit=crop" alt="Tailor at work" className="w-full h-full object-cover"/>
+                    <Image src="https://images.unsplash.com/photo-1550928433-ceb94b010143?q=80&w=1887&auto=format&fit=crop" alt="Tailor at work" fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                 </motion.div>
                 <motion.div 
                     className="text-white"

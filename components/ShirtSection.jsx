@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight, ArrowLeft } from 'lucide-react';
 import featuredShirts from "../app/data/cloths.json";
@@ -33,7 +34,7 @@ export const useScrollAnimation = () => {
   return [ref, inView];
 };
 // 3. FEATURED SHIRTS SECTION (REVAMPED)
-const ShirtCard = ({ shirt }) => {
+const ShirtCard = ({ shirt, priority }) => {
   // Variants for the hover overlay elements, creating a staggered animation effect.
   const overlayVariants = {
       rest: { opacity: 0 },
@@ -56,11 +57,14 @@ const ShirtCard = ({ shirt }) => {
               className="absolute inset-0"
               whileHover={{ rotateY: -15, rotateX: 10, transition: { type: 'spring', stiffness: 300, damping: 20 } }}
           >
-              {/* Image zooms in on hover */}
-              <img
+              <Image
                   src={shirt.image}
                   alt={shirt.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-125"
+                  fill
+                  className="object-cover transition-transform duration-500 group-hover:scale-125"
+                  sizes="320px"
+                  unoptimized
+                  priority={!!priority}
               />
               {/* Gradient overlay for better text readability */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20"></div>
@@ -181,8 +185,8 @@ export const ShirtSection = () => {
                   className="flex gap-8 px-8 cursor-grab active:cursor-grabbing overflow-x-scroll"
                   style={{ scrollbarWidth: 'none', '-ms-overflow-style': 'none' }} // Hide scrollbar
               >
-                  {featuredShirts.map((shirt) => (
-                      <ShirtCard key={shirt.id} shirt={shirt} />
+                  {featuredShirts.map((shirt, index) => (
+                      <ShirtCard key={shirt.id} shirt={shirt} priority={index === 0} />
                   ))}
               </motion.div>
           </div>

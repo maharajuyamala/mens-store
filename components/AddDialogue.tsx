@@ -1,225 +1,403 @@
-"use client"
-import React,   {useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Menu, X, PlusCircle, UploadCloud, Loader2, Plus, Minus } from 'lucide-react';
-import Link from 'next/link';
-import imageCompression from 'browser-image-compression';
+"use client";
 
-// --- Firebase Imports ---
-import { db, storage } from "../app/firebase";
+import React, { useState } from "react";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import { PlusCircle, UploadCloud, Loader2, Plus, Minus } from "lucide-react";
+import imageCompression from "browser-image-compression";
+import { getDb, getFirebaseStorage } from "@/app/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// --- Shadcn UI Imports ---
+import { useAdminAddProductStore } from "@/store/adminAddProductStore";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { cn } from "@/lib/utils";
 
 /**
- * @component AddItemDialog
- * A dialog component with a form to upload and add a new product to Firebase.
+ * Controlled add-product dialog (sizes + stock per size). Open via store or AddProductOpenButton.
  */
-export const AddItemDialog = () => {
-    // --- Form State ---
-    const [open, setOpen] = useState(false);
-    const [productName, setProductName] = useState("");
-    const [price, setPrice] = useState("");
-    const [selectedColor, setSelectedColor] = useState("");
-    const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({});
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    
-    // --- UI State ---
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+export function AddItemDialog() {
+  const open = useAdminAddProductStore((s) => s.open);
+  const setOpen = useAdminAddProductStore((s) => s.setOpen);
 
-    const availableTags = ['sport', 'casual', 'formal', 'shirts', 'pants', 'shorts', 'undergarments', 'luxury'];
-    const availableColors = ["Onyx Black", "Silk White", "Stone Gray", "Ocean Blue", "Forest Green"];
-    const availableSizes = ["XS", "S", "M", "L", "XL", "XXL"];
+  const [productName, setProductName] = useState("");
+  const [price, setPrice] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
+    {}
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
-        }
-    };
+  const availableTags = [
+    "sport",
+    "casual",
+    "formal",
+    "shirts",
+    "pants",
+    "shorts",
+    "undergarments",
+    "luxury",
+  ];
+  const availableColors = [
+    "Onyx Black",
+    "Silk White",
+    "Stone Gray",
+    "Ocean Blue",
+    "Forest Green",
+  ];
+  const availableSizes = ["XS", "S", "M", "L", "XL", "XXL"];
 
-    const handleTagToggle = (tag: string) => {
-        setSelectedTags(prev => 
-            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-        );
-    };
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setProductName("");
+      setPrice("");
+      setSelectedColor("");
+      setSizeQuantities({});
+      setSelectedTags([]);
+      setImageFile(null);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+      setError(null);
+    }
+  };
 
-    const handleQuantityChange = (size: string, newQuantity: number) => {
-        const quantity = Math.max(0, newQuantity);
-        setSizeQuantities(prev => ({
-            ...prev,
-            [size]: quantity
-        }));
-    };
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
 
-    const resetForm = () => {
-        setProductName("");
-        setPrice("");
-        setSelectedColor("");
-        setSizeQuantities({});
-        setSelectedTags([]);
-        setImageFile(null);
-        setImagePreview(null);
-        setError(null);
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-    
-        // Prepare data
-        const finalPrice = parseFloat(price);
-        const sizesToSubmit = Object.entries(sizeQuantities)
-            .filter(([_, quantity]) => quantity > 0)
-            .reduce((acc, [size, quantity]) => {
-                acc[size] = quantity;
-                return acc;
-            }, {} as Record<string, number>);
-    
-        // Validate data STRICTLY before sending
-        if (
-            !productName ||
-            !price ||
-            isNaN(finalPrice) ||
-            !imageFile ||
-            !selectedColor ||
-            Object.keys(sizesToSubmit).length === 0 ||
-            selectedTags.length === 0
-        ) {
-            setError("Please fill all fields. Price must be a number and at least one size must have stock.");
-            return;
-        }
-    
-        setIsLoading(true);
-        setError(null);
-    
-        try {
-            // Step 1: Upload image
-            const imageRef = ref(storage, `products/${Date.now()}-${imageFile.name}`);
-            const options = {
-                maxSizeMB: 1,          // (Max file size in MB)
-                maxWidthOrHeight: 1024,  // (Max width or height in pixels)
-                useWebWorker: true
-              }
-          
-              const compressedFile = await imageCompression(imageFile, options);
-              
-              // Now, upload the 'compressedFile' instead of the original 'imageFile'
-            await uploadBytes(imageRef, compressedFile);
-            // await uploadBytes(imageRef, imageFile);
-            const imageUrl = await getDownloadURL(imageRef);
-    
-            // Step 2: Create the final, clean data object
-            const productData = {
-                id: `${Date.now()}`,
-                name: productName,
-                price: finalPrice,
-                image: imageUrl,
-                tags: selectedTags,
-                color: selectedColor,
-                description: "This is a description",
-                size: [sizesToSubmit]
-            };
-    
-            // 🧐 This console log will show you the exact data being sent
-            console.log("Submitting to Firestore:", productData);
-            
-            // Step 3: Write to Firestore
-            await addDoc(collection(db, "products"), productData);
-            
-            alert("Product added successfully!");
-            resetForm();
-            setOpen(false);
-    
-        } catch (err) {
-            console.error("Error adding product: ", err);
-            setError("Failed to add product. Check the console for the data object and verify your Firestore rules.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="relative bg-transparent border border-gray-600 hover:border-orange-500 rounded-full p-2.5 transition-colors duration-300">
-                    <PlusCircle className="h-5 w-5" />
-                </motion.button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl h-[80svh] overflow-y-auto bg-gray-900 border-gray-700 text-white">
-                <DialogHeader>
-                    <DialogTitle className="text-2xl text-white">Add New Product</DialogTitle>
-                    <DialogDescription className="text-gray-400">
-                        Fill in the details to add a new item to the Firestore database.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                     <div>
-                        <Label htmlFor="product-image" className="text-sm font-medium text-gray-300">Product Image</Label>
-                        <div className="mt-2 flex justify-center items-center w-full h-48 rounded-lg border-2 border-dashed border-gray-600 p-2 relative bg-gray-800/50 hover:border-orange-500 transition-colors">
-                            {imagePreview ? <img src={imagePreview} alt="Preview" className="h-full w-full object-contain rounded-md" />
-                            : <div className="text-center"><UploadCloud className="mx-auto h-10 w-10 text-gray-500" /><p className="mt-2 text-sm text-gray-400"><span className="font-semibold text-orange-400">Click to upload</span></p></div>}
-                            <Input id="product-image" type="file" onChange={handleImageChange} accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label htmlFor="product-name">Product Name</Label><Input id="product-name" placeholder="e.g., Onyx Silk-Blend Shirt" value={productName} onChange={(e) => setProductName(e.target.value)} className="bg-gray-800 border-gray-700 focus:ring-orange-500" /></div>
-                        <div className="space-y-2"><Label htmlFor="price">Price</Label><Input id="price" type="number" placeholder="e.g., 1200" value={price} onChange={(e) => setPrice(e.target.value)} className="bg-gray-800 border-gray-700 focus:ring-orange-500" /></div>
-                    </div>
-                    <div className="space-y-2"><Label>Color</Label><Select value={selectedColor} onValueChange={setSelectedColor}><SelectTrigger className="w-full bg-gray-800 border-gray-700"><SelectValue placeholder="Select a color" /></SelectTrigger><SelectContent className="bg-gray-800 border-gray-700 text-white">{availableColors.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
-                    
-                    <div className="space-y-3">
-                        <Label>Available Sizes & Stock Quantity</Label>
-                        {/* ---- MODIFIED ---- Changed grid classes for responsiveness */}
-                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {availableSizes.map(size => (
-                                <div key={size} className="flex flex-col items-center justify-between p-2 bg-gray-800 rounded-md">
-                                    <span className="font-medium text-sm text-gray-300">{size}</span>
-                                    <div className="flex items-center gap-2">
-                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-gray-700" onClick={() => handleQuantityChange(size, (sizeQuantities[size] || 0) - 1)}>
-                                            <Minus className="h-4 w-4" />
-                                        </Button>
-                                        <Input
-                                            type="number"
-                                            className="w-14 h-8 text-center bg-gray-900/50 border-gray-700 focus:ring-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                            value={sizeQuantities[size] || 0}
-                                            onChange={(e) => handleQuantityChange(size, parseInt(e.target.value, 10) || 0)}
-                                            min="0"
-                                        />
-                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-gray-700" onClick={() => handleQuantityChange(size, (sizeQuantities[size] || 0) + 1)}>
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Categories (select multiple)</Label>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {availableTags.map(tag => (
-                                <button type="button" key={tag} onClick={() => handleTagToggle(tag)} className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-orange-500 ${selectedTags.includes(tag) ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</button>
-                            ))}
-                        </div>
-                    </div>
-                     {error && <p className="text-sm text-red-500">{error}</p>}
-                </form>
-                <DialogFooter>
-                    <Button type="submit" onClick={handleSubmit} disabled={isLoading} className="bg-orange-500 hover:bg-orange-600 text-white w-32">
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Product'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+  const handleTagToggle = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+  };
+
+  const handleQuantityChange = (size: string, newQuantity: number) => {
+    const quantity = Math.max(0, newQuantity);
+    setSizeQuantities((prev) => ({ ...prev, [size]: quantity }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const finalPrice = parseFloat(price);
+    const sizesToSubmit = Object.entries(sizeQuantities)
+      .filter(([, quantity]) => quantity > 0)
+      .reduce(
+        (acc, [size, quantity]) => {
+          acc[size] = quantity;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+    if (
+      !productName ||
+      !price ||
+      Number.isNaN(finalPrice) ||
+      !imageFile ||
+      !selectedColor ||
+      Object.keys(sizesToSubmit).length === 0 ||
+      selectedTags.length === 0
+    ) {
+      setError(
+        "Please fill all fields. Price must be a number and at least one size must have stock."
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const imageRef = ref(
+        getFirebaseStorage(),
+        `products/${Date.now()}-${imageFile.name}`
+      );
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      };
+
+      const compressedFile = await imageCompression(imageFile, options);
+      await uploadBytes(imageRef, compressedFile);
+      const imageUrl = await getDownloadURL(imageRef);
+
+      const productData = {
+        id: `${Date.now()}`,
+        name: productName,
+        price: finalPrice,
+        image: imageUrl,
+        tags: selectedTags,
+        color: selectedColor,
+        description: "This is a description",
+        size: [sizesToSubmit],
+      };
+
+      await addDoc(collection(getDb(), "products"), productData);
+
+      alert("Product added successfully!");
+      handleOpenChange(false);
+    } catch (err) {
+      console.error("Error adding product: ", err);
+      setError(
+        "Failed to add product. Check the console and verify your Firestore rules."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[80svh] overflow-y-auto border-border bg-card text-card-foreground sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">Add new product</DialogTitle>
+          <DialogDescription>
+            Upload an image, set price, color, categories, and stock per size.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={handleSubmit}
+          className="max-h-[65vh] space-y-6 overflow-y-auto py-2 pr-1"
+        >
+          <div>
+            <Label htmlFor="product-image">Product image</Label>
+            <div className="relative mt-2 flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 p-2 transition-colors hover:border-orange-500/50">
+              {imagePreview ? (
+                <Image
+                  src={imagePreview}
+                  alt="Preview"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              ) : (
+                <div className="text-center">
+                  <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    <span className="font-semibold text-orange-600">
+                      Click to upload
+                    </span>
+                  </p>
+                </div>
+              )}
+              <Input
+                id="product-image"
+                type="file"
+                onChange={handleImageChange}
+                accept="image/*"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="product-name">Product name</Label>
+              <Input
+                id="product-name"
+                placeholder="e.g. Onyx silk-blend shirt"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                className="border-border bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price">Price</Label>
+              <Input
+                id="price"
+                type="number"
+                placeholder="e.g. 1200"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="border-border bg-background"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Color</Label>
+            <Select value={selectedColor} onValueChange={setSelectedColor}>
+              <SelectTrigger className="w-full border-border bg-background">
+                <SelectValue placeholder="Select a color" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableColors.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Available sizes & stock</Label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {availableSizes.map((size) => (
+                <div
+                  key={size}
+                  className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/30 p-2"
+                >
+                  <span className="text-sm font-medium">{size}</span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        handleQuantityChange(
+                          size,
+                          (sizeQuantities[size] || 0) - 1
+                        )
+                      }
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <Input
+                      type="number"
+                      className="h-8 w-12 border-border bg-background text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      value={sizeQuantities[size] || 0}
+                      onChange={(e) =>
+                        handleQuantityChange(
+                          size,
+                          parseInt(e.target.value, 10) || 0
+                        )
+                      }
+                      min={0}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        handleQuantityChange(
+                          size,
+                          (sizeQuantities[size] || 0) + 1
+                        )
+                      }
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categories (select multiple)</Label>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {availableTags.map((tag) => (
+                <button
+                  type="button"
+                  key={tag}
+                  onClick={() => handleTagToggle(tag)}
+                  className={cn(
+                    "rounded-full px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+                    selectedTags.includes(tag)
+                      ? "bg-orange-600 text-white shadow-md"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </form>
+        <DialogFooter>
+          <Button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="bg-orange-600 text-white hover:bg-orange-500"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Add product"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Header / toolbar trigger — opens the same dialog as mobile + button */
+export function AddProductOpenButton({
+  className,
+  variant = "header",
+}: {
+  className?: string;
+  variant?: "header" | "icon-only";
+}) {
+  const openDialog = useAdminAddProductStore((s) => s.openDialog);
+
+  if (variant === "icon-only") {
+    return (
+      <motion.button
+        type="button"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => openDialog()}
+        className={cn(
+          "inline-flex rounded-full border border-border p-2.5 text-foreground transition-colors hover:border-orange-500",
+          className
+        )}
+        aria-label="Add product"
+      >
+        <PlusCircle className="h-5 w-5" />
+      </motion.button>
+    );
+  }
+
+  return (
+    <motion.button
+      type="button"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => openDialog()}
+      className={cn(
+        "hidden items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-sm font-semibold text-orange-700 transition-colors hover:bg-orange-500/20 md:inline-flex dark:text-orange-400",
+        className
+      )}
+      aria-label="Add product"
+    >
+      <PlusCircle className="size-4 shrink-0" />
+      Add product
+    </motion.button>
+  );
 }

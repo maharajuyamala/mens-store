@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Instagram, Twitter, Facebook, ArrowRight } from 'lucide-react';
 import { useScrollAnimation } from './ShirtSection';
@@ -48,7 +49,7 @@ export const CategorySection = () => {
                         variants={itemVariants}
                         className="group relative h-96 rounded-2xl overflow-hidden shadow-lg"
                     >
-                        <img src={category.image} alt={category.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"/>
+                        <Image src={category.image} alt={category.name} fill className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-110" sizes="(max-width: 768px) 100vw, 33vw" unoptimized />
                         <div className="absolute inset-0 bg-black/50 group-hover:bg-black/60 transition-all duration-300"></div>
                         <div className="relative h-full flex flex-col justify-end p-8 text-white">
                             <h3 className="text-3xl font-bold mb-2">{category.name}</h3>

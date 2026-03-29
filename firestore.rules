@@ -1,0 +1,171 @@
+rules_version = '2';
+// Deploy: firebase deploy --only firestore:rules (from mens-store/)
+// Checkout updates products with { stock } and/or { stock, sizes }. Per-size keys outside
+// XS/S/M/L/XL/XXL (any case) are not decremented by rules logic—prefer those keys or admin-only inventory.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Admin: document users/{uid} must have role == "admin"
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // User profile: read own; create as role "user" with allowed fields only; cannot change role client-side
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'role', 'createdAt']);
+
+      allow update: if isOwner(userId)
+        && request.resource.data.role == resource.data.role;
+
+      allow delete: if false;
+    }
+
+    match /users/{userId}/orders/{orderId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId);
+    }
+
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Public newsletter signups (site banner)
+    match /newsletter_subscribers/{docId} {
+      allow create: if request.resource.data.keys().hasAll(['email', 'createdAt'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 3
+        && request.resource.data.email.size() <= 320;
+      allow read, update, delete: if isAdmin();
+    }
+
+    function orderStatusValue(s) {
+      return s in ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    }
+
+    // Checkout creates orders (guest or signed-in). Order IDs are unguessable; reads are open for confirmation UX.
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if request.resource.data.status == 'pending'
+        && request.resource.data.userId is string
+        && request.resource.data.orderNumber is string
+        && request.resource.data.orderNumber.matches('^[A-Z0-9]{8}$')
+        && request.resource.data.items is list
+        && request.resource.data.shippingAddress is map
+        && request.resource.data.pricing is map
+        && request.resource.data.paymentMethod in ['cod', 'online'];
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusHistory'])
+        && orderStatusValue(request.resource.data.status)
+        && request.resource.data.statusHistory is list;
+      allow delete: if false;
+    }
+
+    // Whole non-negative quantity: number (incl. float whole) or digit-only string (admin often saves strings).
+    function isNonNegWholeNumber(n) {
+      return n is number && n >= 0 && n == int(n)
+        || n is string && n.matches('^[0-9]{1,12}$');
+    }
+
+    // New stock from checkout is always a number; old may be number or numeric string.
+    function newStockLteOld(oldV, newV) {
+      return newV is number && newV >= 0 && newV == int(newV)
+        && (
+          (oldV is number && oldV >= 0 && oldV == int(oldV) && newV <= oldV)
+          || (oldV is string && oldV.matches('^[0-9]{1,12}$') && newV <= int(oldV))
+        );
+    }
+
+    // Legacy inventory: `size` is a list whose first entry is a map of size → qty (see getSizesMap in app).
+    function legacyFirstSizeEntryIsMap(oldD) {
+      return oldD.keys().hasAny(['size'])
+        && oldD.size is list
+        && oldD.size.size() > 0
+        && oldD.size[0] is map;
+    }
+
+    // Per-size qty must not increase for known keys (covers XS–XXL upper/lower).
+    function mapKeyLte(newS, oldS, k) {
+      let hasN = k in newS.keys();
+      let hasO = k in oldS.keys();
+      return !hasN
+        || (hasO
+          && isNonNegWholeNumber(newS[k])
+          && isNonNegWholeNumber(oldS[k])
+          && (
+            (newS[k] is number && oldS[k] is number && newS[k] <= oldS[k])
+            || (newS[k] is number && oldS[k] is string && oldS[k].matches('^[0-9]{1,12}$') && newS[k] <= int(oldS[k]))
+            || (newS[k] is string && newS[k].matches('^[0-9]{1,12}$') && oldS[k] is number && int(newS[k]) <= oldS[k])
+            || (newS[k] is string && oldS[k] is string && newS[k].matches('^[0-9]{1,12}$') && oldS[k].matches('^[0-9]{1,12}$') && int(newS[k]) <= int(oldS[k]))
+          ))
+        || (!hasO
+          && isNonNegWholeNumber(newS[k])
+          && ((newS[k] is number && newS[k] == 0) || (newS[k] is string && newS[k] == '0')));
+    }
+
+    function sizesMapNonIncreasing(newS, oldS) {
+      return mapKeyLte(newS, oldS, 'XS')
+        && mapKeyLte(newS, oldS, 'S')
+        && mapKeyLte(newS, oldS, 'M')
+        && mapKeyLte(newS, oldS, 'L')
+        && mapKeyLte(newS, oldS, 'XL')
+        && mapKeyLte(newS, oldS, 'XXL')
+        && mapKeyLte(newS, oldS, 'xs')
+        && mapKeyLte(newS, oldS, 's')
+        && mapKeyLte(newS, oldS, 'm')
+        && mapKeyLte(newS, oldS, 'l')
+        && mapKeyLte(newS, oldS, 'xl')
+        && mapKeyLte(newS, oldS, 'xxl');
+    }
+
+    // Client checkout: aggregate stock down, or per-size map + stock total (no new size keys; known keys only decrease).
+    // (No if/else in functions—Firestore rules are expression-only.)
+    function clientInventoryDecrement() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      let newD = request.resource.data;
+      let oldD = resource.data;
+
+      return (affected.hasOnly(['stock'])
+          && oldD.keys().hasAny(['stock'])
+          && newStockLteOld(oldD.stock, newD.stock))
+        || (affected.hasOnly(['stock', 'sizes'])
+          && isNonNegWholeNumber(newD.stock)
+          && newD.sizes is map
+          && (
+            (oldD.sizes is map
+              && newD.sizes.keys().hasOnly(oldD.sizes.keys())
+              && sizesMapNonIncreasing(newD.sizes, oldD.sizes))
+            || (!(oldD.sizes is map)
+              && legacyFirstSizeEntryIsMap(oldD)
+              && newD.sizes.keys().hasOnly(oldD.size[0].keys())
+              && sizesMapNonIncreasing(newD.sizes, oldD.size[0]))
+          )
+          && (!oldD.keys().hasAny(['stock']) || newStockLteOld(oldD.stock, newD.stock)));
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || clientInventoryDecrement();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

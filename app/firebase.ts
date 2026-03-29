@@ -1,27 +1,123 @@
-"use client"// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+"use client";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBbfPmdPCrpOHO9h9d55pXp6YDgjiw63MI",
-  authDomain: "second-skin-4704a.firebaseapp.com",
-  projectId: "second-skin-4704a",
-  storageBucket: "second-skin-4704a.firebasestorage.app",
-  messagingSenderId: "940887616333",
-  appId: "1:940887616333:web:5158dd448c495b7667a504",
-  measurementId: "G-1SW04YW4GC"
+import { getApp, getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
+
+/**
+ * Read web SDK config. Returns null if env is incomplete — does not throw
+ * (so importing this module never crashes SSR or the first paint).
+ */
+function readFirebaseOptions(): FirebaseOptions | null {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  const messagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
+  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+  const measurementId = process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
+
+  const missing: string[] = [];
+  if (!apiKey) missing.push("NEXT_PUBLIC_FIREBASE_API_KEY");
+  if (!authDomain) missing.push("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");
+  if (!projectId) missing.push("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  if (!storageBucket) missing.push("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET");
+  if (!messagingSenderId) missing.push("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID");
+  if (!appId) missing.push("NEXT_PUBLIC_FIREBASE_APP_ID");
+  if (missing.length) {
+    if (typeof window !== "undefined") {
+      console.warn(
+        `[firebase] Missing env: ${missing.join(", ")}. Add them to .env.local.`
+      );
+    }
+    return null;
+  }
+
+  const config: FirebaseOptions = {
+    apiKey,
+    authDomain,
+    projectId,
+    storageBucket,
+    messagingSenderId,
+    appId,
+  };
+  if (measurementId) {
+    config.measurementId = measurementId;
+  }
+  return config;
+}
+
+export type ClientFirebase = {
+  app: FirebaseApp;
+  db: Firestore;
+  auth: Auth;
+  storage: FirebaseStorage;
 };
 
-// Initialize Firebase
-export const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const auth = getAuth(app); 
+let cached: ClientFirebase | null | undefined;
+
+function tryInit(): ClientFirebase | null {
+  const opts = readFirebaseOptions();
+  if (!opts) return null;
+  try {
+    const app = getApps().length === 0 ? initializeApp(opts) : getApp();
+    return {
+      app,
+      db: getFirestore(app),
+      auth: getAuth(app),
+      storage: getStorage(app),
+    };
+  } catch (e) {
+    console.error("[firebase] initializeApp / getFirestore failed", e);
+    return null;
+  }
+}
+
+/** Lazy singleton; safe to call from effects. Null if env missing or init failed. */
+export function getClientFirebase(): ClientFirebase | null {
+  if (cached === undefined) {
+    cached = tryInit();
+  }
+  return cached;
+}
+
+export function getDb(): Firestore {
+  const c = getClientFirebase();
+  if (!c) {
+    throw new Error(
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+    );
+  }
+  return c.db;
+}
+
+export function getFirebaseAuth(): Auth {
+  const c = getClientFirebase();
+  if (!c) {
+    throw new Error(
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+    );
+  }
+  return c.auth;
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  const c = getClientFirebase();
+  if (!c) {
+    throw new Error(
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+    );
+  }
+  return c.storage;
+}
+
+export function getFirebaseApp(): FirebaseApp {
+  const c = getClientFirebase();
+  if (!c) {
+    throw new Error(
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* variables in .env.local."
+    );
+  }
+  return c.app;
+}
