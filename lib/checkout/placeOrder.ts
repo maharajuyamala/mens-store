@@ -35,6 +35,8 @@ export type PlaceOrderInput = {
   couponCode: string | null;
   paymentMethod: "cod" | "online";
   userId: string;
+  /** Optional tag for reporting (e.g. in-store POS). */
+  saleChannel?: "web" | "pos";
 };
 
 export type PlacedOrder = {
@@ -95,6 +97,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     paymentMethod: input.paymentMethod,
     createdAt: serverTimestamp(),
     orderNumber,
+    ...(input.saleChannel ? { saleChannel: input.saleChannel } : {}),
   };
 
   await runTransaction(db, async (tx) => {

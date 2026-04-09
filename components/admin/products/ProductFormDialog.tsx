@@ -135,13 +135,21 @@ async function uploadCompressedWithProgress(
   });
 }
 
+export type ProductCreatedMeta = {
+  productId: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+};
+
 export type ProductFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "create" | "edit";
   productId: string | null;
   initialData: Record<string, unknown> | null;
-  onSaved: () => void;
+  /** Called after a successful save; includes `meta` when a new product was created. */
+  onSaved: (meta?: ProductCreatedMeta) => void;
 };
 
 export function ProductFormDialog({
@@ -264,19 +272,28 @@ export function ProductFormDialog({
       const allUrls = [...existingImages, ...uploaded];
 
       if (mode === "create") {
-        await addDoc(
+        const created = await addDoc(
           collection(getDb(), "products"),
           buildNewProductData(values, allUrls)
         );
+        revokeNewPreviews(newPreviews);
+        onSaved({
+          productId: created.id,
+          name: values.name.trim(),
+          price: values.price,
+          imageUrl: allUrls[0] ?? null,
+        });
       } else if (productId) {
         await updateDoc(
           doc(getDb(), "products", productId),
           buildUpdateProductData(values, allUrls)
         );
+        revokeNewPreviews(newPreviews);
+        onSaved();
+      } else {
+        revokeNewPreviews(newPreviews);
+        onSaved();
       }
-
-      revokeNewPreviews(newPreviews);
-      onSaved();
       onOpenChange(false);
       resetDialogState();
       reset(formDefaultsFromDoc(null));

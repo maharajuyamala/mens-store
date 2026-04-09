@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { AddItemDialog, AddProductOpenButton } from "@/components/AddDialogue";
+import { ProductBarcodeDialog } from "@/components/admin/ProductBarcodeDialog";
 import { CartDrawer } from "@/components/Cart/CartDrawer";
 import { useAdminAddProductStore } from "@/store/adminAddProductStore";
 import { useAuth } from "@/hooks/useAuth";
@@ -367,7 +368,12 @@ export function Header() {
         )}
       </AnimatePresence>
 
-      {isAdmin ? <AddItemDialog /> : null}
+      {isAdmin ? (
+        <>
+          <AddItemDialog />
+          <ProductBarcodeDialog />
+        </>
+      ) : null}
       {!isAdmin ? <CartDrawer /> : null}
     </>
   );

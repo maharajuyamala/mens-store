@@ -9,6 +9,7 @@ import { getDb, getFirebaseStorage } from "@/app/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAdminAddProductStore } from "@/store/adminAddProductStore";
+import { useProductBarcodeStore } from "@/store/productBarcodeStore";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -35,6 +36,7 @@ import { cn } from "@/lib/utils";
 export function AddItemDialog() {
   const open = useAdminAddProductStore((s) => s.open);
   const setOpen = useAdminAddProductStore((s) => s.setOpen);
+  const openBarcodeSheet = useProductBarcodeStore((s) => s.openSheet);
 
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
@@ -159,10 +161,15 @@ export function AddItemDialog() {
         size: [sizesToSubmit],
       };
 
-      await addDoc(collection(getDb(), "products"), productData);
+      const newDoc = await addDoc(collection(getDb(), "products"), productData);
 
-      alert("Product added successfully!");
       handleOpenChange(false);
+      openBarcodeSheet({
+        productId: newDoc.id,
+        name: productName,
+        price: finalPrice,
+        imageUrl: imageUrl,
+      });
     } catch (err) {
       console.error("Error adding product: ", err);
       setError(

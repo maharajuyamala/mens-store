@@ -10,7 +10,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { AlertTriangle, Loader2, Pencil, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { getClientFirebase, getDb } from "@/app/firebase";
 import { ProductFormDialog } from "@/components/admin/products/ProductFormDialog";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ import {
   type ProductTableRow,
 } from "@/lib/products/firestore-map";
 import { stockAndStatusPatch } from "@/lib/products/stock-update";
+import { useProductBarcodeStore } from "@/store/productBarcodeStore";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_FILTER_OPTIONS = [
@@ -90,10 +91,14 @@ export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [productFormMode, setProductFormMode] = useState<"create" | "edit">(
+    "edit"
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<Record<string, unknown> | null>(
     null
   );
+  const openBarcodeSheet = useProductBarcodeStore((s) => s.openSheet);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDelta, setBulkDelta] = useState("");
@@ -306,8 +311,16 @@ export default function AdminProductsPage() {
   };
 
   const openEdit = (row: ProductTableRow) => {
+    setProductFormMode("edit");
     setEditingId(row.id);
     setEditingData(row.data);
+    setDialogOpen(true);
+  };
+
+  const openCreate = () => {
+    setProductFormMode("create");
+    setEditingId(null);
+    setEditingData(null);
     setDialogOpen(true);
   };
 
@@ -343,13 +356,20 @@ export default function AdminProductsPage() {
             Products
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage catalog, inventory, and media. Add new items from the header
-            or mobile <span className="font-medium">Add</span> button (per-size
-            stock). Edit rows here for the full{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">images[]</code>{" "}
-            form.
+            Manage catalog, inventory, and media. Quick add from the header{" "}
+            <span className="font-medium">Add product</span> (per-size stock) or
+            use <span className="font-medium">New product</span> for the full
+            form. After saving, a printable barcode sheet opens automatically.
           </p>
         </div>
+        <Button
+          type="button"
+          onClick={() => openCreate()}
+          className="shrink-0 bg-orange-600 text-white hover:bg-orange-500"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New product
+        </Button>
       </div>
 
       {loadError ? (
@@ -728,13 +748,21 @@ export default function AdminProductsPage() {
           if (!open) {
             setEditingId(null);
             setEditingData(null);
+            setProductFormMode("edit");
           }
         }}
-        mode="edit"
+        mode={productFormMode}
         productId={editingId}
         initialData={editingData}
-        onSaved={() => {
-          /* onSnapshot keeps list fresh */
+        onSaved={(meta) => {
+          if (meta) {
+            openBarcodeSheet({
+              productId: meta.productId,
+              name: meta.name,
+              price: meta.price,
+              imageUrl: meta.imageUrl,
+            });
+          }
         }}
       />
     </div>

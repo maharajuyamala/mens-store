@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Package,
+  ScanBarcode,
   ShoppingBag,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/inventory/scan", label: "Scan & stock", icon: ScanBarcode },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/media", label: "Media", icon: ImageIcon },
 ] as const;
