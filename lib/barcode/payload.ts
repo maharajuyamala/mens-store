@@ -1,23 +1,40 @@
-import { siteBaseUrl } from "@/lib/site";
+/** Public site used in product QR deep links when no env is set (non-localhost). */
+export const DEFAULT_PRODUCT_QR_ORIGIN = "https://secondskinmensworld.com";
 
-/** Versioned JSON payload (legacy printed QRs). */
+/** Versioned JSON payload (legacy printed QRs only — never written to new QRs). */
 export type ProductBarcodePayloadV1 = {
   v: 1;
   p: string;
 };
 
+function qrSiteOrigin(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "";
+  if (fromEnv) return fromEnv;
+
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    const localDev =
+      h === "localhost" ||
+      h === "127.0.0.1" ||
+      h === "[::1]" ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(h) ||
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
+    if (localDev) {
+      return window.location.origin.replace(/\/$/, "");
+    }
+  }
+
+  return DEFAULT_PRODUCT_QR_ORIGIN;
+}
+
 /**
- * Opens Scan & stock with the product id in `?product=`.
- * Uses `NEXT_PUBLIC_SITE_URL` when set (e.g. https://secondskinmensworld.com) so
- * printed labels open production; otherwise the current browser origin.
+ * HTTPS URL that opens Scan & stock with `?product=` (phone camera opens browser).
+ * - `NEXT_PUBLIC_SITE_URL` wins when set at build time.
+ * - On localhost, uses the current dev origin.
+ * - Otherwise defaults to {@link DEFAULT_PRODUCT_QR_ORIGIN} so labels work without env.
  */
 export function productScanStockUrl(productId: string): string {
-  const envBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "";
-  const clientBase =
-    typeof window !== "undefined"
-      ? window.location.origin.replace(/\/$/, "")
-      : "";
-  const base = envBase || clientBase || siteBaseUrl().replace(/\/$/, "");
+  const base = qrSiteOrigin();
   const q = new URLSearchParams({ product: productId });
   return `${base}/admin/inventory/scan?${q.toString()}`;
 }

@@ -5,7 +5,7 @@ import Image from "next/image";
 import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
 import { Printer } from "lucide-react";
-import { encodeProductQrPayload } from "@/lib/barcode/payload";
+import { productScanStockUrl } from "@/lib/barcode/payload";
 import type { BarcodeProductInfo } from "@/store/productBarcodeStore";
 import { useProductBarcodeStore } from "@/store/productBarcodeStore";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,15 @@ const inr = new Intl.NumberFormat("en-IN", {
 function BarcodeSheetBody({ info }: { info: BarcodeProductInfo }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [qrSrc, setQrSrc] = useState<string | null>(null);
+  const deepLink = productScanStockUrl(info.productId);
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(encodeProductQrPayload(info.productId), {
+    const payload = productScanStockUrl(info.productId);
+    if (!payload.startsWith("http")) {
+      console.error("[ProductBarcodeDialog] Expected https URL for QR, got:", payload);
+    }
+    QRCode.toDataURL(payload, {
       width: 220,
       margin: 2,
       errorCorrectionLevel: "M",
@@ -107,12 +112,20 @@ function BarcodeSheetBody({ info }: { info: BarcodeProductInfo }) {
             this product loaded (deep link).
           </p>
           {qrSrc ? (
-            <img src={qrSrc} alt="Product QR code" width={200} height={200} />
+            <img
+              src={qrSrc}
+              alt="Link to Scan and stock for this product"
+              width={200}
+              height={200}
+            />
           ) : (
             <div className="flex h-[200px] w-[200px] items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
               Generating QR…
             </div>
           )}
+          <p className="max-w-[280px] break-all text-center font-mono text-[10px] leading-snug text-muted-foreground">
+            {deepLink}
+          </p>
         </div>
         <p className="text-center text-xs text-muted-foreground">
           Print uses the label above — price and barcode only (~2″ high).
