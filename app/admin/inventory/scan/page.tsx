@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { doc, getDoc } from "firebase/firestore";
 import { Html5Qrcode } from "html5-qrcode";
@@ -16,6 +16,10 @@ import {
   resolvePrice,
   resolveStock,
 } from "@/lib/products/firestore-map";
+import {
+  listProductColors,
+  productColorSwatchStyle,
+} from "@/lib/products/product-colors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -283,6 +287,11 @@ export default function AdminInventoryScanPage() {
   const map = loaded ? getSizesMap(loaded.data) : {};
   const showSizeSelect = loaded && (needsExplicitSize(loaded.data) || sizeOpts.some(Boolean));
 
+  const availableColors = useMemo(
+    () => (loaded ? listProductColors(loaded.data) : []),
+    [loaded]
+  );
+
   return (
     <div className="mx-auto max-w-2xl space-y-8 text-foreground">
       <div>
@@ -388,6 +397,31 @@ export default function AdminInventoryScanPage() {
               </p>
             </div>
           </div>
+
+          {availableColors.length > 0 ? (
+            <div className="space-y-2">
+              <Label className="text-foreground">Available colors</Label>
+              <div className="flex flex-wrap gap-2">
+                {availableColors.map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1.5 text-sm text-foreground"
+                  >
+                    <span
+                      className="h-4 w-4 shrink-0 rounded-full border border-black/15 shadow-sm dark:border-white/20"
+                      style={productColorSwatchStyle(name, loaded.data)}
+                      aria-hidden
+                    />
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No colors on file for this product.
+            </p>
+          )}
 
           {showSizeSelect ? (
             <div className="space-y-2">
