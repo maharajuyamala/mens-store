@@ -181,13 +181,7 @@ export function ProductBarcodeDialog() {
         <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card text-card-foreground sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Product barcode</DialogTitle>
-            <DialogDescription>
-              QR encodes a link to <span className="font-medium">Scan &amp; stock</span> with{" "}
-              <code className="rounded bg-muted px-1 text-xs">?product=…</code> (set{" "}
-              <code className="rounded bg-muted px-1 text-xs">NEXT_PUBLIC_SITE_URL</code> for
-              production, e.g. secondskinmensworld.com). Print is a ~2″ label:{" "}
-              <span className="font-medium">price + barcode only</span>.
-            </DialogDescription>
+           
           </DialogHeader>
           {product ? <BarcodeSheetBody info={product} /> : null}
           <DialogFooter className="flex-col gap-2 sm:flex-row">

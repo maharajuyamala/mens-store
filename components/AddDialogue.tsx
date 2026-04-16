@@ -77,7 +77,7 @@ function ColorSwatchPickerBox({
   return (
     <button
       type="button"
-      role="radio"
+      role="checkbox"
       title={label}
       aria-label={label}
       aria-checked={selected}
@@ -98,6 +98,11 @@ function ColorSwatchPickerBox({
         }
         aria-hidden
       />
+      {selected && (
+        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-600 text-white text-xs font-bold">
+          ✓
+        </span>
+      )}
     </button>
   );
 }
@@ -112,7 +117,7 @@ export function AddItemDialog() {
 
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
-  const [selectedColorValue, setSelectedColorValue] = useState("");
+  const [selectedColorValues, setSelectedColorValues] = useState<string[]>([]);
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
     {}
   );
@@ -132,7 +137,7 @@ export function AddItemDialog() {
     if (!next) {
       setProductName("");
       setPrice("");
-      setSelectedColorValue("");
+      setSelectedColorValues([]);
       setSizeQuantities({});
       setSelectedAudience("");
       setSelectedStyles([]);
@@ -176,8 +181,9 @@ export function AddItemDialog() {
         {} as Record<string, number>
       );
 
-    const colorLabel =
-      colorSwatchByValue(selectedColorValue)?.label ?? selectedColorValue;
+    const colorLabels = selectedColorValues.map(value => 
+      colorSwatchByValue(value)?.label ?? value
+    );
 
     const validationMsg =
       "Fill all fields: department, at least one style, color, image, price, name, and stock for at least one size.";
@@ -187,7 +193,7 @@ export function AddItemDialog() {
       !price ||
       Number.isNaN(finalPrice) ||
       !imageFile ||
-      !selectedColorValue ||
+      !selectedColorValues.length ||
       !selectedAudience ||
       Object.keys(sizesToSubmit).length === 0 ||
       selectedStyles.length === 0
@@ -233,8 +239,7 @@ export function AddItemDialog() {
         image: imageUrl,
         tags: tagsForSearch,
         audience: selectedAudience,
-        color: colorLabel,
-        colorValue: selectedColorValue,
+        colors: colorLabels,
         description: "This is a description",
         size: [sizesToSubmit],
       };
@@ -384,13 +389,13 @@ export function AddItemDialog() {
 
           <div className="space-y-3">
             <div>
-              <Label id="color-picker-label">Color</Label>
+              <Label id="color-picker-label">Colors (select one or more)</Label>
               <p className="mt-0.5 text-xs text-muted-foreground" id="color-picker-hint">
-                Click a box to choose. Hover for the color name.
+                Click boxes to choose colors. Hover for the color name.
               </p>
             </div>
             <div
-              role="radiogroup"
+              role="group"
               aria-labelledby="color-picker-label"
               aria-describedby="color-picker-hint"
               className="grid max-h-[min(40vh,14rem)] grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-2 overflow-y-auto rounded-lg border border-border bg-muted/20 p-3 sm:max-h-[min(45vh,16rem)] sm:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))]"
@@ -401,23 +406,41 @@ export function AddItemDialog() {
                   value={c.value}
                   hex={c.hex}
                   label={c.label}
-                  selected={selectedColorValue === c.value}
-                  onPick={() => setSelectedColorValue(c.value)}
+                  selected={selectedColorValues.includes(c.value)}
+                  onPick={() => {
+                    setSelectedColorValues(prev => 
+                      prev.includes(c.value) 
+                        ? prev.filter(v => v !== c.value)
+                        : [...prev, c.value]
+                    );
+                  }}
                 />
               ))}
             </div>
-            {selectedColorValue ? (
-              <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                <ColorSwatchDot
-                  value={selectedColorValue}
-                  hex={colorSwatchByValue(selectedColorValue)?.hex ?? "#ccc"}
-                />
-                <span className="font-medium text-foreground">
-                  {colorSwatchByValue(selectedColorValue)?.label}
-                </span>
+            {selectedColorValues.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedColorValues.map(value => (
+                  <div key={value} className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                    <ColorSwatchDot
+                      value={value}
+                      hex={colorSwatchByValue(value)?.hex ?? "#ccc"}
+                    />
+                    <span className="font-medium text-foreground">
+                      {colorSwatchByValue(value)?.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedColorValues(prev => prev.filter(v => v !== value))}
+                      className="ml-1 text-muted-foreground hover:text-destructive"
+                      aria-label={`Remove ${colorSwatchByValue(value)?.label}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No color selected yet.</p>
+              <p className="text-sm text-muted-foreground">No colors selected yet.</p>
             )}
           </div>
 
