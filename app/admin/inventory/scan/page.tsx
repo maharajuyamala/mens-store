@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { doc, getDoc } from "firebase/firestore";
 import { Html5Qrcode } from "html5-qrcode";
@@ -68,6 +69,21 @@ function needsExplicitSize(data: Record<string, unknown>): boolean {
 }
 
 export default function AdminInventoryScanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-muted-foreground">
+          Loading scan…
+        </div>
+      }
+    >
+      <AdminInventoryScanPageInner />
+    </Suspense>
+  );
+}
+
+function AdminInventoryScanPageInner() {
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [manualRaw, setManualRaw] = useState("");
   const [loadingProduct, setLoadingProduct] = useState(false);
@@ -131,6 +147,20 @@ export default function AdminInventoryScanPage() {
     }
   }, []);
 
+  /** Opened from a printed QR deep link: `.../admin/inventory/scan?product=…` */
+  useEffect(() => {
+    const raw = searchParams.get("product")?.trim();
+    if (!raw) return;
+    let id: string;
+    try {
+      id = decodeURIComponent(raw);
+    } catch {
+      id = raw;
+    }
+    if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) return;
+    void loadProductById(id);
+  }, [searchParams, loadProductById]);
+
   useEffect(() => {
     if (!loaded) {
       setLineSize("");
@@ -191,7 +221,10 @@ export default function AdminInventoryScanPage() {
   const onManualLookup = () => {
     const id = parseProductIdFromScan(manualRaw);
     if (!id) {
-      toast.error("Unrecognized code. Paste JSON, product id, or mens:id.");
+      toast.error("Unrecognized code.", {
+        description:
+          "Paste a Scan & stock link (?product=…), Firestore id, mens:id, or legacy JSON.",
+      });
       return;
     }
     void loadProductById(id);
@@ -300,8 +333,8 @@ export default function AdminInventoryScanPage() {
           Scan & stock
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Scan a product QR or barcode, then record an in-store sale (creates an
-          order and reduces stock) or add units back to inventory.
+          Product QRs open this page on your site with the item already loaded.
+          You can also scan a barcode or paste a link, id, or legacy JSON.
         </p>
       </div>
 
@@ -345,7 +378,7 @@ export default function AdminInventoryScanPage() {
         <Label htmlFor="manual-scan">Manual code</Label>
         <Textarea
           id="manual-scan"
-          placeholder='Paste JSON from QR, or raw product id, or "mens:PRODUCT_ID"'
+          placeholder="Paste full Scan & stock URL, product id, mens:ID, or legacy JSON…"
           value={manualRaw}
           onChange={(e) => setManualRaw(e.target.value)}
           rows={3}

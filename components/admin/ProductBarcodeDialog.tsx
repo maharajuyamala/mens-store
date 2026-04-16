@@ -102,7 +102,10 @@ function BarcodeSheetBody({ info }: { info: BarcodeProductInfo }) {
           </div>
         ) : null}
         <div className="flex flex-col items-center gap-2">
-          <p className="text-xs text-muted-foreground">Scan with phone (POS)</p>
+          <p className="text-xs text-muted-foreground">
+            Scan QR to open <span className="font-medium">Scan &amp; stock</span> on your site with
+            this product loaded (deep link).
+          </p>
           {qrSrc ? (
             <img src={qrSrc} alt="Product QR code" width={200} height={200} />
           ) : (
@@ -166,9 +169,11 @@ export function ProductBarcodeDialog() {
           <DialogHeader>
             <DialogTitle>Product barcode</DialogTitle>
             <DialogDescription>
-              Use the QR on screen for{" "}
-              <span className="font-medium">Scan & stock</span>.
-              Print is a ~2″ label: <span className="font-medium">price + barcode only</span>.
+              QR encodes a link to <span className="font-medium">Scan &amp; stock</span> with{" "}
+              <code className="rounded bg-muted px-1 text-xs">?product=…</code> (set{" "}
+              <code className="rounded bg-muted px-1 text-xs">NEXT_PUBLIC_SITE_URL</code> for
+              production, e.g. secondskinmensworld.com). Print is a ~2″ label:{" "}
+              <span className="font-medium">price + barcode only</span>.
             </DialogDescription>
           </DialogHeader>
           {product ? <BarcodeSheetBody info={product} /> : null}
