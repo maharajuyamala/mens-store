@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,18 +40,21 @@ function AccessDenied() {
   );
 }
 
-export function AdminGuard({ children }: { children: ReactNode }) {
+function AdminGuardInner({ children }: { children: ReactNode }) {
   const { user, loading, isAdmin } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      const next = encodeURIComponent(pathname || "/admin");
+      const search = searchParams.toString();
+      const fullPath = search ? `${pathname}?${search}` : (pathname || "/admin");
+      const next = encodeURIComponent(fullPath);
       router.replace(`/auth/sign-in?next=${next}`);
     }
-  }, [loading, user, router, pathname]);
+  }, [loading, user, router, pathname, searchParams]);
 
   if (loading) {
     return <AdminGuardSkeleton />;
@@ -66,4 +69,12 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+export function AdminGuard({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<AdminGuardSkeleton />}>
+      <AdminGuardInner>{children}</AdminGuardInner>
+    </Suspense>
+  );
 }
