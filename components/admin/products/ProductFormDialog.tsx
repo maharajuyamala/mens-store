@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import imageCompression from "browser-image-compression";
@@ -16,7 +16,7 @@ import {
   ref,
   uploadBytesResumable,
 } from "firebase/storage";
-import { Loader2, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, X } from "lucide-react";
 import { getDb, getFirebaseStorage } from "@/app/firebase";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,11 +57,26 @@ import {
 } from "@/lib/products/submit-helpers";
 import { cn } from "@/lib/utils";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ExistingItem = { kind: "existing"; id: string; url: string };
+type NewItem = { kind: "new"; id: string; file: File; preview: string };
+type ImageItem = ExistingItem | NewItem;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const COMPRESSION = {
   maxSizeMB: 1,
   maxWidthOrHeight: 1024,
   useWebWorker: true,
 } as const;
+
+let _uid = 0;
+function uid() {
+  return `img-${++_uid}`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formDefaultsFromDoc(
   data: Record<string, unknown> | null
@@ -71,7 +86,7 @@ function formDefaultsFromDoc(
       name: "",
       description: "",
       category: "shirts",
-      price: 29.99,
+      price: 299,
       compareAtPrice: "",
       stock: 0,
       sizes: ["M"],
@@ -81,8 +96,7 @@ function formDefaultsFromDoc(
   let sizes = parseSizesFromDoc(data);
   if (sizes.length === 0) sizes = ["M"];
   const { filter } = resolveCategory(data);
-  const category =
-    filter !== "other" ? filter : "shirts";
+  const category = filter !== "other" ? filter : "shirts";
   const colors = Array.isArray(data.colors)
     ? data.colors.map((c) => String(c))
     : [];
@@ -93,11 +107,9 @@ function formDefaultsFromDoc(
       : typeof compareRaw === "string"
         ? compareRaw
         : "";
-
   return {
     name: typeof data.name === "string" ? data.name : String(data.name ?? ""),
-    description:
-      typeof data.description === "string" ? data.description : "",
+    description: typeof data.description === "string" ? data.description : "",
     category,
     price: Math.max(resolvePrice(data), 0.01),
     compareAtPrice: compareStr,
@@ -109,31 +121,33 @@ function formDefaultsFromDoc(
 
 async function uploadCompressedWithProgress(
   file: File,
-  key: string,
-  onProgress: (pct: number) => void
+  itemId: string,
+  onProgress: (id: string, pct: number) => void
 ): Promise<string> {
   const compressed = await imageCompression(file, COMPRESSION);
   const safeName = file.name.replace(/[^\w.-]+/g, "_");
-  const path = `products/${Date.now()}-${key}-${safeName}`;
+  const path = `products/${Date.now()}-${itemId}-${safeName}`;
   const storageRef = ref(getFirebaseStorage(), path);
   return new Promise((resolve, reject) => {
     const task = uploadBytesResumable(storageRef, compressed);
     task.on(
       "state_changed",
       (snap) => {
-        const total = snap.totalBytes;
-        const pct = total ? (snap.bytesTransferred / total) * 100 : 0;
-        onProgress(pct);
+        const pct = snap.totalBytes
+          ? (snap.bytesTransferred / snap.totalBytes) * 100
+          : 0;
+        onProgress(itemId, pct);
       },
       reject,
       async () => {
-        onProgress(100);
-        const url = await getDownloadURL(storageRef);
-        resolve(url);
+        onProgress(itemId, 100);
+        resolve(await getDownloadURL(storageRef));
       }
     );
   });
 }
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ProductCreatedMeta = {
   productId: string;
@@ -148,9 +162,10 @@ export type ProductFormDialogProps = {
   mode: "create" | "edit";
   productId: string | null;
   initialData: Record<string, unknown> | null;
-  /** Called after a successful save; includes `meta` when a new product was created. */
   onSaved: (meta?: ProductCreatedMeta) => void;
 };
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function ProductFormDialog({
   open,
@@ -160,123 +175,148 @@ export function ProductFormDialog({
   initialData,
   onSaved,
 }: ProductFormDialogProps) {
-  const [existingImages, setExistingImages] = useState<string[]>([]);
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [newPreviews, setNewPreviews] = useState<string[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
-    {}
-  );
+  // Unified image list — both existing URLs and new local files live here
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [progress, setProgress] = useState<Record<string, number>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const blobUrlsRef = useRef<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openPicker = () => fileInputRef.current?.click();
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(
-      productFormSchema
-    ) as Resolver<ProductFormValues>,
+    resolver: zodResolver(productFormSchema) as Resolver<ProductFormValues>,
     defaultValues: formDefaultsFromDoc(null),
   });
   const { reset } = form;
 
   const [colorDraft, setColorDraft] = useState("");
   const watchedColors = form.watch("colors");
+  const watchedSizes = form.watch("sizes");
 
-  const resetDialogState = useCallback(() => {
-    setNewFiles([]);
-    setNewPreviews([]);
-    setUploadProgress({});
-    setSubmitError(null);
-    setColorDraft("");
+  // Revoke all tracked blob URLs
+  const revokeBlobs = useCallback(() => {
+    blobUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    blobUrlsRef.current = [];
   }, []);
 
+  // Reset everything when dialog opens/closes
   useEffect(() => {
     if (!open) {
-      resetDialogState();
+      revokeBlobs();
+      setImages([]);
+      setProgress({});
+      setSubmitError(null);
+      setColorDraft("");
       return;
     }
-    const defaults = formDefaultsFromDoc(initialData);
-    reset(defaults);
-    setExistingImages(
-      initialData ? normalizeImageUrls(initialData) : []
+    reset(formDefaultsFromDoc(initialData));
+    const existingUrls = initialData ? normalizeImageUrls(initialData) : [];
+    setImages(
+      existingUrls.map((url) => ({ kind: "existing", id: uid(), url }))
     );
-    setNewFiles([]);
-    setNewPreviews([]);
-    setUploadProgress({});
+    setProgress({});
     setSubmitError(null);
-  }, [open, initialData, reset, resetDialogState]);
+  }, [open, initialData, reset, revokeBlobs]);
 
-  const revokeNewPreviews = useCallback((urls: string[]) => {
-    urls.forEach((u) => URL.revokeObjectURL(u));
-  }, []);
-
+  // Pick files → add to unified list
   const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = e.target.files;
     if (!list?.length) return;
-    setNewFiles((prev) => [...prev, ...Array.from(list)]);
-    setNewPreviews((prev) => [
-      ...prev,
-      ...Array.from(list).map((f) => URL.createObjectURL(f)),
-    ]);
+    const additions: NewItem[] = Array.from(list).map((file) => {
+      const preview = URL.createObjectURL(file);
+      blobUrlsRef.current.push(preview);
+      return { kind: "new", id: uid(), file, preview };
+    });
+    setImages((prev) => [...prev, ...additions]);
     e.target.value = "";
   };
 
-  const removeNewFile = (index: number) => {
-    setNewPreviews((prev) => {
-      const u = prev[index];
-      if (u) URL.revokeObjectURL(u);
-      return prev.filter((_, i) => i !== index);
+  // Remove an item
+  const removeImage = (id: string) => {
+    setImages((prev) => {
+      const item = prev.find((x) => x.id === id);
+      if (item?.kind === "new") {
+        URL.revokeObjectURL(item.preview);
+        blobUrlsRef.current = blobUrlsRef.current.filter(
+          (u) => u !== item.preview
+        );
+      }
+      return prev.filter((x) => x.id !== id);
     });
-    setNewFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const removeExistingImage = (url: string) => {
-    setExistingImages((prev) => prev.filter((u) => u !== url));
+  // Move left / right
+  const moveImage = (id: string, dir: -1 | 1) => {
+    setImages((prev) => {
+      const idx = prev.findIndex((x) => x.id === id);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= next.length) return prev;
+      [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
+      return next;
+    });
   };
 
+  // Color helpers
   const addColorTags = () => {
     const parts = colorDraft
       .split(/[,;\n]+/)
       .map((s) => s.trim())
       .filter(Boolean);
     if (parts.length === 0) return;
-    const next = [...form.getValues("colors"), ...parts];
-    form.setValue("colors", next, { shouldValidate: true });
+    form.setValue("colors", [...form.getValues("colors"), ...parts], {
+      shouldValidate: true,
+    });
     setColorDraft("");
   };
-
   const removeColorAt = (index: number) => {
-    const next = form.getValues("colors").filter((_, i) => i !== index);
-    form.setValue("colors", next, { shouldValidate: true });
+    form.setValue(
+      "colors",
+      form.getValues("colors").filter((_, i) => i !== index),
+      { shouldValidate: true }
+    );
   };
 
+  // Submit
   const onSubmit = form.handleSubmit(async (values) => {
-    const totalImages = existingImages.length + newFiles.length;
-    if (totalImages < 1) {
+    if (images.length < 1) {
       setSubmitError("Add at least one image.");
       return;
     }
     setSubmitError(null);
     setSubmitting(true);
-    setUploadProgress({});
+    setProgress({});
 
     try {
-      const uploaded: string[] = [];
-      for (let i = 0; i < newFiles.length; i++) {
-        const file = newFiles[i];
-        const key = `n${i}`;
-        const url = await uploadCompressedWithProgress(file, key, (pct) => {
-          setUploadProgress((prev) => ({ ...prev, [key]: pct }));
-        });
-        uploaded.push(url);
+      // Upload all new items, track progress per id
+      const onProgress = (id: string, pct: number) =>
+        setProgress((prev) => ({ ...prev, [id]: pct }));
+
+      const uploadedUrls: Record<string, string> = {};
+      for (const item of images) {
+        if (item.kind === "new") {
+          uploadedUrls[item.id] = await uploadCompressedWithProgress(
+            item.file,
+            item.id,
+            onProgress
+          );
+        }
       }
 
-      const allUrls = [...existingImages, ...uploaded];
+      // Collect final ordered URL list
+      const allUrls = images.map((item) =>
+        item.kind === "existing" ? item.url : (uploadedUrls[item.id] ?? "")
+      ).filter(Boolean);
 
       if (mode === "create") {
         const created = await addDoc(
           collection(getDb(), "products"),
           buildNewProductData(values, allUrls)
         );
-        revokeNewPreviews(newPreviews);
+        revokeBlobs();
         onSaved({
           productId: created.id,
           name: values.name.trim(),
@@ -288,14 +328,14 @@ export function ProductFormDialog({
           doc(getDb(), "products", productId),
           buildUpdateProductData(values, allUrls)
         );
-        revokeNewPreviews(newPreviews);
+        revokeBlobs();
         onSaved();
       } else {
-        revokeNewPreviews(newPreviews);
+        revokeBlobs();
         onSaved();
       }
+
       onOpenChange(false);
-      resetDialogState();
       reset(formDefaultsFromDoc(null));
     } catch (err) {
       setSubmitError(
@@ -303,11 +343,10 @@ export function ProductFormDialog({
       );
     } finally {
       setSubmitting(false);
-      setUploadProgress({});
     }
   });
 
-  const watchedSizes = form.watch("sizes");
+  const newCount = images.filter((x) => x.kind === "new").length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -317,11 +356,12 @@ export function ProductFormDialog({
             {mode === "create" ? "Add product" : "Edit product"}
           </DialogTitle>
           <DialogDescription>
-            Compresses images to max 1MB / 1024px, then uploads to Storage.
+            Compresses each image to max 1 MB / 1024 px before uploading.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
+          {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="pf-name">Name</Label>
             <Input
@@ -329,13 +369,14 @@ export function ProductFormDialog({
               {...form.register("name")}
               className="border-border bg-background"
             />
-            {form.formState.errors.name ? (
+            {form.formState.errors.name && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.name.message}
               </p>
-            ) : null}
+            )}
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="pf-desc">Description</Label>
             <Textarea
@@ -346,6 +387,7 @@ export function ProductFormDialog({
             />
           </div>
 
+          {/* Category */}
           <div className="space-y-2">
             <Label>Category</Label>
             <Select
@@ -369,36 +411,38 @@ export function ProductFormDialog({
             </Select>
           </div>
 
+          {/* Price */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="pf-price">Price</Label>
+              <Label htmlFor="pf-price">Price (₹)</Label>
               <Input
                 id="pf-price"
                 type="number"
-                step="0.01"
-                min={0.01}
+                step="1"
+                min={1}
                 {...form.register("price", { valueAsNumber: true })}
                 className="border-border bg-background"
               />
-              {form.formState.errors.price ? (
+              {form.formState.errors.price && (
                 <p className="text-xs text-destructive">
                   {form.formState.errors.price.message}
                 </p>
-              ) : null}
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pf-compare">Compare at (optional)</Label>
+              <Label htmlFor="pf-compare">Compare at ₹ (optional)</Label>
               <Input
                 id="pf-compare"
                 type="text"
                 inputMode="decimal"
-                placeholder="e.g. 49.99"
+                placeholder="e.g. 599"
                 {...form.register("compareAtPrice")}
                 className="border-border bg-background"
               />
             </div>
           </div>
 
+          {/* Stock */}
           <div className="space-y-2">
             <Label htmlFor="pf-stock">Stock quantity</Label>
             <Input
@@ -409,13 +453,14 @@ export function ProductFormDialog({
               {...form.register("stock", { valueAsNumber: true })}
               className="border-border bg-background"
             />
-            {form.formState.errors.stock ? (
+            {form.formState.errors.stock && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.stock.message}
               </p>
-            ) : null}
+            )}
           </div>
 
+          {/* Sizes */}
           <div className="space-y-2">
             <Label>Sizes</Label>
             <div className="flex flex-wrap gap-3">
@@ -438,13 +483,14 @@ export function ProductFormDialog({
                 </label>
               ))}
             </div>
-            {form.formState.errors.sizes ? (
+            {form.formState.errors.sizes && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.sizes.message}
               </p>
-            ) : null}
+            )}
           </div>
 
+          {/* Colors */}
           <div className="space-y-2">
             <Label>Colors</Label>
             <div className="flex gap-2">
@@ -484,92 +530,182 @@ export function ProductFormDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pf-images">Images</Label>
-            <Input
-              id="pf-images"
+          {/* ── Images ─────────────────────────────────────────────────── */}
+          <div className="space-y-3">
+            {/* Single hidden file input — triggered via ref only */}
+            <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
               onChange={onPickFiles}
-              className="cursor-pointer border-border bg-background"
+              style={{ display: "none" }}
             />
-            <div className="flex flex-wrap gap-2">
-              {existingImages.map((url) => (
-                <div
-                  key={url}
-                  className="relative h-16 w-16 overflow-hidden rounded-md border border-border"
-                >
-                  <Image
-                    src={url}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                    unoptimized={
-                      url.startsWith("blob:") || url.startsWith("data:")
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0.5 top-0.5 rounded bg-black/70 p-0.5 text-white"
-                    onClick={() => removeExistingImage(url)}
-                    aria-label="Remove image"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              {newPreviews.map((src, i) => (
-                <div
-                  key={src}
-                  className="relative h-16 w-16 overflow-hidden rounded-md border border-border"
-                >
-                  <Image
-                    src={src}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                    unoptimized
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0.5 top-0.5 rounded bg-black/70 p-0.5 text-white"
-                    onClick={() => removeNewFile(i)}
-                    aria-label="Remove new image"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            {newFiles.map((_, i) => {
-              const key = `n${i}`;
-              const pct = uploadProgress[key] ?? 0;
-              return (
-                <div key={key} className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Upload {i + 1}</span>
-                    <span>{Math.round(pct)}%</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        "h-full bg-orange-500 transition-all duration-150",
-                        submitting && pct < 100 && "animate-pulse"
-                      )}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
 
-          {submitError ? (
-            <p className="text-sm text-destructive">{submitError}</p>
-          ) : null}
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              <Label>
+                Images
+                {images.length > 0 && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    {images.length} photo{images.length !== 1 ? "s" : ""}
+                    {newCount > 0 && ` · ${newCount} new`}
+                  </span>
+                )}
+              </Label>
+              <button
+                type="button"
+                onClick={openPicker}
+                className="flex items-center gap-1.5 rounded-lg border border-dashed border-orange-500/70 bg-orange-500/5 px-3 py-1.5 text-xs font-semibold text-orange-500 transition-colors hover:bg-orange-500/10 active:bg-orange-500/20"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                Add photos
+              </button>
+            </div>
+
+            {/* Empty state — big tap target */}
+            {images.length === 0 && (
+              <button
+                type="button"
+                onClick={openPicker}
+                className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 py-10 text-center transition-colors hover:border-orange-500/40 hover:bg-muted/40"
+              >
+                <div className="rounded-full bg-muted p-4">
+                  <ImagePlus className="h-7 w-7 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Tap to add product photos</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    JPG · PNG · WEBP — select multiple at once
+                  </p>
+                </div>
+              </button>
+            )}
+
+            {/* Image grid */}
+            {images.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  First image = card cover. ‹ › to reorder, × to remove.
+                </p>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {images.map((item, idx) => {
+                    const src =
+                      item.kind === "existing" ? item.url : item.preview;
+                    const uploadPct =
+                      item.kind === "new" ? (progress[item.id] ?? 0) : 100;
+                    const isUploading =
+                      submitting && item.kind === "new" && uploadPct < 100;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "relative overflow-hidden rounded-xl border-2 bg-muted",
+                          idx === 0 ? "border-orange-500" : "border-border"
+                        )}
+                      >
+                        <div className="relative aspect-square">
+                          <Image
+                            src={src}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="100px"
+                            unoptimized={item.kind === "new"}
+                          />
+                        </div>
+
+                        {/* Upload progress overlay */}
+                        {isUploading && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
+                            <Loader2 className="h-5 w-5 animate-spin text-white" />
+                            <span className="mt-1 text-[10px] font-bold text-white">
+                              {Math.round(uploadPct)}%
+                            </span>
+                            <div className="absolute bottom-0 inset-x-0 h-1 bg-black/30">
+                              <div
+                                className="h-full bg-orange-500 transition-all duration-200"
+                                style={{ width: `${uploadPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Cover / order badge */}
+                        {idx === 0 ? (
+                          <div className="absolute bottom-0 inset-x-0 bg-orange-500 py-0.5 text-center text-[9px] font-bold uppercase tracking-widest text-white">
+                            Cover
+                          </div>
+                        ) : (
+                          <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            {idx + 1}
+                          </div>
+                        )}
+
+                        {/* Remove — always visible, top-right */}
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => removeImage(item.id)}
+                          aria-label="Remove image"
+                          className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow transition-colors hover:bg-red-600 disabled:opacity-40"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+
+                        {/* Move left — top-left (only when not first) */}
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => moveImage(item.id, -1)}
+                            aria-label="Move left"
+                            className="absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow transition-colors hover:bg-black disabled:opacity-40"
+                          >
+                            <ChevronLeft className="h-3 w-3" />
+                          </button>
+                        )}
+
+                        {/* Move right — bottom-right above cover badge */}
+                        {idx < images.length - 1 && (
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => moveImage(item.id, 1)}
+                            aria-label="Move right"
+                            className="absolute bottom-5 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow transition-colors hover:bg-black disabled:opacity-40"
+                          >
+                            <ChevronRight className="h-3 w-3" />
+                          </button>
+                        )}
+
+                        {/* Orange dot = not yet uploaded */}
+                        {item.kind === "new" && !submitting && (
+                          <div className="absolute left-1 bottom-1 h-2 w-2 rounded-full bg-orange-400 ring-1 ring-white/50" />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Add more tile */}
+                  <button
+                    type="button"
+                    onClick={openPicker}
+                    className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/20 text-muted-foreground transition-colors hover:border-orange-500/50 hover:bg-muted/40 hover:text-orange-500"
+                    style={{ aspectRatio: "1 / 1" }}
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="text-[10px] font-semibold">Add more</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {submitError && (
+              <p className="text-sm text-destructive">{submitError}</p>
+            )}
+          </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -588,7 +724,9 @@ export function ProductFormDialog({
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving…
+                  {newCount > 0
+                    ? `Uploading ${newCount} image${newCount !== 1 ? "s" : ""}…`
+                    : "Saving…"}
                 </>
               ) : mode === "create" ? (
                 "Create product"

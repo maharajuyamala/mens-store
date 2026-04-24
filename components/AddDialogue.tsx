@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { PlusCircle, UploadCloud, Loader2, Plus, Minus } from "lucide-react";
+import { ImagePlus, PlusCircle, UploadCloud, Loader2, Plus, Minus, X } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { getClientFirebase } from "@/app/firebase";
 import { collection, addDoc } from "firebase/firestore";
@@ -125,8 +125,9 @@ export function AddItemDialog() {
     ""
   );
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,19 +142,32 @@ export function AddItemDialog() {
       setSizeQuantities({});
       setSelectedAudience("");
       setSelectedStyles([]);
-      setImageFile(null);
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImagePreview(null);
+      imagePreviews.forEach((u) => URL.revokeObjectURL(u));
+      setImageFiles([]);
+      setImagePreviews([]);
       setError(null);
     }
   };
 
+  const handleImagePick = () => imageInputRef.current?.click();
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
+    const list = e.target.files;
+    if (!list?.length) return;
+    const newFiles = Array.from(list);
+    const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+    setImageFiles((prev) => [...prev, ...newFiles]);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    e.target.value = "";
+  };
+
+  const removeImageAt = (index: number) => {
+    setImagePreviews((prev) => {
+      const url = prev[index];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== index);
+    });
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleStyleToggle = (tagId: string) => {
@@ -192,7 +206,7 @@ export function AddItemDialog() {
       !productName ||
       !price ||
       Number.isNaN(finalPrice) ||
-      !imageFile ||
+      imageFiles.length === 0 ||
       !selectedColorValues.length ||
       !selectedAudience ||
       Object.keys(sizesToSubmit).length === 0 ||
@@ -216,19 +230,23 @@ export function AddItemDialog() {
     setError(null);
 
     try {
-      const imageRef = ref(
-        fb.storage,
-        `products/${Date.now()}-${imageFile.name}`
-      );
       const options = {
         maxSizeMB: 1,
         maxWidthOrHeight: 1024,
         useWebWorker: true,
       };
 
-      const compressedFile = await imageCompression(imageFile, options);
-      await uploadBytes(imageRef, compressedFile);
-      const imageUrl = await getDownloadURL(imageRef);
+      // Upload all images
+      const imageUrls: string[] = [];
+      for (const file of imageFiles) {
+        const imageRef = ref(
+          fb.storage,
+          `products/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`
+        );
+        const compressedFile = await imageCompression(file, options);
+        await uploadBytes(imageRef, compressedFile);
+        imageUrls.push(await getDownloadURL(imageRef));
+      }
 
       const tagsForSearch = [selectedAudience, ...selectedStyles];
 
@@ -236,7 +254,8 @@ export function AddItemDialog() {
         id: `${Date.now()}`,
         name: productName,
         price: finalPrice,
-        image: imageUrl,
+        images: imageUrls,
+        image: imageUrls[0] ?? "",
         tags: tagsForSearch,
         audience: selectedAudience,
         colors: colorLabels,
@@ -251,7 +270,7 @@ export function AddItemDialog() {
         productId: newDoc.id,
         name: productName,
         price: finalPrice,
-        imageUrl: imageUrl,
+        imageUrl: imageUrls[0] ?? null,
       });
     } catch (err) {
       console.error("Error adding product: ", err);
@@ -281,35 +300,109 @@ export function AddItemDialog() {
           className="flex flex-col gap-4"
         >
           <div className="max-h-[65vh] space-y-6 overflow-y-auto py-2 pr-1">
-          <div>
-            <Label htmlFor="product-image">Product image</Label>
-            <div className="relative mt-2 flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 p-2 transition-colors hover:border-orange-500/50">
-              {imagePreview ? (
-                <Image
-                  src={imagePreview}
-                  alt="Preview"
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
-              ) : (
-                <div className="text-center">
-                  <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-semibold text-orange-600">
-                      Click to upload
-                    </span>
-                  </p>
-                </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>
+                Product images
+                {imagePreviews.length > 0 && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    {imagePreviews.length} photo{imagePreviews.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </Label>
+              {imagePreviews.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleImagePick}
+                  className="flex items-center gap-1.5 rounded-lg border border-dashed border-orange-500/70 bg-orange-500/5 px-3 py-1.5 text-xs font-semibold text-orange-500 transition-colors hover:bg-orange-500/10"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  Add more
+                </button>
               )}
-              <Input
-                id="product-image"
-                type="file"
-                onChange={handleImageChange}
-                accept="image/*"
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              />
             </div>
+
+            {/* Hidden file input */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageChange}
+              style={{ display: "none" }}
+            />
+
+            {imagePreviews.length === 0 ? (
+              <button
+                type="button"
+                onClick={handleImagePick}
+                className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 py-10 transition-colors hover:border-orange-500/40 hover:bg-muted/40"
+              >
+                <UploadCloud className="h-10 w-10 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-orange-600">
+                    Tap to select photos
+                  </span>
+                  {" "}— select multiple at once
+                </p>
+              </button>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">
+                  First image = card cover. Tap × to remove.
+                </p>
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  {imagePreviews.map((src, idx) => (
+                    <div
+                      key={src}
+                      className={cn(
+                        "relative overflow-hidden rounded-xl border-2 bg-muted",
+                        idx === 0 ? "border-orange-500" : "border-border"
+                      )}
+                    >
+                      <div className="relative aspect-square">
+                        <Image
+                          src={src}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                          unoptimized
+                        />
+                      </div>
+                      {idx === 0 && (
+                        <div className="absolute bottom-0 inset-x-0 bg-orange-500 py-0.5 text-center text-[8px] font-bold uppercase tracking-widest text-white">
+                          Cover
+                        </div>
+                      )}
+                      {idx > 0 && (
+                        <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[8px] font-bold text-white">
+                          {idx + 1}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImageAt(idx)}
+                        aria-label="Remove image"
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {/* Add more tile */}
+                  <button
+                    type="button"
+                    onClick={handleImagePick}
+                    className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/20 text-muted-foreground transition-colors hover:border-orange-500/50 hover:text-orange-500"
+                    style={{ aspectRatio: "1 / 1" }}
+                  >
+                    <PlusCircle className="h-5 w-5" />
+                    <span className="text-[9px] font-semibold">Add</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">

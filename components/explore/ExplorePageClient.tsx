@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { swatchColor } from "@/lib/explore/color-swatches";
+import { inr } from "@/lib/utils";
 import {
   categoryFilterOptions,
   EXPLORE_SIZES,
@@ -102,11 +103,11 @@ export function ExploreShell() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <Skeleton className="mx-auto mb-4 h-10 w-72 rounded-lg bg-gray-800" />
         <Skeleton className="mx-auto mb-10 h-6 w-96 max-w-full rounded-md bg-gray-800" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 9 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton
               key={i}
-              className="aspect-[3/4] rounded-xl bg-gray-800"
+              className="aspect-[3/4] rounded-2xl bg-gray-800"
             />
           ))}
         </div>
@@ -231,18 +232,8 @@ function FiltersBlock({
             className="w-full"
           />
           <div className="mt-2 flex justify-between text-xs text-gray-400">
-            <span>
-              {new Intl.NumberFormat(undefined, {
-                style: "currency",
-                currency: "USD",
-              }).format(sliderValue[0] ?? bounds[0])}
-            </span>
-            <span>
-              {new Intl.NumberFormat(undefined, {
-                style: "currency",
-                currency: "USD",
-              }).format(sliderValue[1] ?? bounds[1])}
-            </span>
+            <span>{inr.format(sliderValue[0] ?? bounds[0])}</span>
+            <span>{inr.format(sliderValue[1] ?? bounds[1])}</span>
           </div>
         </div>
       </div>
@@ -439,20 +430,23 @@ function ExploreCatalog({
     >
       <div className="mx-auto max-w-7xl px-4 pt-28 sm:px-6">
         <div className="mb-10 text-center">
-          <h1 className="mb-3 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">
+            SecondSkin
+          </p>
+          <h1 className="mb-3 text-3xl font-extrabold tracking-tight md:text-5xl lg:text-6xl">
             Explore the Collection
           </h1>
-          <p className="text-lg text-gray-400">
+          <p className="text-sm text-gray-400 sm:text-base">
             Find your next signature piece.
           </p>
-          <div className="relative mx-auto mt-8 max-w-lg">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+          <div className="relative mx-auto mt-6 max-w-lg">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
               type="search"
               placeholder="Search products…"
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
-              className="w-full rounded-full border border-gray-700 bg-gray-800 py-3 pl-12 pr-4 text-white placeholder:text-gray-500 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+              className="w-full rounded-full border border-gray-700/80 bg-gray-900 py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-600 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 focus:outline-none"
               aria-label="Search products"
             />
           </div>
@@ -489,9 +483,9 @@ function ExploreCatalog({
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full border-gray-600 text-white hover:bg-gray-800 lg:hidden"
+                    className="w-full rounded-full border-gray-700 bg-gray-900 text-gray-200 hover:bg-gray-800 hover:text-white lg:hidden"
                   >
-                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                    <SlidersHorizontal className="mr-2 h-4 w-4 text-orange-500" />
                     Filters
                   </Button>
                 </SheetTrigger>
@@ -538,7 +532,7 @@ function ExploreCatalog({
                 >
                   <SelectTrigger
                     id="explore-sort"
-                    className="w-full border-gray-700 bg-gray-900 text-white sm:w-[200px]"
+                    className="w-full rounded-full border-gray-700 bg-gray-900 text-sm text-white sm:w-[180px]"
                   >
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
@@ -583,7 +577,7 @@ function ExploreCatalog({
             ) : (
               <motion.div
                 layout
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6"
+                className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5"
               >
                 {visible.map((p, i) => (
                   <ExploreProductCard

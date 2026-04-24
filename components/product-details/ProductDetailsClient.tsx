@@ -23,7 +23,7 @@ import {
   parseProductDetail,
   type ProductDetail,
 } from "@/lib/product-detail";
-import { cn } from "@/lib/utils";
+import { cn, inr as currency } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useWishlistStore } from "@/store/wishlistStore";
@@ -36,11 +36,6 @@ function stockBadgeCopy(product: ProductDetail): string {
   }
   return "In stock";
 }
-
-const currency = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-});
 
 type ProductDetailsClientProps = {
   productId: string | null;

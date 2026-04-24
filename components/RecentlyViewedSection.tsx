@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { fetchListedProductsByIds } from "@/lib/client/fetch-products-by-ids";
 import type { ExploreProduct } from "@/lib/explore/types";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
-import { cn } from "@/lib/utils";
+import { cn, inr } from "@/lib/utils";
 
 type Variant = "dark" | "light";
 
@@ -109,10 +109,7 @@ export function RecentlyViewedSection({
                   {p.name}
                 </p>
                 <p className="text-xs font-semibold text-orange-500">
-                  {new Intl.NumberFormat(undefined, {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(p.price)}
+                  {inr.format(p.price)}
                 </p>
               </div>
             </Link>

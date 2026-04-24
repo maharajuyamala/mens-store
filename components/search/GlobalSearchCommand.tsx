@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/command";
 import { searchListedProducts } from "@/lib/client/search-listed-products";
 import type { ExploreProduct } from "@/lib/explore/types";
+import { inr } from "@/lib/utils";
 import { useSearchDialog } from "./SearchDialogContext";
 
 const DEBOUNCE_MS = 300;
@@ -123,10 +124,7 @@ export function GlobalSearchCommand() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{p.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Intl.NumberFormat(undefined, {
-                      style: "currency",
-                      currency: "USD",
-                    }).format(p.price)}
+                    {inr.format(p.price)}
                   </p>
                 </div>
               </CommandItem>

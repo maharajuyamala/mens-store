@@ -10,6 +10,7 @@ export type ExploreProduct = {
   price: number;
   compareAtPrice?: number;
   image: string;
+  images: string[];
   category?: string;
   tags: string[];
   sizes: string[];
@@ -90,6 +91,7 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     price,
     compareAtPrice: compareAt,
     image,
+    images,
     category,
     tags,
     sizes,
