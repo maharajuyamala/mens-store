@@ -14,7 +14,6 @@ import Link from "next/link";
 import { AddItemDialog, AddProductOpenButton } from "@/components/AddDialogue";
 import { ProductBarcodeDialog } from "@/components/admin/ProductBarcodeDialog";
 import { CartDrawer } from "@/components/Cart/CartDrawer";
-import { useAdminAddProductStore } from "@/store/adminAddProductStore";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearchDialog } from "@/components/search/SearchDialogContext";
@@ -288,16 +287,13 @@ export function Header() {
                 ))}
                 {isAdmin ? (
                   <>
-                    <button
-                      type="button"
+                    <Link
+                      href="/admin/add-product"
                       className="text-left text-gray-200 transition-colors hover:text-orange-500"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        useAdminAddProductStore.getState().openDialog();
-                      }}
+                      onClick={() => setIsMenuOpen(false)}
                     >
                       Add product
-                    </button>
+                    </Link>
                     <Link
                       href="/admin"
                       className="text-left text-gray-200 transition-colors hover:text-orange-500"

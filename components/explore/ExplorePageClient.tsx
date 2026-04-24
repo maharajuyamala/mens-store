@@ -452,7 +452,6 @@ function ExploreCatalog({
           </div>
         </div>
 
-        <RecentlyViewedSection variant="dark" />
 
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
           <aside className="hidden w-64 shrink-0 lg:block">
@@ -591,6 +590,8 @@ function ExploreCatalog({
             )}
           </div>
         </div>
+        <RecentlyViewedSection variant="dark" />
+
       </div>
     </motion.div>
   );

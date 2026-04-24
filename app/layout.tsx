@@ -3,10 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 import { AuthProvider } from "@/components/AuthProvider";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { MobileNav } from "@/components/MobileNav";
-import { NewsletterBanner } from "@/components/NewsletterBanner";
+import { StoreChrome } from "@/components/StoreChrome";
 import { GlobalSearchCommand } from "@/components/search/GlobalSearchCommand";
 import { SearchDialogProvider } from "@/components/search/SearchDialogContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -48,13 +45,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <SearchDialogProvider>
-            <Header />
-            <div className="pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+            <StoreChrome>
               <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
-            </div>
-            <NewsletterBanner />
-            <Footer />
-            <MobileNav />
+            </StoreChrome>
             <GlobalSearchCommand />
             <Toaster richColors closeButton position="top-center" />
           </SearchDialogProvider>

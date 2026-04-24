@@ -6,11 +6,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Home,
   ImageIcon,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
+  PlusCircle,
   ScanBarcode,
   ShoppingBag,
   X,
@@ -22,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/add-product", label: "Add Product", icon: PlusCircle },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/inventory/scan", label: "Scan & stock", icon: ScanBarcode },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
@@ -53,7 +56,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <AdminGuard>
       <div className="dark min-h-screen bg-background text-foreground">
-        <div className="sticky top-28 z-30 flex h-11 items-center border-b border-border bg-card px-3 lg:hidden">
+        <div className="sticky top-0 z-30 flex h-11 items-center border-b border-border bg-card px-3 lg:hidden">
           <Button
             type="button"
             variant="ghost"
@@ -88,7 +91,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="flex min-h-[calc(100svh-7rem)]">
           <aside
             className={cn(
-              "fixed left-0 top-28 z-50 flex h-[calc(100svh-7rem)] w-[260px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl lg:sticky lg:top-28 lg:z-0 lg:h-[calc(100svh-7rem)] lg:translate-x-0 lg:shadow-none",
+              "fixed left-0 top-0 z-50 flex h-[calc(100svh-6rem)] w-[260px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl lg:sticky lg:top-28 lg:z-0 lg:h-[calc(100svh-7rem)] lg:translate-x-0 lg:shadow-none",
               "transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
             )}
@@ -152,6 +155,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </motion.div>
                   );
                 })}
+
+                {/* Home link */}
+                <div className="mt-auto border-t border-sidebar-border pt-2">
+                  <Link
+                    href="/"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                  >
+                    <Home className="h-4 w-4 shrink-0 opacity-90" />
+                    Back to store
+                  </Link>
+                </div>
               </nav>
 
               <div className="mt-auto border-t border-sidebar-border p-3">

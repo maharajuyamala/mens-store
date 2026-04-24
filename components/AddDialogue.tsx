@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { ImagePlus, PlusCircle, UploadCloud, Loader2, Plus, Minus, X } from "lucide-react";
 import imageCompression from "browser-image-compression";
@@ -634,15 +635,10 @@ export function AddProductOpenButton({
   className?: string;
   variant?: "header" | "icon-only";
 }) {
-  const openDialog = useAdminAddProductStore((s) => s.openDialog);
-
   if (variant === "icon-only") {
     return (
-      <motion.button
-        type="button"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => openDialog()}
+      <Link
+        href="/admin/add-product"
         className={cn(
           "inline-flex rounded-full border border-border p-2.5 text-foreground transition-colors hover:border-orange-500",
           className
@@ -650,16 +646,13 @@ export function AddProductOpenButton({
         aria-label="Add product"
       >
         <PlusCircle className="h-5 w-5" />
-      </motion.button>
+      </Link>
     );
   }
 
   return (
-    <motion.button
-      type="button"
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={() => openDialog()}
+    <Link
+      href="/admin/add-product"
       className={cn(
         "hidden items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-sm font-semibold text-orange-700 transition-colors hover:bg-orange-500/20 md:inline-flex dark:text-orange-400",
         className
@@ -668,6 +661,6 @@ export function AddProductOpenButton({
     >
       <PlusCircle className="size-4 shrink-0" />
       Add product
-    </motion.button>
+    </Link>
   );
 }
