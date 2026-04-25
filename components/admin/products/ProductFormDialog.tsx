@@ -46,6 +46,7 @@ import {
   resolveStock,
 } from "@/lib/products/firestore-map";
 import {
+  PRODUCT_AUDIENCES,
   PRODUCT_CATEGORIES,
   SIZE_OPTIONS,
   productFormSchema,
@@ -86,6 +87,7 @@ function formDefaultsFromDoc(
       name: "",
       description: "",
       category: "shirts",
+      audience: "men",
       price: 299,
       compareAtPrice: "",
       stock: 0,
@@ -107,10 +109,17 @@ function formDefaultsFromDoc(
       : typeof compareRaw === "string"
         ? compareRaw
         : "";
+  const audRaw = data.audience;
+  let audience: (typeof PRODUCT_AUDIENCES)[number] = "men";
+  if (typeof audRaw === "string") {
+    const a = audRaw.toLowerCase();
+    if (a === "women" || a === "kids" || a === "men") audience = a;
+  }
   return {
     name: typeof data.name === "string" ? data.name : String(data.name ?? ""),
     description: typeof data.description === "string" ? data.description : "",
     category,
+    audience,
     price: Math.max(resolvePrice(data), 0.01),
     compareAtPrice: compareStr,
     stock: resolveStock(data),
@@ -405,6 +414,30 @@ export function ProductFormDialog({
                 {PRODUCT_CATEGORIES.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Shop department (Explore filters + home “Shop by category”) */}
+          <div className="space-y-2">
+            <Label>Shop for</Label>
+            <Select
+              value={form.watch("audience")}
+              onValueChange={(v) =>
+                form.setValue("audience", v as ProductFormValues["audience"], {
+                  shouldValidate: true,
+                })
+              }
+            >
+              <SelectTrigger className="w-full border-border bg-background">
+                <SelectValue placeholder="Audience" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRODUCT_AUDIENCES.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a.charAt(0).toUpperCase() + a.slice(1)}
                   </SelectItem>
                 ))}
               </SelectContent>

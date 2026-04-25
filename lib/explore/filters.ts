@@ -1,5 +1,5 @@
 import type { ExploreProduct, SortMode } from "@/lib/explore/types";
-import { PRODUCT_CATEGORIES } from "@/lib/products/schema";
+import { PRODUCT_AUDIENCES, PRODUCT_CATEGORIES } from "@/lib/products/schema";
 
 export const EXPLORE_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
@@ -18,6 +18,7 @@ export const LEGACY_TAGS = [
 export function categoryFilterOptions(products: ExploreProduct[]): string[] {
   const set = new Set<string>([
     ...PRODUCT_CATEGORIES,
+    ...PRODUCT_AUDIENCES,
     ...LEGACY_TAGS,
   ]);
   products.forEach((p) => {
@@ -47,9 +48,11 @@ export type ExploreFilterInput = {
 export function productMatchesCategory(p: ExploreProduct, selected: string[]): boolean {
   if (selected.length === 0) return true;
   const cat = p.category ?? "";
+  const aud = p.audience;
   return selected.some(
     (s) =>
       cat === s ||
+      aud === s ||
       p.tags.includes(s) ||
       p.tags.includes(s.toLowerCase())
   );

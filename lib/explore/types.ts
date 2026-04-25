@@ -1,6 +1,9 @@
 import type { DocumentData } from "firebase/firestore";
 import { getSizesMap, totalUnits } from "@/lib/admin/inventory";
-import { computeProductStatus } from "@/lib/products/schema";
+import {
+  computeProductStatus,
+  type ProductAudience,
+} from "@/lib/products/schema";
 
 export type SortMode = "newest" | "price-asc" | "price-desc" | "match";
 
@@ -12,6 +15,8 @@ export type ExploreProduct = {
   image: string;
   images: string[];
   category?: string;
+  /** Department: men / women / kids (defaults to men when missing in Firestore). */
+  audience: ProductAudience;
   tags: string[];
   sizes: string[];
   colors: string[];
@@ -67,6 +72,13 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
       ? data.category.toLowerCase()
       : undefined;
 
+  let audience: ProductAudience = "men";
+  const audRaw = data.audience;
+  if (typeof audRaw === "string") {
+    const a = audRaw.toLowerCase();
+    if (a === "women" || a === "kids" || a === "men") audience = a;
+  }
+
   let sizes: string[] = [];
   if (Array.isArray(data.sizes)) {
     sizes = data.sizes.map((s) => String(s));
@@ -93,6 +105,7 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     image,
     images,
     category,
+    audience,
     tags,
     sizes,
     colors,

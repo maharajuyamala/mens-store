@@ -15,11 +15,15 @@ import {
   PlusCircle,
   ScanBarcode,
   ShoppingBag,
+  ShoppingCart,
   X,
 } from "lucide-react";
 import { AdminGuard } from "@/components/AdminGuard";
+import { CartDrawer } from "@/components/Cart/CartDrawer";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { useCartDrawerStore } from "@/store/cartDrawerStore";
+import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -35,6 +39,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, profile, signOut } = useAuth();
+  const setCartOpen = useCartDrawerStore((s) => s.setOpen);
+  const cartCount = useCartStore((s) => s.getCount());
 
   useEffect(() => {
     setMobileOpen(false);
@@ -55,8 +61,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <AdminGuard>
-      <div className="dark min-h-screen bg-background text-foreground">
-        <div className="sticky top-0 z-30 flex h-11 items-center border-b border-border bg-card px-3 lg:hidden">
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="sticky top-0 z-30 flex h-11 items-center gap-2 border-b border-border bg-card px-3 lg:hidden">
           <Button
             type="button"
             variant="ghost"
@@ -67,9 +73,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-2 text-sm font-semibold tracking-tight">
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
             Admin panel
           </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="relative shrink-0 text-foreground"
+            onClick={() => setCartOpen(true)}
+            aria-label={`Open store cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 ? (
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold leading-none text-white">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            ) : null}
+          </Button>
         </div>
 
         <AnimatePresence>
@@ -156,8 +177,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   );
                 })}
 
-                {/* Home link */}
-                <div className="mt-auto border-t border-sidebar-border pt-2">
+                <div className="mt-auto space-y-0.5 border-t border-sidebar-border pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      setCartOpen(true);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                  >
+                    <span className="relative inline-flex shrink-0">
+                      <ShoppingCart className="h-4 w-4 opacity-90" />
+                      {cartCount > 0 ? (
+                        <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[8px] font-bold text-white">
+                          {cartCount > 99 ? "99+" : cartCount}
+                        </span>
+                      ) : null}
+                    </span>
+                    Store cart
+                  </button>
                   <Link
                     href="/"
                     onClick={() => setMobileOpen(false)}
@@ -222,6 +260,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
+      <CartDrawer />
     </AdminGuard>
   );
 }

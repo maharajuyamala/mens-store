@@ -5,9 +5,12 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { getClientFirebase } from "@/app/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export function NewsletterBanner() {
+type NewsletterTone = "default" | "dark";
+
+export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }) {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -45,17 +48,42 @@ export function NewsletterBanner() {
     }
   };
 
+  const isDark = tone === "dark";
+
   return (
     <section
-      className="border-t border-border bg-muted/40 py-10"
+      className={cn(
+        "border-t py-12 sm:py-14",
+        isDark
+          ? "border-white/10 bg-gradient-to-b from-zinc-900/90 to-zinc-950"
+          : "border-border bg-muted/40"
+      )}
       aria-label="Newsletter"
     >
-      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
+        <div className="space-y-2">
+          <p
+            className={cn(
+              "text-xs font-semibold uppercase tracking-[0.2em]",
+              isDark ? "text-orange-400/90" : "text-orange-600"
+            )}
+          >
+            Stay ahead
+          </p>
+          <h2
+            className={cn(
+              "text-xl font-semibold tracking-tight sm:text-2xl",
+              isDark ? "text-white" : "text-foreground"
+            )}
+          >
             Join the list
           </h2>
-          <p className="max-w-md text-sm text-muted-foreground">
+          <p
+            className={cn(
+              "max-w-md text-sm",
+              isDark ? "text-zinc-400" : "text-muted-foreground"
+            )}
+          >
             New drops and private sales — no spam.
           </p>
         </div>
@@ -70,7 +98,10 @@ export function NewsletterBanner() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-background"
+            className={cn(
+              isDark &&
+                "border-white/15 bg-white/5 text-white placeholder:text-zinc-500 focus-visible:ring-orange-500/40"
+            )}
             disabled={pending}
           />
           <Button

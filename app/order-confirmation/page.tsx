@@ -18,7 +18,6 @@ type OrderPricing = {
   subtotal?: number;
   discount?: number;
   shipping?: number;
-  gst?: number;
   total?: number;
   couponCode?: string | null;
 };
@@ -175,12 +174,6 @@ function OrderConfirmationInner() {
               <span className="tabular-nums">
                 {p.shipping === 0 ? "Free" : inr.format(p.shipping)}
               </span>
-            </div>
-          ) : null}
-          {typeof p.gst === "number" ? (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">GST (18%)</span>
-              <span className="tabular-nums">{inr.format(p.gst)}</span>
             </div>
           ) : null}
           {typeof p.total === "number" ? (

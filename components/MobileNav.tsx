@@ -2,21 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, LayoutGrid, Plus, ShoppingBag, User } from "lucide-react";
+import { Heart, Home, LayoutGrid, ShoppingBag, User } from "lucide-react";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminAddProductStore } from "@/store/adminAddProductStore";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
   const pathname = usePathname();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const cartCount = useCartStore((s) => s.getCount());
   const wishlistCount = useWishlistStore((s) => s.ids.length);
   const setCartOpen = useCartDrawerStore((s) => s.setOpen);
-  const openAddProduct = useAdminAddProductStore((s) => s.openDialog);
 
   const accountHref = user
     ? "/account"
@@ -61,41 +59,25 @@ export function MobileNav() {
           LayoutGrid,
           pathname.startsWith("/explore")
         )}
-        {isAdmin ? (
-          <li className="flex-1">
-            <button
-              type="button"
-              onClick={() => openAddProduct()}
-              className={cn(
-                "flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-              )}
-              aria-label="Add product"
-            >
-              <Plus className="h-5 w-5" />
-              Add
-            </button>
-          </li>
-        ) : (
-          <li className="flex-1">
-            <button
-              type="button"
-              onClick={() => setCartOpen(true)}
-              className={cn(
-                "relative flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-              )}
-            >
-              <span className="relative inline-flex">
-                <ShoppingBag className="h-5 w-5" />
-                {cartCount > 0 ? (
-                  <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </span>
-                ) : null}
-              </span>
-              Cart
-            </button>
-          </li>
-        )}
+        <li className="flex-1">
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className={cn(
+              "relative flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            )}
+          >
+            <span className="relative inline-flex">
+              <ShoppingBag className="h-5 w-5" />
+              {cartCount > 0 ? (
+                <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              ) : null}
+            </span>
+            Cart
+          </button>
+        </li>
         <li className="flex-1">
           <Link
             href="/wishlist"

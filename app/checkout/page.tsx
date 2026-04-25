@@ -18,6 +18,7 @@ import {
   type CouponDoc,
 } from "@/lib/checkout/coupon";
 import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/deliverySchema";
+import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
 import { placeOrder } from "@/lib/checkout/placeOrder";
 import { CheckoutStockError } from "@/lib/checkout/stock";
@@ -49,6 +50,7 @@ export default function CheckoutPage() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [deliveryPrefsLoaded, setDeliveryPrefsLoaded] = useState(false);
 
   const form = useForm<DeliveryFormValues>({
     resolver: zodResolver(deliverySchema),
@@ -64,14 +66,24 @@ export default function CheckoutPage() {
     },
   });
 
-  const { register, handleSubmit, formState, setValue, getValues } = form;
+  const { register, handleSubmit, formState, setValue, getValues, reset } = form;
   const { errors, isSubmitting } = formState;
 
   useEffect(() => {
-    if (user?.email) {
+    const saved = readSavedDelivery();
+    if (saved) {
+      reset(saved);
+    }
+    setDeliveryPrefsLoaded(true);
+  }, [reset]);
+
+  useEffect(() => {
+    if (!deliveryPrefsLoaded) return;
+    const email = getValues("email")?.trim();
+    if (user?.email && !email) {
       setValue("email", user.email);
     }
-  }, [user?.email, setValue]);
+  }, [deliveryPrefsLoaded, user?.email, getValues, setValue]);
 
   const subtotal = useMemo(() => cartSubtotal(items), [items]);
   const discountAmount = useMemo(() => {
@@ -123,6 +135,7 @@ export default function CheckoutPage() {
     setPlacing(true);
     try {
       const shippingAddress = getValues();
+      writeSavedDelivery(shippingAddress);
       const result = await placeOrder({
         items,
         shippingAddress,
@@ -213,7 +226,10 @@ export default function CheckoutPage() {
       {step === 1 ? (
         <form
           className="mt-10 space-y-6"
-          onSubmit={handleSubmit(() => setStep(2))}
+          onSubmit={handleSubmit((data) => {
+            writeSavedDelivery(data);
+            setStep(2);
+          })}
         >
           <h2 className="text-lg font-semibold">Contact & delivery</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -401,10 +417,6 @@ export default function CheckoutPage() {
                   ? "Free"
                   : inr.format(pricing.shipping)}
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">GST (18%)</span>
-              <span className="tabular-nums">{inr.format(pricing.gst)}</span>
             </div>
             <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
               <span>Total</span>

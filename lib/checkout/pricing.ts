@@ -1,6 +1,5 @@
 import {
   FREE_SHIPPING_THRESHOLD_INR,
-  GST_RATE,
   STANDARD_SHIPPING_INR,
 } from "@/lib/checkout/constants";
 import type { CartItem } from "@/store/cartStore";
@@ -10,7 +9,6 @@ export type PricingBreakdown = {
   discount: number;
   discountedSubtotal: number;
   shipping: number;
-  gst: number;
   total: number;
 };
 
@@ -25,9 +23,7 @@ export function computeShipping(subtotalAfterDiscount: number): number {
     : STANDARD_SHIPPING_INR;
 }
 
-/**
- * GST 18% on (discounted merchandise + shipping).
- */
+/** Total = discounted merchandise + shipping (no separate GST line). */
 export function computePricing(
   items: CartItem[],
   discount: number
@@ -36,16 +32,13 @@ export function computePricing(
   const discountClamped = Math.min(Math.max(0, discount), subtotal);
   const discountedSubtotal = subtotal - discountClamped;
   const shipping = computeShipping(discountedSubtotal);
-  const taxable = discountedSubtotal + shipping;
-  const gst = Math.round(taxable * GST_RATE * 100) / 100;
-  const total = Math.round((taxable + gst) * 100) / 100;
+  const total = Math.round((discountedSubtotal + shipping) * 100) / 100;
 
   return {
     subtotal,
     discount: discountClamped,
     discountedSubtotal,
     shipping,
-    gst,
     total,
   };
 }

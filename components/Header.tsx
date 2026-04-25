@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
-  Search,
   ShoppingCart,
   Menu,
   X,
@@ -16,7 +15,6 @@ import { ProductBarcodeDialog } from "@/components/admin/ProductBarcodeDialog";
 import { CartDrawer } from "@/components/Cart/CartDrawer";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSearchDialog } from "@/components/search/SearchDialogContext";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
@@ -26,7 +24,6 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const setCartOpen = useCartDrawerStore((s) => s.setOpen);
-  const { openSearch } = useSearchDialog();
   const cartCount = useCartStore((s) => s.getCount());
 
   useEffect(() => {
@@ -65,9 +62,8 @@ export function Header() {
         initial={false}
         transition={{ duration: 0.3 }}
         className={cn(
-          "fixed top-0 left-0 z-50 flex w-[100svw] items-center justify-between overflow-x-hidden border-b border-border px-4 py-4 text-foreground sm:px-8",
-          "!bg-white !shadow-none dark:!bg-background",
-          isScrolled && "shadow-sm"
+          "fixed top-0 left-0 z-50 flex w-[100svw] items-center justify-between overflow-x-hidden border-b border-border bg-background/85 px-4 py-4 text-foreground shadow-none backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 sm:px-8",
+          isScrolled && "shadow-sm shadow-black/20"
         )}
       >
         <Link
@@ -124,33 +120,13 @@ export function Header() {
         </motion.nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => openSearch()}
-            className="hidden rounded-full border border-border p-2.5 text-foreground transition-colors hover:border-orange-500 md:inline-flex"
-            aria-label="Search (⌘K)"
-          >
-            <Search className="h-5 w-5" />
-          </motion.button>
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => openSearch()}
-            className="inline-flex rounded-full border border-border p-2.5 text-foreground transition-colors hover:border-orange-500 md:hidden"
-            aria-label="Search"
-          >
-            <Search className="h-5 w-5" />
-          </motion.button>
           {isAdmin ? (
             <>
               <AddProductOpenButton variant="icon-only" className="md:hidden" />
               <AddProductOpenButton />
               <Link
                 href="/admin"
-                className="hidden items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-4 py-2 text-sm font-semibold text-orange-700 transition-colors hover:bg-orange-500/20 md:inline-flex dark:text-orange-400"
+                className="hidden items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-4 py-2 text-sm font-semibold text-orange-400 transition-colors hover:bg-orange-500/20 md:inline-flex"
               >
                 <LayoutDashboard className="size-4 shrink-0" />
                 Admin
@@ -162,32 +138,31 @@ export function Header() {
                 Products
               </Link>
             </>
-          ) : (
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setCartOpen(true)}
-              className="relative rounded-full border border-border bg-transparent p-2.5 text-foreground transition-colors duration-300 hover:border-orange-500"
-              aria-label={`Open cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
-            >
-              <ShoppingCart className="h-5 w-5" />
-              <AnimatePresence mode="wait">
-                {cartCount > 0 ? (
-                  <motion.span
-                    key={cartCount}
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                    className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold leading-none text-white shadow-md"
-                  >
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </motion.span>
-                ) : null}
-              </AnimatePresence>
-            </motion.button>
-          )}
+          ) : null}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCartOpen(true)}
+            className="relative rounded-full border border-border bg-transparent p-2.5 text-foreground transition-colors duration-300 hover:border-orange-500"
+            aria-label={`Open cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            <AnimatePresence mode="wait">
+              {cartCount > 0 ? (
+                <motion.span
+                  key={cartCount}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                  className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold leading-none text-white shadow-md"
+                >
+                  {cartCount > 99 ? "99+" : cartCount}
+                </motion.span>
+              ) : null}
+            </AnimatePresence>
+          </motion.button>
 
           {loading ? (
             <div className="hidden items-center gap-2 md:flex">
@@ -254,32 +229,22 @@ export function Header() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="absolute top-0 right-0 h-full w-[80vw] max-w-sm bg-gray-900 p-8 overflow-y-auto"
+                className="absolute top-0 right-0 h-full w-[80vw] max-w-sm overflow-y-auto border-l border-border bg-card p-8"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => setIsMenuOpen(false)}
-                className="absolute top-6 right-6 text-gray-400 hover:text-white"
+                className="absolute top-6 right-6 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-7 w-7" />
               </button>
-              <nav className="flex flex-col gap-8 mt-16 text-lg">
-                <button
-                  type="button"
-                  className="text-left text-gray-200 hover:text-orange-500 transition-colors"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    openSearch();
-                  }}
-                >
-                  Search
-                </button>
+              <nav className="mt-16 flex flex-col gap-8 text-lg">
                 {navLinks.map((item) => (
                   <a
                     key={item.label}
                     href={item.link}
-                    className="text-gray-200 hover:text-orange-500 transition-colors"
+                    className="text-foreground/90 transition-colors hover:text-orange-500"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {item.label}
@@ -289,49 +254,48 @@ export function Header() {
                   <>
                     <Link
                       href="/admin/add-product"
-                      className="text-left text-gray-200 transition-colors hover:text-orange-500"
+                      className="text-left text-foreground/90 transition-colors hover:text-orange-500"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Add product
                     </Link>
                     <Link
                       href="/admin"
-                      className="text-left text-gray-200 transition-colors hover:text-orange-500"
+                      className="text-left text-foreground/90 transition-colors hover:text-orange-500"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Admin dashboard
                     </Link>
                     <Link
                       href="/admin/products"
-                      className="text-left text-gray-200 transition-colors hover:text-orange-500"
+                      className="text-left text-foreground/90 transition-colors hover:text-orange-500"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Products
                     </Link>
                     <Link
                       href="/admin/orders"
-                      className="text-left text-gray-200 transition-colors hover:text-orange-500"
+                      className="text-left text-foreground/90 transition-colors hover:text-orange-500"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Orders
                     </Link>
                   </>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-left text-gray-200 transition-colors hover:text-orange-500"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      setCartOpen(true);
-                    }}
-                  >
-                    Cart{cartCount > 0 ? ` (${cartCount})` : ""}
-                  </button>
-                )}
+                ) : null}
+                <button
+                  type="button"
+                  className="text-left text-foreground/90 transition-colors hover:text-orange-500"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setCartOpen(true);
+                  }}
+                >
+                  Cart{cartCount > 0 ? ` (${cartCount})` : ""}
+                </button>
                 {!loading && !user ? (
                   <Link
                     href="/auth/sign-in"
-                    className="mt-4 text-left text-gray-200 hover:text-orange-500"
+                    className="mt-4 text-left text-foreground/90 hover:text-orange-500"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Sign in
@@ -341,7 +305,7 @@ export function Header() {
                   <>
                     <Link
                       href="/account"
-                      className="text-left text-gray-200 transition-colors hover:text-orange-500"
+                      className="text-left text-foreground/90 transition-colors hover:text-orange-500"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Account
@@ -352,7 +316,7 @@ export function Header() {
                         void signOut();
                         setIsMenuOpen(false);
                       }}
-                      className="mt-2 text-left text-gray-200 transition-colors hover:text-orange-500"
+                      className="mt-2 text-left text-foreground/90 transition-colors hover:text-orange-500"
                     >
                       Logout
                     </button>
@@ -370,7 +334,7 @@ export function Header() {
           <ProductBarcodeDialog />
         </>
       ) : null}
-      {!isAdmin ? <CartDrawer /> : null}
+      <CartDrawer />
     </>
   );
 }

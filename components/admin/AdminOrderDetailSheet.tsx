@@ -177,12 +177,6 @@ export function AdminOrderDetailSheet({
                       </span>
                     </div>
                   ) : null}
-                  {selected.pricing.gst != null ? (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">GST (18%)</span>
-                      <span>{inr.format(selected.pricing.gst)}</span>
-                    </div>
-                  ) : null}
                   {selected.pricing.total != null ? (
                     <div className="flex justify-between border-t border-border pt-2 font-semibold">
                       <span>Total</span>

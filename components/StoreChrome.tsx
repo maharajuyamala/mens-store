@@ -23,7 +23,7 @@ export function StoreChrome({ children }: { children: ReactNode }) {
       <div className="pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         {children}
       </div>
-      <NewsletterBanner />
+      <NewsletterBanner tone="dark" />
       <Footer />
       <MobileNav />
     </>

@@ -72,7 +72,6 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     subtotal: input.pricing.subtotal,
     discount: input.pricing.discount,
     shipping: input.pricing.shipping,
-    gst: input.pricing.gst,
     total: input.pricing.total,
     couponCode: input.couponCode,
   };

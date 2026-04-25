@@ -39,14 +39,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-background text-foreground antialiased`}
       >
         <AuthProvider>
           <SearchDialogProvider>
             <StoreChrome>
-              <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+              <Suspense
+              fallback={
+                <div className="flex min-h-[40vh] items-center justify-center bg-background text-sm text-muted-foreground">
+                  Loading…
+                </div>
+              }
+            >
+              {children}
+            </Suspense>
             </StoreChrome>
             <GlobalSearchCommand />
             <Toaster richColors closeButton position="top-center" />

@@ -18,7 +18,6 @@ export type OrderPricing = {
   subtotal?: number;
   discount?: number;
   shipping?: number;
-  gst?: number;
   total?: number;
   couponCode?: string | null;
 };
@@ -137,7 +136,6 @@ function parsePricing(raw: unknown): OrderPricing {
     subtotal: num("subtotal"),
     discount: num("discount"),
     shipping: num("shipping"),
-    gst: num("gst"),
     total: num("total"),
     couponCode:
       r.couponCode === null || typeof r.couponCode === "string"
@@ -214,7 +212,6 @@ export function ordersToCsv(orders: AdminOrder[]): string {
     "Subtotal",
     "Discount",
     "Shipping",
-    "GST",
     "Total",
     "Payment",
     "Status",
@@ -235,7 +232,6 @@ export function ordersToCsv(orders: AdminOrder[]): string {
       p.subtotal != null && !Number.isNaN(p.subtotal) ? String(p.subtotal) : "",
       p.discount != null && !Number.isNaN(p.discount) ? String(p.discount) : "",
       p.shipping != null && !Number.isNaN(p.shipping) ? String(p.shipping) : "",
-      p.gst != null && !Number.isNaN(p.gst) ? String(p.gst) : "",
       p.total != null && !Number.isNaN(p.total) ? String(p.total) : "",
       o.paymentMethod,
       o.status,
