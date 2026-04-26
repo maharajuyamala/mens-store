@@ -95,11 +95,47 @@ async function request<T>(
   return json as T;
 }
 
+function describeShiprocketBody(body: unknown): string {
+  if (!body || typeof body !== "object") return "Empty Shiprocket response";
+  const obj = body as Record<string, unknown>;
+  // Validation errors: { errors: { field: [..] } } or { message: "..." }
+  if (obj.errors && typeof obj.errors === "object") {
+    const parts: string[] = [];
+    for (const [k, v] of Object.entries(obj.errors as Record<string, unknown>)) {
+      if (Array.isArray(v)) parts.push(`${k}: ${v.join(", ")}`);
+      else parts.push(`${k}: ${String(v)}`);
+    }
+    if (parts.length) return parts.join(" | ");
+  }
+  if (typeof obj.message === "string" && obj.message) return obj.message;
+  if (typeof obj.error === "string" && obj.error) return obj.error;
+  try {
+    return JSON.stringify(body).slice(0, 400);
+  } catch {
+    return "Unknown Shiprocket response";
+  }
+}
+
 export async function createAdhocOrder(
   payload: ShiprocketAdhocOrderPayload
 ): Promise<ShiprocketCreateOrderResponse> {
-  return request<ShiprocketCreateOrderResponse>("/orders/create/adhoc", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const result = await request<ShiprocketCreateOrderResponse>(
+    "/orders/create/adhoc",
+    { method: "POST", body: JSON.stringify(payload) }
+  );
+
+  // Shiprocket returns 200 even for validation failures — verify the success shape.
+  if (
+    !result ||
+    typeof result.order_id !== "number" ||
+    typeof result.shipment_id !== "number"
+  ) {
+    console.error("[shiprocket] adhoc order body did not contain order_id/shipment_id", result);
+    throw new ShiprocketError(
+      describeShiprocketBody(result),
+      200,
+      result
+    );
+  }
+  return result;
 }
