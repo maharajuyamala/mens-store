@@ -20,8 +20,9 @@ import {
 import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/deliverySchema";
 import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
-import { placeOrder } from "@/lib/checkout/placeOrder";
+import { generateOrderNumber, placeOrder } from "@/lib/checkout/placeOrder";
 import { CheckoutStockError } from "@/lib/checkout/stock";
+import { createShiprocketOrder } from "@/lib/shiprocket/clientFetch";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -136,6 +137,28 @@ export default function CheckoutPage() {
     try {
       const shippingAddress = getValues();
       writeSavedDelivery(shippingAddress);
+
+      const orderNumber = generateOrderNumber();
+      const shipping = await createShiprocketOrder({
+        orderNumber,
+        paymentMethod: "cod",
+        items: items.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          size: i.size,
+          color: i.color,
+        })),
+        shippingAddress,
+        pricing: {
+          subtotal: pricing.subtotal,
+          discount: pricing.discount,
+          shipping: pricing.shipping,
+          total: pricing.total,
+        },
+      });
+
       const result = await placeOrder({
         items,
         shippingAddress,
@@ -143,9 +166,18 @@ export default function CheckoutPage() {
         couponCode: appliedCoupon?.code ?? null,
         paymentMethod: "cod",
         userId: user?.uid ?? "guest",
+        orderNumber,
+        shipping,
       });
       clearCart();
-      toast.success("Order placed");
+      if (shipping.status === "failed") {
+        toast.success("Order placed", {
+          description:
+            "We couldn't reach Shiprocket — staff will book the shipment manually.",
+        });
+      } else {
+        toast.success("Order placed");
+      }
       router.push(
         `/order-confirmation?orderId=${encodeURIComponent(result.orderId)}`
       );

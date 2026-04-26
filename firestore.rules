@@ -68,9 +68,10 @@ service cloud.firestore {
         && request.resource.data.items is list
         && request.resource.data.shippingAddress is map
         && request.resource.data.pricing is map
-        && request.resource.data.paymentMethod in ['cod', 'online'];
+        && request.resource.data.paymentMethod in ['cod', 'online']
+        && (!('shipping' in request.resource.data.keys()) || request.resource.data.shipping is map);
       allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusHistory'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusHistory', 'shipping'])
         && orderStatusValue(request.resource.data.status)
         && request.resource.data.statusHistory is list;
       allow delete: if false;

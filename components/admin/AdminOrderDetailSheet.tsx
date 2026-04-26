@@ -188,6 +188,63 @@ export function AdminOrderDetailSheet({
                 </div>
               </section>
 
+              {selected.shipping ? (
+                <section>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Shiprocket
+                  </h3>
+                  <div className="mt-2 space-y-1 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status</span>
+                      <span
+                        className={
+                          selected.shipping.status === "failed"
+                            ? "font-medium text-red-400"
+                            : "font-medium text-emerald-400"
+                        }
+                      >
+                        {selected.shipping.status ?? "—"}
+                      </span>
+                    </div>
+                    {selected.shipping.shiprocketOrderId ? (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">SR order</span>
+                        <span className="font-mono">
+                          {selected.shipping.shiprocketOrderId}
+                        </span>
+                      </div>
+                    ) : null}
+                    {selected.shipping.shipmentId ? (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Shipment</span>
+                        <span className="font-mono">
+                          {selected.shipping.shipmentId}
+                        </span>
+                      </div>
+                    ) : null}
+                    {selected.shipping.awbCode ? (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">AWB</span>
+                        <span className="font-mono">
+                          {selected.shipping.awbCode}
+                        </span>
+                      </div>
+                    ) : null}
+                    {selected.shipping.courierName ? (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Courier</span>
+                        <span>{selected.shipping.courierName}</span>
+                      </div>
+                    ) : null}
+                    {selected.shipping.error ? (
+                      <p className="pt-1 text-xs text-red-400">
+                        {selected.shipping.error}
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+              ) : null}
+
               <section>
                 <h3 className="text-sm font-semibold text-foreground">
                   Status timeline

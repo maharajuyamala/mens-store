@@ -43,6 +43,17 @@ export type ShippingAddress = {
   pincode?: string;
 };
 
+export type ShippingRecord = {
+  provider?: string;
+  status?: "created" | "failed" | string;
+  shiprocketOrderId?: number;
+  shipmentId?: number;
+  awbCode?: string | null;
+  courierName?: string | null;
+  createdAt?: string;
+  error?: string;
+};
+
 export type AdminOrder = {
   id: string;
   orderNumber: string;
@@ -54,6 +65,7 @@ export type AdminOrder = {
   shippingAddress: ShippingAddress;
   pricing: OrderPricing;
   statusHistory: StatusHistoryEntry[];
+  shipping: ShippingRecord | null;
 };
 
 function toDate(v: unknown): Date | null {
@@ -144,6 +156,24 @@ function parsePricing(raw: unknown): OrderPricing {
   };
 }
 
+function parseShippingRecord(raw: unknown): ShippingRecord | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const out: ShippingRecord = {};
+  if (typeof r.provider === "string") out.provider = r.provider;
+  if (typeof r.status === "string") out.status = r.status;
+  if (typeof r.shiprocketOrderId === "number")
+    out.shiprocketOrderId = r.shiprocketOrderId;
+  if (typeof r.shipmentId === "number") out.shipmentId = r.shipmentId;
+  if (typeof r.awbCode === "string") out.awbCode = r.awbCode;
+  else if (r.awbCode === null) out.awbCode = null;
+  if (typeof r.courierName === "string") out.courierName = r.courierName;
+  else if (r.courierName === null) out.courierName = null;
+  if (typeof r.createdAt === "string") out.createdAt = r.createdAt;
+  if (typeof r.error === "string") out.error = r.error;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export function docToAdminOrder(id: string, data: Record<string, unknown>): AdminOrder {
   return {
     id,
@@ -157,6 +187,7 @@ export function docToAdminOrder(id: string, data: Record<string, unknown>): Admi
     shippingAddress: parseShipping(data.shippingAddress),
     pricing: parsePricing(data.pricing),
     statusHistory: parseStatusHistory(data.statusHistory),
+    shipping: parseShippingRecord(data.shipping),
   };
 }
 

@@ -14,6 +14,7 @@ import {
   CheckoutStockError,
   groupLinesByProductId,
 } from "@/lib/checkout/stock";
+import type { OrderShippingRecord } from "@/lib/shiprocket/types";
 import type { CartItem } from "@/store/cartStore";
 
 const ORDER_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -37,6 +38,10 @@ export type PlaceOrderInput = {
   userId: string;
   /** Optional tag for reporting (e.g. in-store POS). */
   saleChannel?: "web" | "pos";
+  /** Optional courier integration record (Shiprocket). Persisted on the order doc. */
+  shipping?: OrderShippingRecord;
+  /** Reuse a pre-generated order number (e.g. shared with Shiprocket). */
+  orderNumber?: string;
 };
 
 export type PlacedOrder = {
@@ -66,7 +71,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
 
   const db = getDb();
   const orderRef = doc(collection(db, "orders"));
-  const orderNumber = generateOrderNumber();
+  const orderNumber = input.orderNumber ?? generateOrderNumber();
 
   const pricingPayload = {
     subtotal: input.pricing.subtotal,
@@ -97,6 +102,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     createdAt: serverTimestamp(),
     orderNumber,
     ...(input.saleChannel ? { saleChannel: input.saleChannel } : {}),
+    ...(input.shipping ? { shipping: input.shipping } : {}),
   };
 
   await runTransaction(db, async (tx) => {
