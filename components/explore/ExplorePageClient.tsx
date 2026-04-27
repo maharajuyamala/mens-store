@@ -445,7 +445,10 @@ function ExploreCatalog({
         color,
         quantity: 1,
       });
-      toast.success("Added to cart", { description: p.name });
+      toast.success("Added to cart", {
+        description: p.name,
+        duration: 1000,
+      });
       setCartOpen(true);
     },
     [addItem, setCartOpen]

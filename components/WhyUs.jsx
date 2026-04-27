@@ -1,88 +1,73 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Gem, Scissors, Leaf } from "lucide-react";
+import { Gem, Ruler, PackageCheck } from "lucide-react";
 import { useScrollAnimation } from "./ShirtSection";
 
-const features = [
+const points = [
   {
-    title: "Premium fabrics",
-    description:
-      "Sourced from trusted mills for comfort that lasts wash after wash.",
+    title: "Fabric",
+    line: "Milled for hand-feel and longevity.",
     Icon: Gem,
   },
   {
-    title: "Modern tailoring",
-    description:
-      "Clean lines and considered fits — sharp without feeling stiff.",
-    Icon: Scissors,
+    title: "Fit",
+    line: "Clear sizing — less guesswork.",
+    Icon: Ruler,
   },
   {
-    title: "Sustainable practices",
-    description:
-      "Ethical production and lower-impact materials wherever we can.",
-    Icon: Leaf,
+    title: "Dispatch",
+    line: "Checked, packed, tracked to you.",
+    Icon: PackageCheck,
   },
 ];
 
 export const WhyChooseUs = () => {
   const [ref, inView] = useScrollAnimation();
 
-  const containerVariants = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 24 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-    },
-  };
-
   return (
     <section
       ref={ref}
-      className="relative border-t border-white/5 bg-zinc-900 px-4 py-20 text-white sm:px-8 sm:py-28"
+      className="border-y border-white/[0.06] bg-zinc-950 px-4 py-12 text-white sm:px-8 sm:py-14"
     >
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-14 text-center sm:mb-16">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-orange-400/90">
-            Why us
-          </p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            The SecondSkin difference
-          </h2>
-          <p className="mx-auto mt-4 max-w-lg text-zinc-400">
-            More than clothing — a quiet standard for how pieces should feel
-            and wear.
-          </p>
-        </div>
-
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
-          className="grid gap-6 md:grid-cols-3 md:gap-8"
-        >
-          {features.map(({ title, description, Icon }) => (
-            <motion.div
-              key={title}
-              variants={itemVariants}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-8 shadow-xl transition-colors duration-300 hover:border-orange-500/25 hover:bg-zinc-900/80"
-            >
-              <div className="mb-5 inline-flex rounded-xl bg-orange-500/10 p-3 text-orange-400 ring-1 ring-orange-500/20 transition-transform duration-300 group-hover:scale-105">
-                <Icon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold text-white">{title}</h3>
-              <p className="text-sm leading-relaxed text-zinc-400 sm:text-base">
-                {description}
-              </p>
-            </motion.div>
-          ))}
-        </motion.div>
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-400/75">
+          Why us
+        </p>
+        <h2 className="mt-2 text-xl font-light tracking-tight text-white sm:text-2xl">
+          Quiet quality
+        </h2>
+        <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-zinc-500 sm:text-sm">
+          Thoughtful cloth, honest fits, orders treated with care.
+        </p>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="mx-auto mt-9 max-w-2xl sm:mt-10"
+      >
+        <div className="grid divide-y divide-white/[0.06] sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:divide-white/[0.06]">
+          {points.map(({ title, line, Icon }) => (
+            <div
+              key={title}
+              className="flex flex-col items-center gap-2 px-4 py-5 text-center sm:py-4 sm:first:pl-0 sm:last:pr-0"
+            >
+              <Icon
+                className="h-4 w-4 text-orange-400/70"
+                strokeWidth={1.25}
+                aria-hidden
+              />
+              <p className="text-[13px] font-medium tracking-tight text-zinc-200">
+                {title}
+              </p>
+              <p className="max-w-[11rem] text-[11px] leading-snug text-zinc-500 sm:max-w-none sm:text-xs">
+                {line}
+              </p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
     </section>
   );
 };

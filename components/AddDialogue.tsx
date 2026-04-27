@@ -640,7 +640,7 @@ export function AddProductOpenButton({
       <Link
         href="/admin/add-product"
         className={cn(
-          "inline-flex rounded-full border border-border p-2.5 text-foreground transition-colors hover:border-orange-500",
+          "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-orange-500",
           className
         )}
         aria-label="Add product"

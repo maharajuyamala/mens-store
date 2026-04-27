@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, LayoutGrid, ShoppingBag, User } from "lucide-react";
+import {
+  Heart,
+  Home,
+  LayoutGrid,
+  PlusCircle,
+  ScanBarcode,
+  ShoppingBag,
+  User,
+} from "lucide-react";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
@@ -11,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 export function MobileNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const cartCount = useCartStore((s) => s.getCount());
   const wishlistCount = useWishlistStore((s) => s.ids.length);
   const setCartOpen = useCartDrawerStore((s) => s.setOpen);
@@ -28,11 +36,13 @@ export function MobileNav() {
     href: string,
     label: string,
     Icon: typeof Home,
-    active: boolean
+    active: boolean,
+    linkTitle?: string
   ) => (
     <li className="flex-1">
       <Link
         href={href}
+        title={linkTitle}
         className={cn(
           "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
           active
@@ -59,51 +69,72 @@ export function MobileNav() {
           LayoutGrid,
           pathname.startsWith("/explore")
         )}
-        <li className="flex-1">
-          <button
-            type="button"
-            onClick={() => setCartOpen(true)}
-            className={cn(
-              "relative flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        {isAdmin ? (
+          <>
+            {navItem(
+              "/admin/add-product",
+              "Add",
+              PlusCircle,
+              pathname.startsWith("/admin/add-product"),
+              "Add product"
             )}
-          >
-            <span className="relative inline-flex">
-              <ShoppingBag className="h-5 w-5" />
-              {cartCount > 0 ? (
-                <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
-                  {cartCount > 99 ? "99+" : cartCount}
-                </span>
-              ) : null}
-            </span>
-            Cart
-          </button>
-        </li>
-        <li className="flex-1">
-          <Link
-            href="/wishlist"
-            className={cn(
-              "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
-              pathname.startsWith("/wishlist")
-                ? "text-orange-500"
-                : "text-muted-foreground hover:text-foreground"
+            {navItem(
+              "/admin/inventory/scan",
+              "Scan",
+              ScanBarcode,
+              pathname.startsWith("/admin/inventory/scan"),
+              "Scan & stock"
             )}
-          >
-            <span className="relative inline-flex">
-              <Heart
+          </>
+        ) : (
+          <>
+            <li className="flex-1">
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
                 className={cn(
-                  "h-5 w-5",
-                  wishlistCount > 0 && "fill-orange-500/25 text-orange-500"
+                  "relative flex w-full flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 )}
-              />
-              {wishlistCount > 0 ? (
-                <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
-                  {wishlistCount > 99 ? "99+" : wishlistCount}
+              >
+                <span className="relative inline-flex">
+                  <ShoppingBag className="h-5 w-5" />
+                  {cartCount > 0 ? (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
-            </span>
-            Wishlist
-          </Link>
-        </li>
+                Cart
+              </button>
+            </li>
+            <li className="flex-1">
+              <Link
+                href="/wishlist"
+                className={cn(
+                  "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
+                  pathname.startsWith("/wishlist")
+                    ? "text-orange-500"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span className="relative inline-flex">
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      wishlistCount > 0 && "fill-orange-500/25 text-orange-500"
+                    )}
+                  />
+                  {wishlistCount > 0 ? (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
+                      {wishlistCount > 99 ? "99+" : wishlistCount}
+                    </span>
+                  ) : null}
+                </span>
+                Wishlist
+              </Link>
+            </li>
+          </>
+        )}
         <li className="flex-1">
           <Link
             href={accountHref}

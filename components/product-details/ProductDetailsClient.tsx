@@ -134,7 +134,10 @@ function ProductDetailContent({
       price: product.price,
       image: product.images[0] ?? "",
     });
-    toast.success("Added to cart", { description: product.name });
+    toast.success("Added to cart", {
+      description: product.name,
+      duration: 1000,
+    });
   }, [product, selectedSize, selectedColor, maxQty, qty, addItem]);
 
   const canAdd =
@@ -353,7 +356,7 @@ function ProductDetailContent({
                         className={cn(
                           "relative h-9 w-9 rounded-full border-2 transition-shadow",
                           selected
-                            ? "border-orange-500 ring-2 ring-orange-500/35"
+                            ? ""
                             : "border-border hover:border-orange-500/40"
                         )}
                         style={{ backgroundColor: fill }}
