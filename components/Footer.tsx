@@ -33,10 +33,11 @@ export const Footer = () => {
               <div className="md:col-span-1">
                   <h4 className="mb-4 font-semibold text-foreground">Support</h4>
                   <ul className="space-y-2 text-sm">
-                      <li><a href="#" className="hover:text-orange-500 transition-colors">FAQ</a></li>
-                      <li><a href="#" className="hover:text-orange-500 transition-colors">Contact</a></li>
-                      <li><a href="#" className="hover:text-orange-500 transition-colors">Shipping & Returns</a></li>
-                      <li><a href="#" className="hover:text-orange-500 transition-colors">Size Guide</a></li>
+                      <li><a href="/contact" className="hover:text-orange-500 transition-colors">Contact</a></li>
+                      <li><a href="/shipping" className="hover:text-orange-500 transition-colors">Shipping policy</a></li>
+                      <li><a href="/refund-policy" className="hover:text-orange-500 transition-colors">Returns & refunds</a></li>
+                      <li><a href="/terms" className="hover:text-orange-500 transition-colors">Terms & conditions</a></li>
+                      <li><a href="/privacy" className="hover:text-orange-500 transition-colors">Privacy policy</a></li>
                   </ul>
               </div>
 

@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { ChevronLeft, Loader2, Tag } from "lucide-react";
-import { FirebaseError } from "firebase/app";
 import { doc, updateDoc } from "firebase/firestore";
 import { getDb } from "@/app/firebase";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,11 +21,17 @@ import {
 import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/deliverySchema";
 import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
-import { generateOrderNumber, placeOrder } from "@/lib/checkout/placeOrder";
-import { CheckoutStockError } from "@/lib/checkout/stock";
+import {
+  placeOrderViaServer,
+  PlaceOrderError,
+} from "@/lib/checkout/place-order-client";
 import { createShiprocketOrder } from "@/lib/shiprocket/clientFetch";
 import { checkPincodeServiceable } from "@/lib/shiprocket/clientServiceability";
 import { writeOrderConfirmation } from "@/lib/checkout/order-confirmation-cache";
+import {
+  runRazorpayCheckout,
+  RazorpayCheckoutError,
+} from "@/lib/payments/razorpay-client";
 import type { OrderShippingRecord } from "@/lib/shiprocket/types";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
@@ -59,6 +64,7 @@ export default function CheckoutPage() {
   const [deliveryPrefsLoaded, setDeliveryPrefsLoaded] = useState(false);
   const [pincodeError, setPincodeError] = useState<string | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
 
   const form = useForm<DeliveryFormValues>({
     resolver: zodResolver(deliverySchema),
@@ -145,38 +151,73 @@ export default function CheckoutPage() {
       const shippingAddress = getValues();
       writeSavedDelivery(shippingAddress);
 
-      const orderNumber = generateOrderNumber();
+      // 1) For online payment, run Razorpay first. Server creates the order
+      //    (re-priced from products), customer pays, signature is verified.
+      let paymentRef:
+        | { razorpayOrderId: string; razorpayPaymentId: string }
+        | undefined;
+      if (paymentMethod === "online") {
+        try {
+          const result = await runRazorpayCheckout({
+            items: items.map((i) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              size: i.size || undefined,
+              color: i.color || undefined,
+            })),
+            discount: pricing.discount,
+            customer: {
+              name: shippingAddress.fullName,
+              email: shippingAddress.email,
+              phone: shippingAddress.phone,
+            },
+          });
+          paymentRef = {
+            razorpayOrderId: result.razorpayOrderId,
+            razorpayPaymentId: result.razorpayPaymentId,
+          };
+        } catch (e) {
+          if (e instanceof RazorpayCheckoutError) {
+            if (e.code === "dismissed") {
+              toast.message("Payment cancelled");
+              return;
+            }
+            toast.error("Payment failed", { description: e.message });
+            return;
+          }
+          throw e;
+        }
+      }
+
+      // 2) Server-authoritative order placement. Server re-prices the cart from
+      //    product docs and rejects any tampering. Verifies Razorpay receipt
+      //    when paymentMethod is "online".
+      const placed = await placeOrderViaServer({
+        items,
+        shippingAddress,
+        paymentMethod,
+        couponCode: appliedCoupon?.code ?? null,
+        discount: pricing.discount,
+        payment: paymentRef,
+      });
+
       const pendingShipping: OrderShippingRecord = {
         provider: "shiprocket",
         status: "pending",
         createdAt: new Date().toISOString(),
       };
 
-      // 1) Persist order first. If this fails, no shipment is booked.
-      const result = await placeOrder({
-        items,
-        shippingAddress,
-        pricing,
-        couponCode: appliedCoupon?.code ?? null,
-        paymentMethod: "cod",
-        userId: user?.uid ?? "guest",
-        orderNumber,
-        shipping: pendingShipping,
-      });
-
-      // Stash a local copy so the confirmation page can render even for guests
-      // (Firestore order-read is restricted to owner/admin).
       writeOrderConfirmation({
-        orderId: result.orderId,
-        orderNumber: result.orderNumber,
+        orderId: placed.orderId,
+        orderNumber: placed.orderNumber,
         pricing: {
-          subtotal: pricing.subtotal,
-          discount: pricing.discount,
-          shipping: pricing.shipping,
-          total: pricing.total,
-          couponCode: appliedCoupon?.code ?? null,
+          subtotal: placed.pricing.subtotal,
+          discount: placed.pricing.discount,
+          shipping: placed.pricing.shipping,
+          total: placed.pricing.total,
+          couponCode: placed.pricing.couponCode,
         },
-        items: items.map((i) => ({
+        items: placed.items.map((i) => ({
           name: i.name,
           quantity: i.quantity,
           price: i.price,
@@ -185,19 +226,18 @@ export default function CheckoutPage() {
       });
 
       clearCart();
-
-      // Navigate immediately — the Shiprocket booking continues in the background.
       router.push(
-        `/order-confirmation?orderId=${encodeURIComponent(result.orderId)}`
+        `/order-confirmation?orderId=${encodeURIComponent(placed.orderId)}`
       );
       toast.success("Order placed");
 
-      // 2) Fire-and-forget Shiprocket booking + best-effort order update.
+      // 3) Fire-and-forget Shiprocket booking. Failures leave the order with
+      //    shipping.status==="pending" for admin to rebook.
       void (async () => {
         const shipping = await createShiprocketOrder({
-          orderNumber,
-          paymentMethod: "cod",
-          items: items.map((i) => ({
+          orderNumber: placed.orderNumber,
+          paymentMethod,
+          items: placed.items.map((i) => ({
             productId: i.productId,
             name: i.name,
             price: i.price,
@@ -207,37 +247,28 @@ export default function CheckoutPage() {
           })),
           shippingAddress,
           pricing: {
-            subtotal: pricing.subtotal,
-            discount: pricing.discount,
-            shipping: pricing.shipping,
-            total: pricing.total,
+            subtotal: placed.pricing.subtotal,
+            discount: placed.pricing.discount,
+            shipping: placed.pricing.shipping,
+            total: placed.pricing.total,
           },
         });
         try {
-          await updateDoc(doc(getDb(), "orders", result.orderId), {
-            shipping,
-          });
+          await updateDoc(doc(getDb(), "orders", placed.orderId), { shipping });
         } catch (err) {
-          // Owner update permission may be missing (guests, or rules not deployed).
-          // Order is preserved; admin will see shipping.status==="pending" and rebook.
+          // Guests can't update — admin will see shipping.status==="pending".
           console.warn("[checkout] could not update order shipping", err);
         }
       })();
     } catch (e) {
-      if (e instanceof CheckoutStockError) {
+      if (e instanceof PlaceOrderError) {
         toast.error(e.message, {
           description:
-            e.code === "INSUFFICIENT_STOCK"
+            e.code === "insufficient_stock"
               ? "Refresh and update quantities in your cart."
-              : undefined,
-        });
-        return;
-      }
-      if (e instanceof FirebaseError && e.code === "permission-denied") {
-        toast.error("Permission denied.", {
-          description:
-            e.message ||
-            "Deploy latest firestore.rules (npm run deploy:rules) or sign in again.",
+              : e.code === "server_not_configured"
+                ? "The store is not fully configured yet — please contact support."
+                : undefined,
         });
         return;
       }
@@ -551,9 +582,22 @@ export default function CheckoutPage() {
           <div className="space-y-3">
             <button
               type="button"
-              className="flex w-full items-center gap-3 rounded-lg border-2 border-orange-500 bg-orange-500/10 p-4 text-left"
+              onClick={() => setPaymentMethod("cod")}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors",
+                paymentMethod === "cod"
+                  ? "border-orange-500 bg-orange-500/10"
+                  : "border-border hover:border-orange-500/40"
+              )}
             >
-              <span className="h-4 w-4 rounded-full border-2 border-orange-500 bg-orange-500 shadow-inner" />
+              <span
+                className={cn(
+                  "h-4 w-4 rounded-full border-2",
+                  paymentMethod === "cod"
+                    ? "border-orange-500 bg-orange-500 shadow-inner"
+                    : "border-muted-foreground"
+                )}
+              />
               <div>
                 <p className="font-medium">Cash on delivery</p>
                 <p className="text-sm text-muted-foreground">
@@ -563,13 +607,27 @@ export default function CheckoutPage() {
             </button>
             <button
               type="button"
-              disabled
-              className="flex w-full cursor-not-allowed items-center gap-3 rounded-lg border border-border bg-muted/40 p-4 text-left opacity-60"
+              onClick={() => setPaymentMethod("online")}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors",
+                paymentMethod === "online"
+                  ? "border-orange-500 bg-orange-500/10"
+                  : "border-border hover:border-orange-500/40"
+              )}
             >
-              <span className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
+              <span
+                className={cn(
+                  "h-4 w-4 rounded-full border-2",
+                  paymentMethod === "online"
+                    ? "border-orange-500 bg-orange-500 shadow-inner"
+                    : "border-muted-foreground"
+                )}
+              />
               <div>
-                <p className="font-medium">Pay online</p>
-                <p className="text-sm text-muted-foreground">Coming soon</p>
+                <p className="font-medium">Pay online (UPI / card / netbanking)</p>
+                <p className="text-sm text-muted-foreground">
+                  Secure payment via Razorpay.
+                </p>
               </div>
             </button>
           </div>
@@ -587,8 +645,10 @@ export default function CheckoutPage() {
               {placing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Placing order…
+                  {paymentMethod === "online" ? "Processing payment…" : "Placing order…"}
                 </>
+              ) : paymentMethod === "online" ? (
+                `Pay ${inr.format(pricing.total)}`
               ) : (
                 "Place order"
               )}

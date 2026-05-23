@@ -5,9 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { doc, getDoc, FirestoreError } from "firebase/firestore";
 import { Loader2, PackageCheck } from "lucide-react";
+import { toast } from "sonner";
 import { getDb } from "@/app/firebase";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/useAuth";
 import { readOrderConfirmation } from "@/lib/checkout/order-confirmation-cache";
+import { requestOrderCancellation } from "@/lib/orders/cancellation";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -47,10 +51,15 @@ function shiprocketTrackingUrl(awbCode: string): string {
 function OrderConfirmationInner() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<LoadedOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   useEffect(() => {
     if (!orderId) {
@@ -249,6 +258,82 @@ function OrderConfirmationInner() {
           ) : null}
         </div>
       </div>
+
+      {user && orderId && !cancelRequested ? (
+        cancelOpen ? (
+          <div className="mt-6 rounded-lg border border-border bg-card p-4">
+            <p className="text-sm font-medium">Request cancellation</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              We&apos;ll review your request shortly. If the order is already
+              shipped, we may not be able to cancel — but we&apos;ll get back to
+              you.
+            </p>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Optional: tell us why (max 500 characters)"
+              maxLength={500}
+              className="mt-3 min-h-[80px]"
+              disabled={cancelSubmitting}
+            />
+            <div className="mt-3 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={cancelSubmitting}
+                onClick={() => setCancelOpen(false)}
+              >
+                Back
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-orange-600 text-white hover:bg-orange-500"
+                disabled={cancelSubmitting}
+                onClick={async () => {
+                  setCancelSubmitting(true);
+                  try {
+                    await requestOrderCancellation({
+                      orderId,
+                      userId: user.uid,
+                      reason: cancelReason.trim(),
+                    });
+                    setCancelRequested(true);
+                    setCancelOpen(false);
+                    toast.success("Cancellation request submitted");
+                  } catch (e) {
+                    toast.error(
+                      e instanceof Error
+                        ? e.message
+                        : "Could not submit cancellation request."
+                    );
+                  } finally {
+                    setCancelSubmitting(false);
+                  }
+                }}
+              >
+                {cancelSubmitting ? "Sending…" : "Submit request"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCancelOpen(true)}
+            className="mt-6 text-sm text-muted-foreground hover:text-destructive"
+          >
+            Need to cancel this order? Request cancellation
+          </button>
+        )
+      ) : null}
+
+      {cancelRequested ? (
+        <p className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-900 dark:text-emerald-100">
+          Cancellation request received. We&apos;ll email you once it&apos;s
+          processed.
+        </p>
+      ) : null}
 
       {order.shipping?.awbCode ? (
         <div className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">

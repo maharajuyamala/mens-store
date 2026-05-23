@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Package } from "lucide-react";
+import { LayoutDashboard, LogOut, MailWarning, Package } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,8 +18,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AccountPage() {
-  const { user, profile, loading, isAdmin, signOut } = useAuth();
+  const { user, profile, loading, isAdmin, signOut, resendVerificationEmail } =
+    useAuth();
   const router = useRouter();
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -55,6 +58,45 @@ export default function AccountPage() {
           Profile and shortcuts for your SecondSkin experience.
         </p>
       </div>
+
+      {user.email && !user.emailVerified ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-100"
+        >
+          <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-medium">Verify your email</p>
+            <p className="mt-0.5 opacity-90">
+              We sent a verification link to{" "}
+              <span className="font-mono">{user.email}</span>. Verifying lets us
+              send order receipts and password resets reliably.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-3 border-amber-500/50 bg-transparent text-amber-900 hover:bg-amber-500/10 dark:text-amber-100"
+              disabled={resending}
+              onClick={async () => {
+                setResending(true);
+                try {
+                  await resendVerificationEmail();
+                  toast.success("Verification email sent");
+                } catch (e) {
+                  toast.error(
+                    e instanceof Error ? e.message : "Could not send email"
+                  );
+                } finally {
+                  setResending(false);
+                }
+              }}
+            >
+              {resending ? "Sending…" : "Resend verification email"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">

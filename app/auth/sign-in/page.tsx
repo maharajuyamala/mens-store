@@ -179,6 +179,12 @@ function SignInPageInner() {
               </Link>
             </p>
             <Link
+              href="/auth/forgot-password"
+              className="text-sm text-orange-400 hover:underline"
+            >
+              Forgot your password?
+            </Link>
+            <Link
               href="/"
               className="text-sm text-gray-500 hover:text-gray-300"
             >

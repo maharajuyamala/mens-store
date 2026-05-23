@@ -19,6 +19,8 @@ export type AuthContextValue = {
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

@@ -12,6 +12,8 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -23,6 +25,11 @@ import { getClientFirebase, getDb, getFirebaseAuth } from "@/app/firebase";
 import { AuthContext, type UserProfile } from "@/hooks/useAuth";
 import { revalidateCart } from "@/lib/checkout/revalidate-cart";
 import { useCartStore } from "@/store/cartStore";
+import {
+  mergeWishlistOnSignIn,
+  writeRemoteWishlist,
+} from "@/lib/wishlist/sync";
+import { useWishlistStore } from "@/store/wishlistStore";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -59,6 +66,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  // Wishlist sync: on sign-in, merge local + remote into the local store. Then
+  // subscribe so subsequent local edits write through to Firestore.
+  useEffect(() => {
+    if (!user?.uid) return;
+    let alive = true;
+    let unsubscribeStore: (() => void) | null = null;
+
+    void (async () => {
+      const localIds = useWishlistStore.getState().ids;
+      const merged = await mergeWishlistOnSignIn(user.uid, localIds);
+      if (!alive) return;
+      // Avoid an extra remote write if nothing changed.
+      if (merged.join("|") !== localIds.join("|")) {
+        useWishlistStore.setState({ ids: merged });
+      }
+      // Then subscribe to local edits and write through. Debounce-light: only fire
+      // when ids actually change (Zustand subscribe receives prev/next).
+      unsubscribeStore = useWishlistStore.subscribe((state, prev) => {
+        if (state.ids === prev.ids) return;
+        void writeRemoteWishlist(user.uid, state.ids);
+      });
+    })();
+
+    return () => {
+      alive = false;
+      if (unsubscribeStore) unsubscribeStore();
+    };
+  }, [user?.uid]);
+
   useEffect(() => {
     const fb = getClientFirebase();
     if (!fb) {
@@ -69,6 +105,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onAuthStateChanged(fb.auth, (u) => {
       setUser(u);
       setAuthReady(true);
+      // Cookie consumed by middleware.ts to gate /admin/* at the edge.
+      // Lax / 30-day; no security claim here — Firestore rules + AdminGuard do real auth.
+      if (typeof document !== "undefined") {
+        if (u) {
+          const secure =
+            typeof window !== "undefined" &&
+            window.location.protocol === "https:"
+              ? "; Secure"
+              : "";
+          document.cookie = `mens-store-signed-in=1; Path=/; Max-Age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
+        } else {
+          document.cookie =
+            "mens-store-signed-in=; Path=/; Max-Age=0; SameSite=Lax";
+        }
+      }
       if (!u) {
         profileBackfillAttempted.current.clear();
         setProfile(null);
@@ -175,6 +226,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: "user",
         createdAt: serverTimestamp(),
       });
+      // Best-effort: don't block signup on email delivery.
+      try {
+        await sendEmailVerification(cred.user);
+      } catch (err) {
+        console.warn("[auth] sendEmailVerification failed", err);
+      }
     },
     []
   );
@@ -189,6 +246,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await ensureUserProfile(cred.user);
   }, [ensureUserProfile]);
 
+  const sendPasswordReset = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
+  }, []);
+
+  const resendVerificationEmail = useCallback(async () => {
+    const current = getFirebaseAuth().currentUser;
+    if (!current) throw new Error("Not signed in");
+    if (current.emailVerified) return;
+    await sendEmailVerification(current);
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -199,6 +267,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       signInWithGoogle,
+      sendPasswordReset,
+      resendVerificationEmail,
     }),
     [
       user,
@@ -209,6 +279,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       signInWithGoogle,
+      sendPasswordReset,
+      resendVerificationEmail,
     ]
   );
 

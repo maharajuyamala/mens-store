@@ -41,6 +41,10 @@ import {
   type AdminOrder,
   type OrderStatus,
 } from "@/lib/admin/orders-admin";
+import {
+  fetchPendingCancellationRequests,
+  type CancellationRequest,
+} from "@/lib/orders/cancellation";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -202,9 +206,26 @@ export default function AdminOrdersPage() {
   const [selected, setSelected] = useState<AdminOrder | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [cancellationRequests, setCancellationRequests] = useState<
+    CancellationRequest[]
+  >([]);
 
   const updatedByLabel =
     user?.email ?? user?.uid ?? "admin";
+
+  // Poll once on load + after status changes. Could be a snapshot listener on
+  // the collectionGroup, but that needs a composite index — keep it simple.
+  const refreshCancellationRequests = useCallback(() => {
+    void fetchPendingCancellationRequests()
+      .then(setCancellationRequests)
+      .catch((err) => {
+        console.warn("[admin/orders] cancellation requests fetch failed", err);
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshCancellationRequests();
+  }, [refreshCancellationRequests]);
 
   useEffect(() => {
     const q = query(collection(getDb(), "orders"), orderBy("createdAt", "desc"));
@@ -274,6 +295,25 @@ export default function AdminOrdersPage() {
       try {
         await updateOrderStatusTx(order.id, next, updatedByLabel);
         toast.success(`Order ${order.orderNumber} → ${next}`);
+        if (next === "cancelled") refreshCancellationRequests();
+
+        // Fire-and-forget status email. Failures are non-fatal; admin can resend.
+        void (async () => {
+          try {
+            const token = await user?.getIdToken?.();
+            if (!token) return;
+            await fetch("/api/orders/notify-status", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ orderId: order.id, status: next }),
+            });
+          } catch (err) {
+            console.warn("[admin/orders] notify-status failed", err);
+          }
+        })();
       } catch (e) {
         console.error(e);
         if (e instanceof FirebaseError && e.code === "permission-denied") {
@@ -315,6 +355,33 @@ export default function AdminOrdersPage() {
             <code className="rounded bg-muted px-1 py-0.5 text-xs">orders</code>
             . {loading ? "Loading…" : `${orders.length} total`}
           </p>
+          {cancellationRequests.length > 0 ? (
+            <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+              <p className="font-medium">
+                {cancellationRequests.length} pending cancellation request
+                {cancellationRequests.length === 1 ? "" : "s"}
+              </p>
+              <ul className="mt-1 space-y-1 text-xs">
+                {cancellationRequests.slice(0, 5).map((r) => {
+                  const o = orders.find((x) => x.id === r.orderId);
+                  return (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() => {
+                          if (o) openDetail(o);
+                        }}
+                      >
+                        Order {o?.orderNumber ?? r.orderId.slice(0, 6)} —{" "}
+                        {r.reason || "(no reason given)"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
           {listenError ? (
             <p className="mt-2 text-sm text-destructive">{listenError}</p>
           ) : null}
