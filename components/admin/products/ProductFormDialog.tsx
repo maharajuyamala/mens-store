@@ -19,7 +19,6 @@ import { Loader2 } from "lucide-react";
 import { getDb, getFirebaseStorage } from "@/app/firebase";
 import { buildImageStoragePath } from "@/lib/uploads/validate-image";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -40,11 +39,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   normalizeImageUrls,
-  parseSizesFromDoc,
   resolveCategory,
   resolvePrice,
-  resolveStock,
 } from "@/lib/products/firestore-map";
+import { getSizesMap } from "@/lib/admin/inventory";
 import {
   PRODUCT_AUDIENCES,
   PRODUCT_CATEGORIES,
@@ -52,7 +50,6 @@ import {
   type ProductFormValues,
 } from "@/lib/products/schema";
 import {
-  formatSizeLabel,
   getSizeOptions,
   inferSizeGroup,
 } from "@/lib/products/size-options";
@@ -87,10 +84,11 @@ const COMPRESSION = {
 /**
  * Build the initial color drafts for a product:
  *  • If the product already has `colorVariants`, load each one with its
- *    existing image URLs (admin can append/remove photos and rename).
- *  • Otherwise migrate the legacy flat `images` + `colors` fields into a
- *    single starter variant so admins can split into per-color groups later.
- *    The first legacy color (if any) seeds the variant name.
+ *    existing images + per-size stock.
+ *  • Otherwise migrate the legacy flat `images` + `colors` + `sizes`/`size`
+ *    fields into a single starter variant so admins can split into per-color
+ *    groups later. The first legacy color (if any) seeds the variant name and
+ *    the legacy size map seeds its stock.
  */
 function buildInitialColorDrafts(
   data: Record<string, unknown> | null
@@ -104,17 +102,30 @@ function buildInitialColorDrafts(
   const flatColors = Array.isArray(data.colors)
     ? data.colors.map((c) => String(c)).filter(Boolean)
     : [];
-  if (flatImages.length === 0 && flatColors.length === 0) {
+  // Pull the legacy size map (handles both `sizes` map and `size: [{...}]`).
+  const legacySizes = getSizesMap(data);
+  if (
+    flatImages.length === 0 &&
+    flatColors.length === 0 &&
+    Object.keys(legacySizes).length === 0
+  ) {
     return [makeEmptyVariantDraft()];
   }
   return [
     makeVariantDraftFromExisting({
       color: flatColors[0] ?? "default",
       images: flatImages,
+      sizes: legacySizes,
     }),
   ];
 }
 
+/**
+ * Form defaults — sizes / stock / colors are *placeholders* now; the real
+ * values are derived from the variant editor on submit. They have to be
+ * present to satisfy the existing zod schema, but are overwritten before
+ * the doc is written.
+ */
 function formDefaultsFromDoc(
   data: Record<string, unknown> | null
 ): ProductFormValues {
@@ -131,13 +142,8 @@ function formDefaultsFromDoc(
       colors: [],
     };
   }
-  let sizes = parseSizesFromDoc(data);
-  if (sizes.length === 0) sizes = ["M"];
   const { filter } = resolveCategory(data);
   const category = filter !== "other" ? filter : "shirts";
-  const colors = Array.isArray(data.colors)
-    ? data.colors.map((c) => String(c))
-    : [];
   const compareRaw = data.compareAtPrice;
   const compareStr =
     typeof compareRaw === "number"
@@ -158,9 +164,9 @@ function formDefaultsFromDoc(
     audience,
     price: Math.max(resolvePrice(data), 0.01),
     compareAtPrice: compareStr,
-    stock: resolveStock(data),
-    sizes,
-    colors,
+    stock: 0,
+    sizes: ["M"],
+    colors: [],
   };
 }
 
@@ -231,7 +237,6 @@ export function ProductFormDialog({
   });
   const { reset } = form;
 
-  const watchedSizes = form.watch("sizes");
   const watchedAudience = form.watch("audience");
   const watchedCategory = form.watch("category");
 
@@ -245,20 +250,32 @@ export function ProductFormDialog({
     () => inferSizeGroup(watchedAudience, watchedCategory),
     [watchedAudience, watchedCategory]
   );
+  const sizeGroupLabel = useMemo(() => {
+    return sizeGroup === "kids"
+      ? "Kids — age brackets"
+      : sizeGroup === "numeric"
+        ? "Waist (inches)"
+        : "Alpha (XS–6XL)";
+  }, [sizeGroup]);
 
-  // Drop previously-selected sizes that aren't in the current palette when the
-  // admin flips a Men → Kids product, or Shirts → Pants. Otherwise the dialog
-  // would silently save invalid sizes that no UI surfaces.
+  // Prune draft sizes that no longer apply when the admin flips
+  // Men → Kids or Shirts → Pants. Keeps the variant doc consistent with the
+  // displayed palette.
   useEffect(() => {
     const allowed = new Set(sizeOptions);
-    const current = form.getValues("sizes");
-    const filtered = current.filter((s) => allowed.has(s));
-    if (filtered.length !== current.length) {
-      form.setValue("sizes", filtered.length > 0 ? filtered : [], {
-        shouldValidate: true,
+    setColorDrafts((prev) => {
+      let dirty = false;
+      const next = prev.map((d) => {
+        const cleaned: Record<string, number> = {};
+        for (const [k, v] of Object.entries(d.sizes)) {
+          if (allowed.has(k)) cleaned[k] = v;
+          else dirty = true;
+        }
+        return dirty ? { ...d, sizes: cleaned } : d;
       });
-    }
-  }, [sizeOptions, form]);
+      return dirty ? next : prev;
+    });
+  }, [sizeOptions]);
 
   /** Revoke blob previews held by the current drafts (used on close/reset). */
   const revokeDraftBlobs = useCallback((drafts: VariantDraft[]) => {
@@ -286,9 +303,17 @@ export function ProductFormDialog({
 
   // Submit
   const onSubmit = form.handleSubmit(async (values) => {
-    const usableDrafts = colorDrafts.filter((d) => d.images.length > 0);
+    // A variant is usable when it has at least one photo AND at least one
+    // size with stock > 0. Empty placeholders are ignored.
+    const usableDrafts = colorDrafts.filter(
+      (d) =>
+        d.images.length > 0 &&
+        Object.values(d.sizes).some((q) => Number(q) > 0)
+    );
     if (usableDrafts.length === 0) {
-      setSubmitError("Add at least one color with photos.");
+      setSubmitError(
+        "Add at least one color with photos AND per-size stock."
+      );
       return;
     }
     const nameCounts = new Map<string, number>();
@@ -328,25 +353,43 @@ export function ProductFormDialog({
             label: draft.label,
             hex: draft.hex,
             images: urls,
+            sizes: draft.sizes,
           })
         );
       }
 
-      // Backward-compat: derive the flat fields legacy listing code reads.
+      // Mirrors for legacy readers: flat images / colors, union sizes map,
+      // aggregate stock total.
       const flatImages = variants.flatMap((v) => v.images);
       const flatColors = variants.map((v) => v.color);
+      const unionSizes: Record<string, number> = {};
+      for (const v of variants) {
+        for (const [k, n] of Object.entries(v.sizes)) {
+          unionSizes[k] = (unionSizes[k] ?? 0) + n;
+        }
+      }
+      const unionSizeKeys = Object.keys(unionSizes).filter(
+        (k) => unionSizes[k]! > 0
+      );
+      const stockTotal = Object.values(unionSizes).reduce(
+        (a, b) => a + (Number(b) || 0),
+        0
+      );
 
-      // Splice variants + colors into the buildXProductData payloads. We keep
-      // `colors` in sync with variants so explore-page filtering still works.
+      // Splice variants + derived mirrors into the buildXProductData payloads.
       const valuesForSubmit: ProductFormValues = {
         ...values,
         colors: flatColors,
+        // Union of every size the product comes in (at least one stocked).
+        sizes: unionSizeKeys.length > 0 ? unionSizeKeys : values.sizes,
+        stock: stockTotal,
       };
 
       if (mode === "create") {
         const created = await addDoc(collection(getDb(), "products"), {
           ...buildNewProductData(valuesForSubmit, flatImages),
           colorVariants: variants,
+          sizes: unionSizes, // size → total stock across colors (back-compat)
           image: flatImages[0] ?? "",
         });
         revokeDraftBlobs(colorDrafts);
@@ -360,6 +403,7 @@ export function ProductFormDialog({
         await updateDoc(doc(getDb(), "products", productId), {
           ...buildUpdateProductData(valuesForSubmit, flatImages),
           colorVariants: variants,
+          sizes: unionSizes,
           image: flatImages[0] ?? "",
         });
         revokeDraftBlobs(colorDrafts);
@@ -508,68 +552,12 @@ export function ProductFormDialog({
             </div>
           </div>
 
-          {/* Stock */}
-          <div className="space-y-2">
-            <Label htmlFor="pf-stock">Stock quantity</Label>
-            <Input
-              id="pf-stock"
-              type="number"
-              min={0}
-              step={1}
-              {...form.register("stock", { valueAsNumber: true })}
-              className="border-border bg-background"
-            />
-            {form.formState.errors.stock && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.stock.message}
-              </p>
-            )}
-          </div>
-
-          {/* Sizes — palette is department/category aware. */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <Label>Sizes</Label>
-              <span className="text-xs text-muted-foreground">
-                {sizeGroup === "kids"
-                  ? "Kids — age brackets"
-                  : sizeGroup === "numeric"
-                    ? "Waist size (inches)"
-                    : "Alpha sizes (XS–6XL)"}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {sizeOptions.map((size) => (
-                <label
-                  key={size}
-                  className="flex cursor-pointer items-center gap-2 text-sm"
-                  title={formatSizeLabel(size)}
-                >
-                  <Checkbox
-                    checked={watchedSizes.includes(size)}
-                    onCheckedChange={(checked) => {
-                      const on = checked === true;
-                      const next = on
-                        ? [...new Set([...watchedSizes, size])]
-                        : watchedSizes.filter((s) => s !== size);
-                      form.setValue("sizes", next, { shouldValidate: true });
-                    }}
-                  />
-                  {size}
-                </label>
-              ))}
-            </div>
-            {form.formState.errors.sizes && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.sizes.message}
-              </p>
-            )}
-          </div>
-
-          {/* ── Colors & per-color images ─────────────────────────────── */}
+          {/* Stock + sizes live INSIDE each color variant card now. */}
           <ColorVariantsEditor
             drafts={colorDrafts}
             onChange={setColorDrafts}
+            sizeOptions={sizeOptions}
+            sizeGroupLabel={sizeGroupLabel}
             disabled={submitting}
           />
 

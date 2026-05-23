@@ -79,23 +79,43 @@ function ProductDetailContent({
     recordView(productId);
   }, [productId, product, recordView]);
 
+  // Pick the first color that actually has stock so the initial size picker
+  // isn't completely greyed out for variant-aware products.
   useEffect(() => {
     if (!product) return;
+    let initialColor = "";
+    if (product.colorVariants.length > 0) {
+      initialColor =
+        product.colorVariants.find((v) =>
+          Object.values(v.sizes).some((q) => Number(q) > 0)
+        )?.color ?? product.colors[0] ?? "";
+    } else if (product.colors.length > 0) {
+      initialColor = product.colors[0]!;
+    }
+    setSelectedColor(initialColor);
+    setQty(1);
+  }, [product]);
+
+  // When the color changes (or on first mount), pick the first size that
+  // actually has stock *for that color*. Falls back to any size if none are
+  // stocked (the buy button stays disabled in that case).
+  useEffect(() => {
+    if (!product) return;
+    const stockFor = (s: string) =>
+      product.stockForSize(s, selectedColor || undefined);
     const first =
-      product.sizes.find((s) => product.stockForSize(s) > 0) ??
+      product.sizes.find((s) => stockFor(s) > 0) ??
       product.sizes[0] ??
       null;
     setSelectedSize(first);
-    setSelectedColor(product.colors[0] ?? "");
-    setQty(1);
-  }, [product]);
+  }, [product, selectedColor]);
 
   const maxQty = useMemo(() => {
     if (!product) return 0;
     if (product.sizes.length === 0) return product.totalStock;
     if (!selectedSize) return 0;
-    return product.stockForSize(selectedSize);
-  }, [product, selectedSize]);
+    return product.stockForSize(selectedSize, selectedColor || undefined);
+  }, [product, selectedSize, selectedColor]);
 
   useEffect(() => {
     if (maxQty <= 0) return;
@@ -330,10 +350,20 @@ function ProductDetailContent({
 
             {product.sizes.length > 0 ? (
               <div>
-                <p className="mb-2 text-sm font-medium">Size</p>
+                <div className="mb-2 flex items-baseline gap-2">
+                  <p className="text-sm font-medium">Size</p>
+                  {product.colorVariants.length > 0 && selectedColor ? (
+                    <span className="text-xs text-muted-foreground">
+                      Stock shown for {selectedColor}
+                    </span>
+                  ) : null}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((s) => {
-                    const stock = product.stockForSize(s);
+                    const stock = product.stockForSize(
+                      s,
+                      selectedColor || undefined
+                    );
                     const disabled = stock <= 0;
                     return (
                       <button
@@ -341,6 +371,13 @@ function ProductDetailContent({
                         type="button"
                         disabled={disabled}
                         onClick={() => setSelectedSize(s)}
+                        title={
+                          disabled
+                            ? selectedColor
+                              ? `Out of stock in ${selectedColor}`
+                              : "Out of stock"
+                            : `${stock} in stock`
+                        }
                         className={cn(
                           "min-w-[2.75rem] rounded-full border px-4 py-2 text-sm font-medium transition-colors",
                           disabled &&
@@ -384,6 +421,16 @@ function ProductDetailContent({
                     const fill = variant?.hex ?? swatchColor(c);
                     const selected = selectedColor === c;
                     const label = variant ? variantLabel(variant) : c;
+                    // When variants exist, grey out a color that has no
+                    // stock in any size so the customer doesn't get a dead
+                    // size grid after picking it.
+                    const variantStock = variant
+                      ? Object.values(variant.sizes).reduce(
+                          (a, b) => a + (Number(b) || 0),
+                          0
+                        )
+                      : null;
+                    const soldOut = variantStock === 0;
                     return (
                       <button
                         key={c}
@@ -393,14 +440,25 @@ function ProductDetailContent({
                           "relative h-10 w-10 rounded-full border-2 transition-all",
                           selected
                             ? "border-orange-500 ring-2 ring-orange-500/30 ring-offset-2 ring-offset-background"
-                            : "border-border hover:border-orange-500/40"
+                            : "border-border hover:border-orange-500/40",
+                          soldOut && "opacity-40"
                         )}
                         style={{ backgroundColor: fill }}
-                        title={label}
-                        aria-label={`Color ${label}`}
+                        title={soldOut ? `${label} — sold out` : label}
+                        aria-label={`Color ${label}${soldOut ? ", sold out" : ""}`}
                         aria-pressed={selected}
                       >
                         <span className="sr-only">{label}</span>
+                        {soldOut ? (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-1 rounded-full border-t-2 border-foreground/60"
+                            style={{
+                              transform: "rotate(-45deg)",
+                              borderColor: "rgba(0,0,0,0.55)",
+                            }}
+                          />
+                        ) : null}
                       </button>
                     );
                   })}

@@ -12,7 +12,12 @@ import {
 } from "@/lib/server/recompute-pricing";
 import { guardWriteRequest } from "@/lib/api/security";
 import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
-import { getSizesMap } from "@/lib/admin/inventory";
+import {
+  decrementLegacyStock,
+  decrementVariantStock,
+  hasVariantStock,
+  VariantStockError,
+} from "@/lib/products/variant-stock-write";
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import { renderOrderConfirmationEmail } from "@/lib/email/templates";
 
@@ -232,20 +237,20 @@ export async function POST(request: Request) {
       );
       const snaps = await Promise.all(productRefs.map((r) => tx.get(r)));
 
-      const totalsByProduct = new Map<
+      // Group lines so we apply one patch per product, with each (color,size,qty)
+      // available individually for the variant-aware decrement path.
+      const linesByProduct = new Map<
         string,
-        { totalQty: number; bySize: Map<string, number> }
+        Array<{ color: string; size: string; quantity: number }>
       >();
       for (const line of pricing.lines) {
-        const entry = totalsByProduct.get(line.productId) ?? {
-          totalQty: 0,
-          bySize: new Map<string, number>(),
-        };
-        entry.totalQty += line.quantity;
-        if (line.size) {
-          entry.bySize.set(line.size, (entry.bySize.get(line.size) ?? 0) + line.quantity);
-        }
-        totalsByProduct.set(line.productId, entry);
+        const list = linesByProduct.get(line.productId) ?? [];
+        list.push({
+          color: line.color || "",
+          size: line.size || "",
+          quantity: line.quantity,
+        });
+        linesByProduct.set(line.productId, list);
       }
 
       for (const snap of snaps) {
@@ -256,63 +261,24 @@ export async function POST(request: Request) {
           );
         }
         const data = snap.data() as Record<string, unknown>;
-        const totals = totalsByProduct.get(snap.id);
-        if (!totals) continue;
+        const productLines = linesByProduct.get(snap.id);
+        if (!productLines) continue;
 
-        const patch: Record<string, unknown> = {};
-        // Normalize via shared helper so we cover both the modern `sizes` map
-        // and the legacy `size: [{ M: 1 }]` array shape.
-        const nextMap = { ...getSizesMap(data) };
-        const hasMap = Object.keys(nextMap).length > 0;
-
-        if (hasMap) {
-          for (const [size, qty] of totals.bySize) {
-            if (!(size in nextMap)) {
-              throw new OrderValidationError(
-                "INSUFFICIENT_STOCK",
-                `Size ${size} is no longer offered for this product.`
-              );
-            }
-            if (nextMap[size]! < qty) {
-              throw new OrderValidationError(
-                "INSUFFICIENT_STOCK",
-                `Size ${size}: only ${nextMap[size]} left.`
-              );
-            }
-            nextMap[size] = nextMap[size]! - qty;
-          }
-          const stockTotal = Object.values(nextMap).reduce(
-            (s, n) => s + n,
-            0
-          );
-          // Preserve the original storage shape so we don't accidentally
-          // migrate legacy docs and confuse downstream admin tooling.
-          const legacySize = data.size;
-          const usedLegacy =
-            Array.isArray(legacySize) &&
-            legacySize[0] &&
-            typeof legacySize[0] === "object" &&
-            (!data.sizes ||
-              typeof data.sizes !== "object" ||
-              Array.isArray(data.sizes));
-          if (usedLegacy) {
-            patch.size = [nextMap];
-          } else {
-            patch.sizes = nextMap;
-          }
-          patch.stock = stockTotal;
-        } else {
-          const stock =
-            typeof data.stock === "number"
-              ? data.stock
-              : Number(data.stock) || 0;
-          if (stock < totals.totalQty) {
+        let patch: Record<string, unknown>;
+        try {
+          patch = hasVariantStock(data)
+            ? decrementVariantStock(data, productLines)
+            : decrementLegacyStock(data, productLines);
+        } catch (err) {
+          if (err instanceof VariantStockError) {
+            const name =
+              typeof data.name === "string" ? data.name : "A product";
             throw new OrderValidationError(
               "INSUFFICIENT_STOCK",
-              `Only ${stock} units left.`
+              `${name}: ${err.message}`
             );
           }
-          patch.stock = stock - totals.totalQty;
+          throw err;
         }
         tx.update(snap.ref, patch as UpdateData<Record<string, unknown>>);
       }

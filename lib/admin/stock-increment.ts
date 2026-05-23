@@ -6,6 +6,11 @@ import {
 import { getDb } from "@/app/firebase";
 import { getSizesMap, totalUnits } from "@/lib/admin/inventory";
 import { computeProductStatus } from "@/lib/products/schema";
+import {
+  applyVariantDelta,
+  hasVariantStock,
+  VariantStockError,
+} from "@/lib/products/variant-stock-write";
 
 function parseTopLevelStock(raw: Record<string, unknown>): number {
   const v = raw.stock;
@@ -20,13 +25,16 @@ function parseTopLevelStock(raw: Record<string, unknown>): number {
 }
 
 /**
- * Admin-only: increase (or decrease) inventory. Uses per-size map when the
- * product has a sizes map; otherwise adjusts aggregate `stock`.
+ * Admin-only: increase (or decrease) inventory. Routing:
+ *   1. Variant-aware product (has `colorVariants`):
+ *      - requires both `color` and `size` — writes the matching variant cell.
+ *   2. Legacy `sizes` map: requires `size` only.
+ *   3. No per-size map: adjusts aggregate `stock` only.
  */
 export async function applyStockDelta(
   productId: string,
   delta: number,
-  options?: { size?: string }
+  options?: { color?: string; size?: string }
 ): Promise<void> {
   if (!Number.isFinite(delta) || delta === 0) return;
 
@@ -39,9 +47,29 @@ export async function applyStockDelta(
       throw new Error("Product not found");
     }
     const data = snap.data() as Record<string, unknown>;
+    const sizeKey = options?.size?.trim() ?? "";
+    const colorKey = options?.color?.trim() ?? "";
+
+    if (hasVariantStock(data)) {
+      if (!colorKey) {
+        throw new Error("Select a color for this product.");
+      }
+      if (!sizeKey) {
+        throw new Error("Select a size for this color.");
+      }
+      let patch: Record<string, unknown>;
+      try {
+        patch = applyVariantDelta(data, colorKey, sizeKey, delta);
+      } catch (err) {
+        if (err instanceof VariantStockError) throw new Error(err.message);
+        throw err;
+      }
+      tx.update(ref, { ...patch, updatedAt: serverTimestamp() });
+      return;
+    }
+
     const map = { ...getSizesMap(data) };
     const hasMap = Object.keys(map).length > 0;
-    const sizeKey = options?.size?.trim() ?? "";
 
     if (hasMap && sizeKey) {
       const cur = map[sizeKey] ?? 0;

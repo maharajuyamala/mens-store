@@ -5,8 +5,6 @@ import Image from "next/image";
 import {
   CheckCircle2,
   Loader2,
-  Minus,
-  Plus,
   PlusCircle,
   Printer,
 } from "lucide-react";
@@ -35,7 +33,6 @@ import {
 } from "@/lib/add-product/quick-add-options";
 import { buildImageStoragePath } from "@/lib/uploads/validate-image";
 import {
-  formatSizeLabel,
   getSizeOptions,
   inferSizeGroup,
 } from "@/lib/products/size-options";
@@ -171,9 +168,6 @@ export default function AddProductPage() {
   const [colorDrafts, setColorDrafts] = useState<VariantDraft[]>(() => [
     makeEmptyVariantDraft(),
   ]);
-  const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
-    {}
-  );
   const [selectedAudience, setSelectedAudience] = useState<AudienceId | "">("");
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -187,7 +181,6 @@ export default function AddProductPage() {
   const resetForm = useCallback(() => {
     setProductName("");
     setPrice("");
-    setSizeQuantities({});
     setSelectedAudience("");
     setSelectedStyles([]);
     setColorDrafts((prev) => {
@@ -202,11 +195,6 @@ export default function AddProductPage() {
     setError(null);
     setCreatedProduct(null);
   }, []);
-
-  const handleQuantityChange = (size: string, qty: number) => {
-    setSizeQuantities((prev) => ({ ...prev, [size]: Math.max(0, qty) }));
-  };
-
 
   // Sizes depend on department + style — kids get age brackets, "pants" style
   // gets numeric waist sizes, everything else gets the alpha XS–6XL set.
@@ -223,17 +211,30 @@ export default function AddProductPage() {
     [selectedAudience, selectedStyles]
   );
 
-  // Drop quantities entered against sizes that no longer apply (e.g. user
-  // switched from Pants to Shirts after typing waist counts).
+  const sizeGroupLabel = useMemo(() => {
+    if (!sizeGroup) return undefined;
+    return sizeGroup === "kids"
+      ? "Kids — age brackets"
+      : sizeGroup === "numeric"
+        ? "Waist (inches)"
+        : "Alpha (XS–6XL)";
+  }, [sizeGroup]);
+
+  // Drop stock entered against sizes that no longer apply (e.g. user switched
+  // from Pants to Shirts after typing waist counts). We mutate per-draft here
+  // so the editor doesn't have to.
   useEffect(() => {
-    setSizeQuantities((prev) => {
+    setColorDrafts((prev) => {
       const allowed = new Set(sizeOptions);
       let dirty = false;
-      const next: Record<string, number> = {};
-      for (const [k, v] of Object.entries(prev)) {
-        if (allowed.has(k)) next[k] = v;
-        else dirty = true;
-      }
+      const next = prev.map((d) => {
+        const cleaned: Record<string, number> = {};
+        for (const [k, v] of Object.entries(d.sizes)) {
+          if (allowed.has(k)) cleaned[k] = v;
+          else dirty = true;
+        }
+        return dirty ? { ...d, sizes: cleaned } : d;
+      });
       return dirty ? next : prev;
     });
   }, [sizeOptions]);
@@ -242,19 +243,14 @@ export default function AddProductPage() {
     e.preventDefault();
 
     const finalPrice = parseFloat(price);
-    const sizesToSubmit = Object.entries(sizeQuantities)
-      .filter(([, q]) => q > 0)
-      .reduce(
-        (acc, [size, q]) => {
-          acc[size] = q;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
 
-    // Filter to drafts that have at least one image — empty placeholders are
-    // ignored so admins don't have to clean them up manually.
-    const usableDrafts = colorDrafts.filter((d) => d.images.length > 0);
+    // A variant is usable when it has at least one image AND at least one
+    // size with stock > 0. Empty placeholder rows are simply ignored.
+    const usableDrafts = colorDrafts.filter(
+      (d) =>
+        d.images.length > 0 &&
+        Object.values(d.sizes).some((q) => Number(q) > 0)
+    );
 
     // Detect duplicate canonical names so two drafts don't collide silently.
     const nameCounts = new Map<string, number>();
@@ -270,13 +266,12 @@ export default function AddProductPage() {
       Number.isNaN(finalPrice) ||
       usableDrafts.length === 0 ||
       !selectedAudience ||
-      Object.keys(sizesToSubmit).length === 0 ||
       selectedStyles.length === 0 ||
       hasDupes
     ) {
       const msg = hasDupes
         ? "Two colors share the same name. Give each color a unique name."
-        : "Fill all fields: department, at least one style, at least one color with photos, price, name, and stock for at least one size.";
+        : "Fill every section: department, at least one style, and at least one color with photos AND per-size stock.";
       setError(msg);
       toast.error("Complete the form", { description: msg });
       return;
@@ -309,6 +304,7 @@ export default function AddProductPage() {
         label?: string;
         hex?: string;
         images: string[];
+        sizes: Record<string, number>;
       }> = [];
       for (const draft of usableDrafts) {
         const urls: string[] = [];
@@ -327,18 +323,32 @@ export default function AddProductPage() {
         }
         const colorName = canonicalVariantName(draft);
         const friendlyLabel = draft.label.trim();
+        // Strip empty / zero entries so the doc stays clean.
+        const sizesClean: Record<string, number> = {};
+        for (const [k, v] of Object.entries(draft.sizes)) {
+          const n = Math.max(0, Math.floor(Number(v) || 0));
+          if (n > 0) sizesClean[k] = n;
+        }
         colorVariants.push({
           color: colorName,
           ...(friendlyLabel ? { label: friendlyLabel } : {}),
           ...(draft.hex ? { hex: draft.hex } : {}),
           images: urls,
+          sizes: sizesClean,
         });
       }
 
-      // Backward-compat: flatten so legacy consumers that read `images`/`colors`
-      // still get a sensible value.
+      // Backward-compat mirrors so legacy listing / filter / inventory code
+      // that hasn't been migrated to colorVariants still sees correct data.
       const flatImages = colorVariants.flatMap((v) => v.images);
       const colorNames = colorVariants.map((v) => v.color);
+      const unionSizes: Record<string, number> = {};
+      for (const v of colorVariants) {
+        for (const [k, n] of Object.entries(v.sizes)) {
+          unionSizes[k] = (unionSizes[k] ?? 0) + n;
+        }
+      }
+      const totalStock = Object.values(unionSizes).reduce((a, b) => a + b, 0);
 
       const productData = {
         id: `${Date.now()}`,
@@ -351,7 +361,8 @@ export default function AddProductPage() {
         colors: colorNames,
         colorVariants,
         description: "",
-        size: [sizesToSubmit],
+        sizes: unionSizes,
+        stock: totalStock,
       };
 
       const newDoc = await addDoc(collection(fb.db, "products"), productData);
@@ -472,104 +483,14 @@ export default function AddProductPage() {
           </p>
         )}
 
-        {/* ── Colors & per-color images ─────────────────────────────── */}
+        {/* ── Colors, photos & per-color sizes ──────────────────────── */}
         <ColorVariantsEditor
           drafts={colorDrafts}
           onChange={setColorDrafts}
+          sizeOptions={sizeOptions}
+          sizeGroupLabel={sizeGroupLabel}
           disabled={isLoading}
         />
-
-        {/* ── Sizes & stock ─────────────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <Label>Available sizes & stock</Label>
-            {sizeGroup ? (
-              <span className="text-xs text-muted-foreground">
-                {sizeGroup === "kids"
-                  ? "Kids — age brackets"
-                  : sizeGroup === "numeric"
-                    ? "Waist size (inches)"
-                    : "Alpha sizes (XS–6XL)"}
-              </span>
-            ) : null}
-          </div>
-          {!selectedAudience ? (
-            <p className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
-              Pick a department above to choose sizes.
-            </p>
-          ) : sizeOptions.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
-              No size options for this combination.
-            </p>
-          ) : (
-            <div
-              className={cn(
-                "grid gap-3",
-                sizeGroup === "kids"
-                  ? "grid-cols-2 sm:grid-cols-4"
-                  : sizeGroup === "numeric"
-                    ? "grid-cols-3 sm:grid-cols-4"
-                    : "grid-cols-3 sm:grid-cols-5"
-              )}
-            >
-              {sizeOptions.map((size) => (
-                <div
-                  key={size}
-                  className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/30 p-2"
-                >
-                  <span
-                    className="text-sm font-medium"
-                    title={formatSizeLabel(size)}
-                  >
-                    {size}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      onClick={() =>
-                        handleQuantityChange(
-                          size,
-                          (sizeQuantities[size] || 0) - 1
-                        )
-                      }
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </Button>
-                    <Input
-                      type="number"
-                      className="h-7 w-12 border-border bg-background text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      value={sizeQuantities[size] || 0}
-                      onChange={(e) =>
-                        handleQuantityChange(
-                          size,
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
-                      min={0}
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      onClick={() =>
-                        handleQuantityChange(
-                          size,
-                          (sizeQuantities[size] || 0) + 1
-                        )
-                      }
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* ── Error ─────────────────────────────────────────────────── */}
         {error && (

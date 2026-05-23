@@ -1,5 +1,6 @@
 import { FieldPath, type Firestore } from "firebase-admin/firestore";
-import { getSizesMap, totalUnits } from "@/lib/admin/inventory";
+import { getSizesMap, getStockForLine, totalUnits } from "@/lib/admin/inventory";
+import { parseColorVariants } from "@/lib/products/color-variants";
 
 export type OrderItemInput = {
   productId: string;
@@ -53,12 +54,16 @@ function readImage(data: Record<string, unknown>): string {
 
 function availableForLine(
   data: Record<string, unknown>,
-  size: string
+  size: string,
+  color: string
 ): number {
-  // Handles both modern `sizes` map and legacy `size: [{ M: 1 }]` arrays via
-  // the shared `getSizesMap` helper — keeps the server in lockstep with the
-  // listing / cart code paths (otherwise the server would say "0 available"
-  // for products that the storefront shows as in stock).
+  // Prefer the variant-aware lookup when the product has color variants —
+  // this enforces "M in wine has 1 left but M in navy is sold out" semantics.
+  const variants = parseColorVariants(data);
+  if (variants.length > 0 && color) {
+    return getStockForLine(data, color, size || null);
+  }
+  // Legacy paths: single union size map, or aggregate `stock` field.
   const map = getSizesMap(data);
   const hasMap = Object.keys(map).length > 0;
   if (size && hasMap) {
@@ -139,12 +144,15 @@ export async function recomputeOrderPricing(
         `Quantity for ${item.productId} is invalid.`
       );
     }
-    const available = availableForLine(data, item.size ?? "");
+    const available = availableForLine(data, item.size ?? "", item.color ?? "");
     if (qty > available) {
+      const desc = [item.color ? item.color : null, item.size ? `size ${item.size}` : null]
+        .filter(Boolean)
+        .join(" / ");
       throw new OrderValidationError(
         "INSUFFICIENT_STOCK",
         `${typeof data.name === "string" ? data.name : "A product"}${
-          item.size ? ` (size ${item.size})` : ""
+          desc ? ` (${desc})` : ""
         }: only ${available} available.`
       );
     }

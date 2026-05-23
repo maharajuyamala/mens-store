@@ -2,12 +2,21 @@
 
 import Image from "next/image";
 import { useRef } from "react";
-import { ImagePlus, Palette, Plus, UploadCloud, X } from "lucide-react";
+import {
+  ImagePlus,
+  Minus,
+  Palette,
+  Plus,
+  Ruler,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validateImageFile } from "@/lib/uploads/validate-image";
+import { formatSizeLabel } from "@/lib/products/size-options";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,7 +30,8 @@ export type DraftImage =
 /**
  * One in-flight color variant being authored. `color` is the canonical lowercase
  * name stored on the cart / order line; `label` is the optional pretty label
- * shown on the storefront; `hex` is the swatch fill.
+ * shown on the storefront; `hex` is the swatch fill; `sizes` is the per-size
+ * stock map for this color (e.g. `{ M: 2, L: 1 }`).
  */
 export type VariantDraft = {
   id: string;
@@ -29,6 +39,7 @@ export type VariantDraft = {
   label: string;
   hex: string;
   images: DraftImage[];
+  sizes: Record<string, number>;
 };
 
 let _vdUid = 0;
@@ -41,6 +52,7 @@ export function makeEmptyVariantDraft(): VariantDraft {
     label: "",
     hex: "#000000",
     images: [],
+    sizes: {},
   };
 }
 
@@ -49,6 +61,7 @@ export function makeVariantDraftFromExisting(input: {
   label?: string;
   hex?: string;
   images: string[];
+  sizes?: Record<string, number>;
 }): VariantDraft {
   return {
     id: nextId("vd"),
@@ -60,6 +73,7 @@ export function makeVariantDraftFromExisting(input: {
       id: nextId("img"),
       url,
     })),
+    sizes: { ...(input.sizes ?? {}) },
   };
 }
 
@@ -73,11 +87,21 @@ export function canonicalVariantName(draft: VariantDraft): string {
 type EditorProps = {
   drafts: VariantDraft[];
   onChange: (next: VariantDraft[]) => void;
+  /** Available size keys for this product (audience/category-dependent). */
+  sizeOptions: readonly string[];
+  /** Optional copy hint shown above the size grid (e.g. "Waist (inches)"). */
+  sizeGroupLabel?: string;
   /** Disable interactions during submit so the form can't be mutated mid-upload. */
   disabled?: boolean;
 };
 
-export function ColorVariantsEditor({ drafts, onChange, disabled }: EditorProps) {
+export function ColorVariantsEditor({
+  drafts,
+  onChange,
+  sizeOptions,
+  sizeGroupLabel,
+  disabled,
+}: EditorProps) {
   const addDraft = () => onChange([...drafts, makeEmptyVariantDraft()]);
 
   const removeDraft = (id: string) => {
@@ -144,7 +168,29 @@ export function ColorVariantsEditor({ drafts, onChange, disabled }: EditorProps)
     );
   };
 
-  const usableCount = drafts.filter((d) => d.images.length > 0).length;
+  const setSizeQty = (draftId: string, size: string, qty: number) => {
+    onChange(
+      drafts.map((d) => {
+        if (d.id !== draftId) return d;
+        const next: Record<string, number> = { ...d.sizes };
+        if (qty <= 0) delete next[size];
+        else next[size] = Math.max(0, Math.floor(qty));
+        return { ...d, sizes: next };
+      })
+    );
+  };
+
+  // Prune sizes that aren't in the current palette when audience/category
+  // changes (e.g. admin flips Shirts → Pants and the palette becomes 26/28/…).
+  // We don't mutate inside render; instead we surface the stale keys so the
+  // parent can show a warning if needed. The submit-time validator will catch
+  // sizes left in `draft.sizes` that aren't in `sizeOptions`.
+
+  const usableCount = drafts.filter(
+    (d) =>
+      d.images.length > 0 &&
+      Object.values(d.sizes).some((q) => Number(q) > 0)
+  ).length;
 
   return (
     <div className="space-y-3">
@@ -170,8 +216,9 @@ export function ColorVariantsEditor({ drafts, onChange, disabled }: EditorProps)
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Each color has its own photos. The storefront swaps the gallery when a
-        customer taps the matching swatch on the product page.
+        Each color has its own photos <span className="font-medium">and its own per-size stock</span>.
+        The storefront swaps the gallery and the size availability when a
+        customer taps the matching swatch.
       </p>
 
       <div className="space-y-4">
@@ -182,10 +229,13 @@ export function ColorVariantsEditor({ drafts, onChange, disabled }: EditorProps)
             draft={draft}
             canRemove={drafts.length > 1 && !disabled}
             disabled={disabled}
+            sizeOptions={sizeOptions}
+            sizeGroupLabel={sizeGroupLabel}
             onChange={(patch) => patchDraft(draft.id, patch)}
             onRemove={() => removeDraft(draft.id)}
             onAddImages={(files) => appendImages(draft.id, files)}
             onRemoveImage={(imageId) => removeImage(draft.id, imageId)}
+            onSizeChange={(size, qty) => setSizeQty(draft.id, size, qty)}
           />
         ))}
       </div>
@@ -198,22 +248,33 @@ function VariantDraftCard({
   draft,
   canRemove,
   disabled,
+  sizeOptions,
+  sizeGroupLabel,
   onChange,
   onRemove,
   onAddImages,
   onRemoveImage,
+  onSizeChange,
 }: {
   index: number;
   draft: VariantDraft;
   canRemove: boolean;
   disabled?: boolean;
+  sizeOptions: readonly string[];
+  sizeGroupLabel?: string;
   onChange: (patch: Partial<Pick<VariantDraft, "color" | "label" | "hex">>) => void;
   onRemove: () => void;
   onAddImages: (files: File[]) => void;
   onRemoveImage: (imageId: string) => void;
+  onSizeChange: (size: string, qty: number) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const openPicker = () => inputRef.current?.click();
+
+  const variantTotalStock = Object.values(draft.sizes).reduce(
+    (acc, n) => acc + (Number(n) || 0),
+    0
+  );
 
   const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = e.target.files;
@@ -396,6 +457,86 @@ function VariantDraftCard({
               <Plus className="h-5 w-5" />
               <span className="text-[9px] font-semibold">Add</span>
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* Per-color sizes & stock */}
+      <div className="mt-4 space-y-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Label className="inline-flex items-center gap-1.5 text-xs">
+            <Ruler className="h-3.5 w-3.5 text-orange-500" />
+            Sizes & stock for this color
+            <span className="text-muted-foreground">
+              ({variantTotalStock} unit{variantTotalStock === 1 ? "" : "s"})
+            </span>
+          </Label>
+          {sizeGroupLabel ? (
+            <span className="text-[11px] text-muted-foreground">
+              {sizeGroupLabel}
+            </span>
+          ) : null}
+        </div>
+        {sizeOptions.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-3 text-[11px] text-muted-foreground">
+            Pick a department + style above to choose sizes.
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {sizeOptions.map((size) => {
+              const qty = draft.sizes[size] ?? 0;
+              const inUse = qty > 0;
+              return (
+                <div
+                  key={size}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-md border bg-background/40 p-1.5 transition-colors",
+                    inUse ? "border-orange-500/60" : "border-border"
+                  )}
+                >
+                  <span
+                    className="text-xs font-semibold"
+                    title={formatSizeLabel(size)}
+                  >
+                    {size}
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      disabled={disabled}
+                      onClick={() => onSizeChange(size, qty - 1)}
+                      aria-label={`Decrease ${size}`}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={qty}
+                      onChange={(e) =>
+                        onSizeChange(size, parseInt(e.target.value, 10) || 0)
+                      }
+                      disabled={disabled}
+                      className="h-6 w-10 border-border bg-background px-1 text-center text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      disabled={disabled}
+                      onClick={() => onSizeChange(size, qty + 1)}
+                      aria-label={`Increase ${size}`}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

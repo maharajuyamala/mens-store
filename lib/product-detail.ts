@@ -5,6 +5,9 @@ import { computeProductStatus, type ProductStatus } from "@/lib/products/schema"
 import {
   flattenVariantImages,
   parseColorVariants,
+  sizesForColor,
+  stockForColorSize,
+  totalStockFromVariants,
   type ColorVariant,
 } from "@/lib/products/color-variants";
 
@@ -21,8 +24,18 @@ export type ProductDetail = {
   colors: string[];
   /** Per-color image groups. Empty for legacy products without variants. */
   colorVariants: ColorVariant[];
+  /** Union of every size the product is offered in (across colors). */
   sizes: string[];
-  stockForSize: (size: string) => number;
+  /**
+   * Stock for a given size — color-aware when the product has variants.
+   * If `color` is omitted, returns the union across all colors so legacy
+   * callers continue to work.
+   */
+  stockForSize: (size: string, color?: string) => number;
+  /** Per-color stock map. Returns the variant's full size map (zeros included). */
+  sizesForColor: (color: string) => Record<string, number>;
+  /** Sizes a customer can actually buy for a given color. */
+  availableSizesForColor: (color: string) => string[];
   totalStock: number;
   stockStatus: ProductStatus;
 };
@@ -89,32 +102,52 @@ export function parseProductDetail(
     sizesField.length > 0 &&
     sizesField.every((x) => typeof x === "string");
 
+  // `getSizesMap` already unions variants, so this branch covers both
+  // variant-aware and legacy single-map products.
   const sizesMap = getSizesMap(raw);
   let sizes: string[];
-  let stockForSize: (size: string) => number;
+  let stockForSizeFn: (size: string, color?: string) => number;
   let totalStock: number;
 
-  if (isStringSizeArray) {
+  if (colorVariants.length > 0) {
+    sizes = Object.keys(sizesMap);
+    totalStock = totalStockFromVariants(colorVariants);
+    stockForSizeFn = (s, color) => {
+      if (color) return stockForColorSize(colorVariants, color, s);
+      // No color picked yet → show how many units exist across all colors so
+      // the size pill isn't disabled prematurely.
+      return Math.max(0, Math.floor(sizesMap[s] ?? 0));
+    };
+  } else if (isStringSizeArray) {
     sizes = [...(sizesField as string[])];
     totalStock =
       typeof data.stock === "number" && !Number.isNaN(data.stock)
         ? Math.max(0, Math.floor(data.stock))
         : 0;
-    stockForSize = () => totalStock;
+    stockForSizeFn = () => totalStock;
   } else if (Object.keys(sizesMap).length > 0) {
     sizes = Object.keys(sizesMap);
     totalStock = totalUnits(sizesMap);
-    stockForSize = (s) => Math.max(0, Math.floor(sizesMap[s] ?? 0));
+    stockForSizeFn = (s) => Math.max(0, Math.floor(sizesMap[s] ?? 0));
   } else {
     sizes = [];
     totalStock =
       typeof data.stock === "number" && !Number.isNaN(data.stock)
         ? Math.max(0, Math.floor(data.stock))
         : 0;
-    stockForSize = () => totalStock;
+    stockForSizeFn = () => totalStock;
   }
 
   const stockStatus = computeProductStatus(totalStock);
+
+  const sizesForColorFn = (color: string) =>
+    sizesForColor(colorVariants, color);
+  const availableSizesForColorFn = (color: string) => {
+    const m = sizesForColor(colorVariants, color);
+    return Object.entries(m)
+      .filter(([, n]) => Number(n) > 0)
+      .map(([k]) => k);
+  };
 
   // Prefer flattened variant images so the gallery isn't out of sync when the
   // legacy `images` field wasn't kept up to date.
@@ -133,7 +166,9 @@ export function parseProductDetail(
     colors,
     colorVariants,
     sizes,
-    stockForSize,
+    stockForSize: stockForSizeFn,
+    sizesForColor: sizesForColorFn,
+    availableSizesForColor: availableSizesForColorFn,
     totalStock,
     stockStatus,
   };

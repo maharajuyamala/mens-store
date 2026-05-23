@@ -7,8 +7,9 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { getDb } from "@/app/firebase";
-import { getSizesMap } from "@/lib/admin/inventory";
+import { getSizesMap, getStockForLine } from "@/lib/admin/inventory";
 import { isListedProduct } from "@/lib/explore/types";
+import { parseColorVariants } from "@/lib/products/color-variants";
 import type { CartItem } from "@/store/cartStore";
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -18,7 +19,12 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 function availableForLine(data: DocumentData, line: CartItem): number {
-  const map = getSizesMap(data as Record<string, unknown>);
+  const raw = data as Record<string, unknown>;
+  const variants = parseColorVariants(raw);
+  if (variants.length > 0 && line.color) {
+    return getStockForLine(raw, line.color, line.size || null);
+  }
+  const map = getSizesMap(raw);
   if (line.size && Object.keys(map).length > 0) {
     const v = map[line.size];
     return typeof v === "number" ? Math.max(0, Math.floor(v)) : 0;

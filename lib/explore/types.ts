@@ -98,6 +98,8 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     if (a === "women" || a === "kids" || a === "men") audience = a;
   }
 
+  // `getSizesMap` already unions variant sizes when colorVariants exist, so
+  // the listing card / filters keep seeing a single per-size view.
   const sizesMap = getSizesMap(data as Record<string, unknown>);
   const hasSizesMap = Object.keys(sizesMap).length > 0;
   let sizes: string[];

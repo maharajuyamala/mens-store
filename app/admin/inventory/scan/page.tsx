@@ -18,9 +18,16 @@ import {
   resolveStock,
 } from "@/lib/products/firestore-map";
 import {
+  parseColorVariants,
+  sizesForColor,
+  variantLabel,
+  type ColorVariant,
+} from "@/lib/products/color-variants";
+import {
   listProductColors,
   productColorSwatchStyle,
 } from "@/lib/products/product-colors";
+import { swatchColor } from "@/lib/explore/color-swatches";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +60,21 @@ function resolveColor(data: Record<string, unknown>): string {
   return "";
 }
 
-function listSizeChoices(data: Record<string, unknown>): string[] {
+/**
+ * Size palette for the currently selected color. When the product has
+ * variants we restrict to that color's keys (with their stock count). For
+ * legacy products we fall back to the union map.
+ */
+function listSizeChoices(
+  data: Record<string, unknown>,
+  variants: ColorVariant[],
+  selectedColor: string
+): string[] {
+  if (variants.length > 0 && selectedColor) {
+    const map = sizesForColor(variants, selectedColor);
+    const keys = Object.keys(map);
+    if (keys.length > 0) return [...keys].sort();
+  }
   const map = getSizesMap(data);
   const keys = Object.keys(map);
   if (keys.length > 0) return [...keys].sort();
@@ -64,7 +85,11 @@ function listSizeChoices(data: Record<string, unknown>): string[] {
   return [""];
 }
 
-function needsExplicitSize(data: Record<string, unknown>): boolean {
+function needsExplicitSize(
+  data: Record<string, unknown>,
+  variants: ColorVariant[]
+): boolean {
+  if (variants.length > 0) return true;
   return Object.keys(getSizesMap(data)).length > 0;
 }
 
@@ -96,6 +121,7 @@ function AdminInventoryScanPageInner() {
   const [sellPrice, setSellPrice] = useState("");
   const [restockQty, setRestockQty] = useState(1);
   const [lineSize, setLineSize] = useState("");
+  const [lineColor, setLineColor] = useState("");
   const [sellSubmitting, setSellSubmitting] = useState(false);
   const [restockSubmitting, setRestockSubmitting] = useState(false);
 
@@ -161,17 +187,40 @@ function AdminInventoryScanPageInner() {
     void loadProductById(id);
   }, [searchParams, loadProductById]);
 
+  // Default the color picker to the first variant that still has stock.
+  useEffect(() => {
+    if (!loaded) {
+      setLineColor("");
+      return;
+    }
+    const variants = parseColorVariants(loaded.data);
+    if (variants.length > 0) {
+      const firstWithStock =
+        variants.find((v) =>
+          Object.values(v.sizes).some((q) => Number(q) > 0)
+        )?.color ?? variants[0]!.color;
+      setLineColor(firstWithStock);
+      return;
+    }
+    setLineColor(resolveColor(loaded.data));
+  }, [loaded?.id, loaded?.data]);
+
+  // Reset the size choice whenever the color changes — sizes are per-color.
   useEffect(() => {
     if (!loaded) {
       setLineSize("");
       return;
     }
-    const opts = listSizeChoices(loaded.data);
-    const map = getSizesMap(loaded.data);
+    const variants = parseColorVariants(loaded.data);
+    const opts = listSizeChoices(loaded.data, variants, lineColor);
+    const map =
+      variants.length > 0 && lineColor
+        ? sizesForColor(variants, lineColor)
+        : getSizesMap(loaded.data);
     const preferred =
       opts.find((k) => k && (map[k] ?? 0) > 0) ?? opts.find(Boolean) ?? "";
     setLineSize(preferred);
-  }, [loaded?.id, loaded?.data]);
+  }, [loaded?.id, loaded?.data, lineColor]);
 
   useEffect(() => {
     return () => {
@@ -241,9 +290,14 @@ function AdminInventoryScanPageInner() {
       toast.error("Sign in as admin to record a sale.");
       return;
     }
-    const needSize = needsExplicitSize(loaded.data);
+    const variants = parseColorVariants(loaded.data);
+    const needSize = needsExplicitSize(loaded.data, variants);
     if (needSize && !lineSize) {
       toast.error("Select a size.");
+      return;
+    }
+    if (variants.length > 0 && !lineColor) {
+      toast.error("Select a color.");
       return;
     }
     const qty = Math.max(1, Math.floor(sellQty));
@@ -253,6 +307,8 @@ function AdminInventoryScanPageInner() {
       return;
     }
     const imgs = normalizeImageUrls(loaded.data);
+    const cartColor =
+      variants.length > 0 ? lineColor : resolveColor(loaded.data);
     const item: CartItem = {
       id:
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -266,7 +322,7 @@ function AdminInventoryScanPageInner() {
       image: imgs[0] ?? "",
       price: unit,
       size: needSize ? lineSize : "",
-      color: resolveColor(loaded.data),
+      color: cartColor,
       quantity: qty,
     };
 
@@ -293,9 +349,14 @@ function AdminInventoryScanPageInner() {
 
   const onRestock = async () => {
     if (!loaded) return;
-    const needSize = needsExplicitSize(loaded.data);
+    const variants = parseColorVariants(loaded.data);
+    const needSize = needsExplicitSize(loaded.data, variants);
     if (needSize && !lineSize) {
       toast.error("Select a size.");
+      return;
+    }
+    if (variants.length > 0 && !lineColor) {
+      toast.error("Select a color.");
       return;
     }
     const qty = Math.max(1, Math.floor(restockQty));
@@ -303,8 +364,13 @@ function AdminInventoryScanPageInner() {
     try {
       await applyStockDelta(loaded.id, qty, {
         size: needSize ? lineSize : undefined,
+        color: variants.length > 0 ? lineColor : undefined,
       });
-      toast.success(`Added ${qty} unit(s) to stock`);
+      toast.success(
+        variants.length > 0
+          ? `Added ${qty} unit(s) to ${lineColor} / ${lineSize}`
+          : `Added ${qty} unit(s) to stock`
+      );
       await loadProductById(loaded.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update stock.");
@@ -316,9 +382,23 @@ function AdminInventoryScanPageInner() {
   const stockLabel = loaded
     ? resolveStock(loaded.data)
     : null;
-  const sizeOpts = loaded ? listSizeChoices(loaded.data) : [];
-  const map = loaded ? getSizesMap(loaded.data) : {};
-  const showSizeSelect = loaded && (needsExplicitSize(loaded.data) || sizeOpts.some(Boolean));
+  const variants = useMemo(
+    () => (loaded ? parseColorVariants(loaded.data) : []),
+    [loaded]
+  );
+  const sizeOpts = loaded
+    ? listSizeChoices(loaded.data, variants, lineColor)
+    : [];
+  const sizeMap = useMemo(() => {
+    if (!loaded) return {};
+    if (variants.length > 0 && lineColor) {
+      return sizesForColor(variants, lineColor);
+    }
+    return getSizesMap(loaded.data);
+  }, [loaded, variants, lineColor]);
+  const showSizeSelect =
+    loaded &&
+    (needsExplicitSize(loaded.data, variants) || sizeOpts.some(Boolean));
 
   const availableColors = useMemo(
     () => (loaded ? listProductColors(loaded.data) : []),
@@ -431,7 +511,46 @@ function AdminInventoryScanPageInner() {
             </div>
           </div>
 
-          {availableColors.length > 0 ? (
+          {variants.length > 0 ? (
+            <div className="space-y-2">
+              <Label className="text-foreground">Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((v) => {
+                  const selected = v.color === lineColor;
+                  const totalForColor = Object.values(v.sizes).reduce(
+                    (a, b) => a + (Number(b) || 0),
+                    0
+                  );
+                  const fill = v.hex ?? swatchColor(v.color);
+                  return (
+                    <button
+                      key={v.color}
+                      type="button"
+                      onClick={() => setLineColor(v.color)}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        selected
+                          ? "border-orange-500 bg-orange-500/10 text-foreground ring-1 ring-orange-500/30"
+                          : "border-border bg-muted/30 text-foreground hover:border-orange-500/40"
+                      )}
+                      aria-pressed={selected}
+                      title={`${variantLabel(v)} — ${totalForColor} in stock`}
+                    >
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full border border-black/15 shadow-sm dark:border-white/20"
+                        style={{ backgroundColor: fill }}
+                        aria-hidden
+                      />
+                      {variantLabel(v)}
+                      <span className="text-xs text-muted-foreground">
+                        ({totalForColor})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : availableColors.length > 0 ? (
             <div className="space-y-2">
               <Label className="text-foreground">Available colors</Label>
               <div className="flex flex-wrap gap-2">
@@ -458,7 +577,14 @@ function AdminInventoryScanPageInner() {
 
           {showSizeSelect ? (
             <div className="space-y-2">
-              <Label>Size</Label>
+              <Label>
+                Size
+                {variants.length > 0 && lineColor ? (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    for {lineColor}
+                  </span>
+                ) : null}
+              </Label>
               <Select value={lineSize} onValueChange={setLineSize}>
                 <SelectTrigger className="border-border bg-background">
                   <SelectValue placeholder="Size" />
@@ -469,7 +595,9 @@ function AdminInventoryScanPageInner() {
                     .map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
-                        {map[s] !== undefined ? ` (${map[s]} on hand)` : ""}
+                        {sizeMap[s] !== undefined
+                          ? ` (${sizeMap[s]} on hand)`
+                          : ""}
                       </SelectItem>
                     ))}
                 </SelectContent>
