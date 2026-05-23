@@ -43,7 +43,9 @@ export async function fetchListedProductsByIds(
     for (const d of snap.docs) {
       const data = d.data();
       if (!isListedProduct(data)) continue;
-      map.set(d.id, docToExploreProduct(d.id, data));
+      const p = docToExploreProduct(d.id, data);
+      if (p.stockStatus === "out_of_stock") continue;
+      map.set(d.id, p);
     }
   }
 

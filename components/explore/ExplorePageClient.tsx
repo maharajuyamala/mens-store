@@ -434,7 +434,15 @@ function ExploreCatalog({
         toast.error("Out of stock", { description: p.name });
         return;
       }
-      const size = p.sizes.length > 0 ? p.sizes[0]! : "";
+      // Prefer a size that actually has units available.
+      const sizeKeys = Object.keys(p.sizesStock);
+      const inStockSize =
+        sizeKeys.find((s) => (p.sizesStock[s] ?? 0) > 0) ?? null;
+      const size = inStockSize ?? (p.sizes.length > 0 ? p.sizes[0]! : "");
+      if (sizeKeys.length > 0 && !inStockSize) {
+        toast.error("Out of stock", { description: p.name });
+        return;
+      }
       const color = p.colors.length > 0 ? p.colors[0]! : "";
       addItem({
         productId: p.doc_id,

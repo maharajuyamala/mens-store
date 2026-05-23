@@ -146,7 +146,10 @@ export function pickRelatedProducts(
     .filter((d) => d.id !== currentId && isListedProduct(d.data()))
     .map((d) => docToExploreProduct(d.id, d.data()))
     .filter(
-      (p) => p.category && p.category.toLowerCase() === cat
+      (p) =>
+        p.stockStatus !== "out_of_stock" &&
+        p.category &&
+        p.category.toLowerCase() === cat
     )
     .sort((a, b) => b.createdAtMs - a.createdAtMs)
     .slice(0, limit);

@@ -25,7 +25,9 @@ function mergeProducts(
   for (const d of docs) {
     const data = d.data();
     if (!isListedProduct(data)) continue;
-    into.set(d.id, docToExploreProduct(d.id, data));
+    const p = docToExploreProduct(d.id, data);
+    if (p.stockStatus === "out_of_stock") continue;
+    into.set(d.id, p);
   }
 }
 
@@ -96,6 +98,7 @@ export async function searchListedProducts(
         const data = d.data();
         if (!isListedProduct(data)) continue;
         const p = docToExploreProduct(d.id, data);
+        if (p.stockStatus === "out_of_stock") continue;
         const nameOk = p.name.toLowerCase().includes(lower);
         const tagOk = p.tags.some(
           (t) => t.includes(lower) || lower.includes(t)

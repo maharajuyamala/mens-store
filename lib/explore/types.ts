@@ -18,7 +18,10 @@ export type ExploreProduct = {
   /** Department: men / women / kids (defaults to men when missing in Firestore). */
   audience: ProductAudience;
   tags: string[];
+  /** Sizes the customer can actually buy (per-size stock > 0 when known). */
   sizes: string[];
+  /** Per-size available units. Empty when product has no size map (legacy flat stock). */
+  sizesStock: Record<string, number>;
   colors: string[];
   stockStatus: ReturnType<typeof computeProductStatus>;
   stock: number;
@@ -80,21 +83,37 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     if (a === "women" || a === "kids" || a === "men") audience = a;
   }
 
-  let sizes: string[] = [];
-  if (Array.isArray(data.sizes)) {
+  const sizesMap = getSizesMap(data as Record<string, unknown>);
+  const hasSizesMap = Object.keys(sizesMap).length > 0;
+  let sizes: string[];
+  if (hasSizesMap) {
+    sizes = Object.entries(sizesMap)
+      .filter(([, v]) => Number(v) > 0)
+      .map(([k]) => k);
+  } else if (Array.isArray(data.sizes)) {
     sizes = data.sizes.map((s) => String(s));
   } else {
-    sizes = Object.keys(getSizesMap(data as Record<string, unknown>));
+    sizes = [];
   }
 
   const colors = Array.isArray(data.colors)
     ? data.colors.map((c) => String(c).toLowerCase().trim())
     : [];
 
-  const stock =
-    typeof data.stock === "number" && !Number.isNaN(data.stock)
+  // Per-size stock map (kept only when we actually have one; empty for legacy flat-stock docs).
+  const sizesStock: Record<string, number> = {};
+  if (hasSizesMap) {
+    for (const [k, v] of Object.entries(sizesMap)) {
+      const n = Math.max(0, Math.floor(Number(v) || 0));
+      sizesStock[k] = n;
+    }
+  }
+
+  const stock = hasSizesMap
+    ? totalUnits(sizesMap)
+    : typeof data.stock === "number" && !Number.isNaN(data.stock)
       ? Math.max(0, Math.floor(data.stock))
-      : totalUnits(getSizesMap(data as Record<string, unknown>));
+      : 0;
 
   const stockStatus = computeProductStatus(stock);
 
@@ -109,6 +128,7 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     audience,
     tags,
     sizes,
+    sizesStock,
     colors,
     stockStatus,
     stock,

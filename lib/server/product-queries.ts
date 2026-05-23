@@ -20,7 +20,10 @@ export const fetchListedExploreProducts = cache(
         try {
           const data = d.data();
           if (!isListedProduct(data)) continue;
-          out.push(docToExploreProduct(d.id, data));
+          const p = docToExploreProduct(d.id, data);
+          // Hide out-of-stock products from public listings.
+          if (p.stockStatus === "out_of_stock") continue;
+          out.push(p);
         } catch (err) {
           console.error(
             "[fetchListedExploreProducts] skipped malformed doc",
