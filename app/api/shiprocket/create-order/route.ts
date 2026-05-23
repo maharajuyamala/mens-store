@@ -36,6 +36,7 @@ const pricingSchema = z.object({
   discount: z.number().nonnegative(),
   shipping: z.number().nonnegative(),
   total: z.number().nonnegative(),
+  advancePaid: z.number().nonnegative().optional(),
 });
 
 const bodySchema = z.object({

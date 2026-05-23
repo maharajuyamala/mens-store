@@ -52,6 +52,11 @@ export type RazorpayCheckoutInput = {
     email: string;
     phone: string;
   };
+  /**
+   * "full" (default) — collect the full order total online.
+   * "advance" — collect only the COD prepayment amount; the rest is collected by courier.
+   */
+  mode?: "full" | "advance";
 };
 
 export type RazorpayCheckoutResult = {
@@ -83,6 +88,7 @@ export async function runRazorpayCheckout(
     body: JSON.stringify({
       items: input.items,
       discount: input.discount,
+      mode: input.mode ?? "full",
     }),
   });
   const createJson = (await createRes.json().catch(() => null)) as

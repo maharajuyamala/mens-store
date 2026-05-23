@@ -5,11 +5,15 @@ const KEY = "mens-store-last-order";
 export type CachedOrderConfirmation = {
   orderId: string;
   orderNumber: string;
+  paymentMethod?: "cod" | "online";
+  paymentStatus?: "paid" | "partial" | "due";
   pricing: {
     subtotal: number;
     discount: number;
     shipping: number;
     total: number;
+    advancePaid?: number;
+    balanceDue?: number;
     couponCode?: string | null;
   };
   items: Array<{

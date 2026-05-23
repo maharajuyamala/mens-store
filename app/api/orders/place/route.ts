@@ -11,6 +11,7 @@ import {
   recomputeOrderPricing,
 } from "@/lib/server/recompute-pricing";
 import { guardWriteRequest } from "@/lib/api/security";
+import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import { renderOrderConfirmationEmail } from "@/lib/email/templates";
 
@@ -112,41 +113,45 @@ export async function POST(request: Request) {
     }
   }
 
-  // For online payment, require a verified Razorpay reference — otherwise reject.
+  // Both "online" (full) and "cod" (advance) require a verified Razorpay reference.
   // (The /api/payments/razorpay/verify route writes the verification under
   // razorpay_payments/{paymentId} so we can re-confirm it here.)
-  if (parsed.paymentMethod === "online") {
-    if (!parsed.payment?.razorpayPaymentId) {
+  if (!parsed.payment?.razorpayPaymentId) {
+    return NextResponse.json(
+      {
+        error: "payment_required",
+        message:
+          parsed.paymentMethod === "online"
+            ? "Online orders require a verified payment reference."
+            : "COD orders require an online advance payment.",
+      },
+      { status: 400 }
+    );
+  }
+  try {
+    const snap = await db
+      .collection("razorpay_payments")
+      .doc(parsed.payment.razorpayPaymentId)
+      .get();
+    if (!snap.exists) {
       return NextResponse.json(
-        { error: "payment_required", message: "Online orders require a verified payment reference." },
+        { error: "payment_not_verified", message: "Payment reference not found." },
         { status: 400 }
       );
     }
-    try {
-      const snap = await db
-        .collection("razorpay_payments")
-        .doc(parsed.payment.razorpayPaymentId)
-        .get();
-      if (!snap.exists) {
-        return NextResponse.json(
-          { error: "payment_not_verified", message: "Payment reference not found." },
-          { status: 400 }
-        );
-      }
-      const data = snap.data();
-      if (data?.status !== "verified") {
-        return NextResponse.json(
-          { error: "payment_not_verified", message: "Payment signature was not verified." },
-          { status: 400 }
-        );
-      }
-    } catch (e) {
-      console.error("[orders/place] payment lookup failed", e);
+    const data = snap.data();
+    if (data?.status !== "verified") {
       return NextResponse.json(
-        { error: "payment_lookup_failed", message: "Could not verify payment." },
-        { status: 500 }
+        { error: "payment_not_verified", message: "Payment signature was not verified." },
+        { status: 400 }
       );
     }
+  } catch (e) {
+    console.error("[orders/place] payment lookup failed", e);
+    return NextResponse.json(
+      { error: "payment_lookup_failed", message: "Could not verify payment." },
+      { status: 500 }
+    );
   }
 
   // Recompute pricing server-side. Discount is capped at subtotal.
@@ -172,6 +177,19 @@ export async function POST(request: Request) {
   const orderNumber = generateOrderNumber();
   const orderRef = db.collection("orders").doc();
 
+  const advancePaid =
+    parsed.paymentMethod === "cod"
+      ? Math.min(COD_ADVANCE_INR, pricing.total)
+      : pricing.total;
+  const balanceDue =
+    Math.round((pricing.total - advancePaid) * 100) / 100;
+  const paymentStatus =
+    parsed.paymentMethod === "online"
+      ? "paid"
+      : balanceDue > 0
+        ? "partial"
+        : "paid";
+
   const orderDoc: Record<string, unknown> = {
     userId: uid ?? "guest",
     orderNumber,
@@ -182,11 +200,13 @@ export async function POST(request: Request) {
       discount: pricing.discount,
       shipping: pricing.shipping,
       total: pricing.total,
+      advancePaid,
+      balanceDue,
       couponCode: parsed.couponCode ?? null,
     },
     status: "pending",
     paymentMethod: parsed.paymentMethod,
-    paymentStatus: parsed.paymentMethod === "online" ? "paid" : "due",
+    paymentStatus,
     createdAt: FieldValue.serverTimestamp(),
     shipping: {
       provider: "shiprocket",
@@ -320,6 +340,8 @@ export async function POST(request: Request) {
       discount: pricing.discount,
       shipping: pricing.shipping,
       total: pricing.total,
+      advancePaid,
+      balanceDue,
       paymentMethod: parsed.paymentMethod,
     });
     await sendTransactionalEmail({
@@ -339,8 +361,12 @@ export async function POST(request: Request) {
       discount: pricing.discount,
       shipping: pricing.shipping,
       total: pricing.total,
+      advancePaid,
+      balanceDue,
       couponCode: parsed.couponCode ?? null,
     },
+    paymentMethod: parsed.paymentMethod,
+    paymentStatus,
     items: pricing.lines,
   });
 }

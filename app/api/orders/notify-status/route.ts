@@ -129,6 +129,14 @@ export async function POST(request: Request) {
       discount: Number(pricing.discount) || 0,
       shipping: Number(pricing.shipping) || 0,
       total: Number(pricing.total) || 0,
+      advancePaid:
+        pricing.advancePaid != null
+          ? Number(pricing.advancePaid) || 0
+          : undefined,
+      balanceDue:
+        pricing.balanceDue != null
+          ? Number(pricing.balanceDue) || 0
+          : undefined,
       paymentMethod:
         typeof order.paymentMethod === "string" ? order.paymentMethod : "cod",
       trackingUrl,

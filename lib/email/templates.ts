@@ -15,6 +15,10 @@ export type EmailOrderSummary = {
   discount: number;
   shipping: number;
   total: number;
+  /** Amount already collected online (Razorpay). Defaults to `total` for online, 0 for COD. */
+  advancePaid?: number;
+  /** Remaining amount the courier collects on delivery (COD only). Defaults to 0. */
+  balanceDue?: number;
   paymentMethod: "cod" | "online" | string;
   trackingUrl?: string;
 };
@@ -83,12 +87,22 @@ function itemsTable(items: EmailOrderLine[]): string {
 }
 
 function totalsBlock(o: EmailOrderSummary): string {
+  const balance = Number(o.balanceDue ?? 0);
+  const advance = Number(o.advancePaid ?? 0);
+  const splitRows =
+    o.paymentMethod === "cod" && balance > 0
+      ? `<tr><td style="color:#64748b;padding-top:8px;">Advance paid online</td>
+          <td align="right" style="padding-top:8px;">${escapeHtml(inr.format(advance))}</td></tr>
+        <tr><td style="color:#0f172a;font-weight:600;">Balance due on delivery</td>
+          <td align="right" style="color:#ea580c;font-weight:600;">${escapeHtml(inr.format(balance))}</td></tr>`
+      : "";
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;margin-top:16px;">
     <tr><td style="color:#64748b;">Subtotal</td><td align="right">${escapeHtml(inr.format(o.subtotal))}</td></tr>
     ${o.discount > 0 ? `<tr><td style="color:#64748b;">Discount</td><td align="right" style="color:#059669;">−${escapeHtml(inr.format(o.discount))}</td></tr>` : ""}
     <tr><td style="color:#64748b;">Shipping</td><td align="right">${o.shipping === 0 ? "Free" : escapeHtml(inr.format(o.shipping))}</td></tr>
     <tr><td style="padding-top:8px;border-top:1px solid #e5e7eb;font-weight:600;">Total</td>
         <td align="right" style="padding-top:8px;border-top:1px solid #e5e7eb;font-weight:600;color:#ea580c;">${escapeHtml(inr.format(o.total))}</td></tr>
+    ${splitRows}
   </table>`;
 }
 
@@ -98,9 +112,13 @@ export function renderOrderConfirmationEmail(o: EmailOrderSummary): {
   text: string;
 } {
   const subject = `Order ${o.orderNumber} confirmed — SecondSkin`;
+  const balance = Number(o.balanceDue ?? 0);
+  const advance = Number(o.advancePaid ?? 0);
   const paymentNote =
     o.paymentMethod === "cod"
-      ? `<p style="margin:0 0 8px 0;color:#475569;">Payment: Cash on delivery</p>`
+      ? balance > 0
+        ? `<p style="margin:0 0 8px 0;color:#475569;">Payment: Cash on delivery — ${escapeHtml(inr.format(advance))} paid online, ${escapeHtml(inr.format(balance))} due on delivery.</p>`
+        : `<p style="margin:0 0 8px 0;color:#475569;">Payment: Cash on delivery</p>`
       : `<p style="margin:0 0 8px 0;color:#475569;">Payment: Paid online — thank you!</p>`;
   const body = `
     <h1 style="margin:0 0 8px 0;font-size:22px;letter-spacing:-0.01em;">Thanks for your order, ${escapeHtml(o.customerName.split(/\s+/)[0] ?? "friend")}!</h1>

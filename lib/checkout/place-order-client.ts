@@ -11,8 +11,12 @@ export type PlaceOrderServerResponse = {
     discount: number;
     shipping: number;
     total: number;
+    advancePaid: number;
+    balanceDue: number;
     couponCode: string | null;
   };
+  paymentMethod: "cod" | "online";
+  paymentStatus: "paid" | "partial" | "due";
   items: Array<{
     productId: string;
     name: string;

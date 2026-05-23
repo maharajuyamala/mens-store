@@ -31,6 +31,8 @@ export type BuildPayloadInput = {
     discount: number;
     shipping: number;
     total: number;
+    /** Online advance already collected (Razorpay). Courier only collects total − advancePaid. */
+    advancePaid?: number;
   };
 };
 
@@ -112,6 +114,19 @@ export function buildShiprocketPayload(
     .replace("T", " ")
     .slice(0, 19);
 
+  // For COD with an online advance, only the balance is collected by the courier.
+  // Shiprocket reads `sub_total` as the COD collection amount, so we send the
+  // post-advance balance here for COD; for Prepaid we send the real subtotal.
+  const advancePaid = Math.max(0, Number(input.pricing.advancePaid ?? 0));
+  const codCollection = Math.max(
+    0,
+    Number((input.pricing.total - advancePaid).toFixed(2))
+  );
+  const subTotal =
+    paymentMethod === "COD"
+      ? codCollection
+      : Number(input.pricing.subtotal.toFixed(2));
+
   return {
     order_id: input.orderNumber,
     order_date: orderDate,
@@ -131,8 +146,11 @@ export function buildShiprocketPayload(
     order_items: buildItems(input.items),
     payment_method: paymentMethod,
     shipping_charges: Number(input.pricing.shipping.toFixed(2)),
-    total_discount: Number(input.pricing.discount.toFixed(2)),
-    sub_total: Number(input.pricing.subtotal.toFixed(2)),
+    total_discount:
+      paymentMethod === "COD"
+        ? 0
+        : Number(input.pricing.discount.toFixed(2)),
+    sub_total: subTotal,
     length: dims.length,
     breadth: dims.breadth,
     height: dims.height,

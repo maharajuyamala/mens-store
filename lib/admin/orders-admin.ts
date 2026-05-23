@@ -19,6 +19,8 @@ export type OrderPricing = {
   discount?: number;
   shipping?: number;
   total?: number;
+  advancePaid?: number;
+  balanceDue?: number;
   couponCode?: string | null;
 };
 
@@ -60,6 +62,7 @@ export type AdminOrder = {
   createdAt: Date | null;
   status: OrderStatus;
   paymentMethod: string;
+  paymentStatus?: "paid" | "partial" | "due";
   userId: string;
   items: OrderLine[];
   shippingAddress: ShippingAddress;
@@ -149,6 +152,9 @@ function parsePricing(raw: unknown): OrderPricing {
     discount: num("discount"),
     shipping: num("shipping"),
     total: num("total"),
+    advancePaid:
+      "advancePaid" in r ? num("advancePaid") : undefined,
+    balanceDue: "balanceDue" in r ? num("balanceDue") : undefined,
     couponCode:
       r.couponCode === null || typeof r.couponCode === "string"
         ? (r.couponCode as string | null)
@@ -175,6 +181,14 @@ function parseShippingRecord(raw: unknown): ShippingRecord | null {
 }
 
 export function docToAdminOrder(id: string, data: Record<string, unknown>): AdminOrder {
+  const paymentStatusRaw =
+    typeof data.paymentStatus === "string" ? data.paymentStatus : undefined;
+  const paymentStatus =
+    paymentStatusRaw === "paid" ||
+    paymentStatusRaw === "partial" ||
+    paymentStatusRaw === "due"
+      ? (paymentStatusRaw as "paid" | "partial" | "due")
+      : undefined;
   return {
     id,
     orderNumber: typeof data.orderNumber === "string" ? data.orderNumber : id.slice(0, 8),
@@ -182,6 +196,7 @@ export function docToAdminOrder(id: string, data: Record<string, unknown>): Admi
     status: parseStatus(data.status),
     paymentMethod:
       typeof data.paymentMethod === "string" ? data.paymentMethod : "—",
+    paymentStatus,
     userId: typeof data.userId === "string" ? data.userId : "guest",
     items: parseItems(data.items),
     shippingAddress: parseShipping(data.shippingAddress),
@@ -244,7 +259,10 @@ export function ordersToCsv(orders: AdminOrder[]): string {
     "Discount",
     "Shipping",
     "Total",
+    "Advance paid",
+    "Balance due",
     "Payment",
+    "Payment status",
     "Status",
     "User id",
   ];
@@ -264,7 +282,14 @@ export function ordersToCsv(orders: AdminOrder[]): string {
       p.discount != null && !Number.isNaN(p.discount) ? String(p.discount) : "",
       p.shipping != null && !Number.isNaN(p.shipping) ? String(p.shipping) : "",
       p.total != null && !Number.isNaN(p.total) ? String(p.total) : "",
+      p.advancePaid != null && !Number.isNaN(p.advancePaid)
+        ? String(p.advancePaid)
+        : "",
+      p.balanceDue != null && !Number.isNaN(p.balanceDue)
+        ? String(p.balanceDue)
+        : "",
       o.paymentMethod,
+      o.paymentStatus ?? "",
       o.status,
       o.userId,
     ].map((c) => csvEscape(String(c)));

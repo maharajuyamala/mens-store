@@ -24,6 +24,8 @@ type OrderPricing = {
   discount?: number;
   shipping?: number;
   total?: number;
+  advancePaid?: number;
+  balanceDue?: number;
   couponCode?: string | null;
 };
 
@@ -35,6 +37,8 @@ type ShippingSummary = {
 
 type LoadedOrder = {
   orderNumber: string;
+  paymentMethod?: "cod" | "online";
+  paymentStatus?: "paid" | "partial" | "due";
   pricing: OrderPricing;
   items: Array<{
     name: string;
@@ -74,6 +78,8 @@ function OrderConfirmationInner() {
     if (cached) {
       setOrder({
         orderNumber: cached.orderNumber,
+        paymentMethod: cached.paymentMethod,
+        paymentStatus: cached.paymentStatus,
         pricing: cached.pricing,
         items: cached.items,
         shipping: cached.shipping
@@ -102,6 +108,16 @@ function OrderConfirmationInner() {
         const orderNumber =
           typeof d.orderNumber === "string" ? d.orderNumber : "—";
         const pricing = (d.pricing ?? {}) as OrderPricing;
+        const paymentMethod =
+          d.paymentMethod === "online" || d.paymentMethod === "cod"
+            ? (d.paymentMethod as "online" | "cod")
+            : undefined;
+        const paymentStatus =
+          d.paymentStatus === "paid" ||
+          d.paymentStatus === "partial" ||
+          d.paymentStatus === "due"
+            ? (d.paymentStatus as "paid" | "partial" | "due")
+            : undefined;
         const rawItems = Array.isArray(d.items) ? d.items : [];
         const items = rawItems.map((row: Record<string, unknown>) => ({
           name: typeof row.name === "string" ? row.name : "Item",
@@ -127,7 +143,14 @@ function OrderConfirmationInner() {
                     : null,
               }
             : undefined;
-        setOrder({ orderNumber, pricing, items, shipping });
+        setOrder({
+          orderNumber,
+          paymentMethod,
+          paymentStatus,
+          pricing,
+          items,
+          shipping,
+        });
       } catch (e) {
         if (!cancelled) {
           setError(
@@ -191,6 +214,10 @@ function OrderConfirmationInner() {
   }
 
   const p = order.pricing;
+  const isCodPartial =
+    order.paymentMethod === "cod" &&
+    typeof p.balanceDue === "number" &&
+    p.balanceDue > 0;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-24 pb-16">
@@ -255,6 +282,26 @@ function OrderConfirmationInner() {
                 {inr.format(p.total)}
               </span>
             </div>
+          ) : null}
+          {isCodPartial ? (
+            <div className="mt-3 space-y-1 rounded-md border border-orange-500/30 bg-orange-500/5 p-3 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Advance paid online</span>
+                <span className="tabular-nums">
+                  {inr.format(p.advancePaid ?? 0)}
+                </span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span>Balance due on delivery</span>
+                <span className="tabular-nums text-orange-600">
+                  {inr.format(p.balanceDue ?? 0)}
+                </span>
+              </div>
+            </div>
+          ) : order.paymentMethod === "online" ? (
+            <p className="mt-3 text-xs text-emerald-600">
+              Paid online via Razorpay.
+            </p>
           ) : null}
         </div>
       </div>

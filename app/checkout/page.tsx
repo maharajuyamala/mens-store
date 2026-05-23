@@ -21,6 +21,7 @@ import {
 import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/deliverySchema";
 import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
+import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
 import {
   placeOrderViaServer,
   PlaceOrderError,
@@ -64,7 +65,7 @@ export default function CheckoutPage() {
   const [deliveryPrefsLoaded, setDeliveryPrefsLoaded] = useState(false);
   const [pincodeError, setPincodeError] = useState<string | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod");
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("online");
 
   const form = useForm<DeliveryFormValues>({
     resolver: zodResolver(deliverySchema),
@@ -151,42 +152,42 @@ export default function CheckoutPage() {
       const shippingAddress = getValues();
       writeSavedDelivery(shippingAddress);
 
-      // 1) For online payment, run Razorpay first. Server creates the order
-      //    (re-priced from products), customer pays, signature is verified.
+      // 1) Run Razorpay first. For "online" we charge the full total; for
+      //    "cod" we collect only a fixed advance (COD_ADVANCE_INR). The server
+      //    re-prices the cart and decides the actual paise amount.
       let paymentRef:
         | { razorpayOrderId: string; razorpayPaymentId: string }
         | undefined;
-      if (paymentMethod === "online") {
-        try {
-          const result = await runRazorpayCheckout({
-            items: items.map((i) => ({
-              productId: i.productId,
-              quantity: i.quantity,
-              size: i.size || undefined,
-              color: i.color || undefined,
-            })),
-            discount: pricing.discount,
-            customer: {
-              name: shippingAddress.fullName,
-              email: shippingAddress.email,
-              phone: shippingAddress.phone,
-            },
-          });
-          paymentRef = {
-            razorpayOrderId: result.razorpayOrderId,
-            razorpayPaymentId: result.razorpayPaymentId,
-          };
-        } catch (e) {
-          if (e instanceof RazorpayCheckoutError) {
-            if (e.code === "dismissed") {
-              toast.message("Payment cancelled");
-              return;
-            }
-            toast.error("Payment failed", { description: e.message });
+      try {
+        const result = await runRazorpayCheckout({
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            size: i.size || undefined,
+            color: i.color || undefined,
+          })),
+          discount: pricing.discount,
+          customer: {
+            name: shippingAddress.fullName,
+            email: shippingAddress.email,
+            phone: shippingAddress.phone,
+          },
+          mode: paymentMethod === "cod" ? "advance" : "full",
+        });
+        paymentRef = {
+          razorpayOrderId: result.razorpayOrderId,
+          razorpayPaymentId: result.razorpayPaymentId,
+        };
+      } catch (e) {
+        if (e instanceof RazorpayCheckoutError) {
+          if (e.code === "dismissed") {
+            toast.message("Payment cancelled");
             return;
           }
-          throw e;
+          toast.error("Payment failed", { description: e.message });
+          return;
         }
+        throw e;
       }
 
       // 2) Server-authoritative order placement. Server re-prices the cart from
@@ -210,11 +211,15 @@ export default function CheckoutPage() {
       writeOrderConfirmation({
         orderId: placed.orderId,
         orderNumber: placed.orderNumber,
+        paymentMethod: placed.paymentMethod,
+        paymentStatus: placed.paymentStatus,
         pricing: {
           subtotal: placed.pricing.subtotal,
           discount: placed.pricing.discount,
           shipping: placed.pricing.shipping,
           total: placed.pricing.total,
+          advancePaid: placed.pricing.advancePaid,
+          balanceDue: placed.pricing.balanceDue,
           couponCode: placed.pricing.couponCode,
         },
         items: placed.items.map((i) => ({
@@ -251,6 +256,7 @@ export default function CheckoutPage() {
             discount: placed.pricing.discount,
             shipping: placed.pricing.shipping,
             total: placed.pricing.total,
+            advancePaid: placed.pricing.advancePaid,
           },
         });
         try {
@@ -582,34 +588,9 @@ export default function CheckoutPage() {
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => setPaymentMethod("cod")}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors",
-                paymentMethod === "cod"
-                  ? "border-orange-500 bg-orange-500/10"
-                  : "border-border hover:border-orange-500/40"
-              )}
-            >
-              <span
-                className={cn(
-                  "h-4 w-4 rounded-full border-2",
-                  paymentMethod === "cod"
-                    ? "border-orange-500 bg-orange-500 shadow-inner"
-                    : "border-muted-foreground"
-                )}
-              />
-              <div>
-                <p className="font-medium">Cash on delivery</p>
-                <p className="text-sm text-muted-foreground">
-                  Pay when your order arrives.
-                </p>
-              </div>
-            </button>
-            <button
-              type="button"
               onClick={() => setPaymentMethod("online")}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors",
+                "flex w-full items-start gap-3 rounded-lg border-2 p-4 text-left transition-colors",
                 paymentMethod === "online"
                   ? "border-orange-500 bg-orange-500/10"
                   : "border-border hover:border-orange-500/40"
@@ -617,20 +598,75 @@ export default function CheckoutPage() {
             >
               <span
                 className={cn(
-                  "h-4 w-4 rounded-full border-2",
+                  "mt-1 h-4 w-4 shrink-0 rounded-full border-2",
                   paymentMethod === "online"
                     ? "border-orange-500 bg-orange-500 shadow-inner"
                     : "border-muted-foreground"
                 )}
               />
-              <div>
-                <p className="font-medium">Pay online (UPI / card / netbanking)</p>
-                <p className="text-sm text-muted-foreground">
-                  Secure payment via Razorpay.
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <p className="font-medium">Pay online (UPI / card / netbanking)</p>
+                  <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                    Recommended
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pay {inr.format(pricing.total)} now via Razorpay. Fastest dispatch.
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("cod")}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-lg border-2 p-4 text-left transition-colors",
+                paymentMethod === "cod"
+                  ? "border-orange-500 bg-orange-500/10"
+                  : "border-border hover:border-orange-500/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "mt-1 h-4 w-4 shrink-0 rounded-full border-2",
+                  paymentMethod === "cod"
+                    ? "border-orange-500 bg-orange-500 shadow-inner"
+                    : "border-muted-foreground"
+                )}
+              />
+              <div className="min-w-0">
+                <p className="font-medium">Cash on delivery</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pay {inr.format(COD_ADVANCE_INR)} online as advance.
+                  Remaining {inr.format(Math.max(0, pricing.total - COD_ADVANCE_INR))} collected on delivery.
                 </p>
               </div>
             </button>
           </div>
+
+          {paymentMethod === "cod" && pricing.total > 0 ? (
+            <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 text-sm">
+              <p className="font-medium">Payment split</p>
+              <div className="mt-2 space-y-1 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Order total</span>
+                  <span className="tabular-nums">{inr.format(pricing.total)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Advance (online, now)</span>
+                  <span className="tabular-nums">
+                    {inr.format(Math.min(COD_ADVANCE_INR, pricing.total))}
+                  </span>
+                </div>
+                <div className="flex justify-between font-medium text-foreground">
+                  <span>Due on delivery</span>
+                  <span className="tabular-nums">
+                    {inr.format(Math.max(0, pricing.total - COD_ADVANCE_INR))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-3">
             <Button type="button" variant="outline" onClick={() => setStep(2)}>
@@ -645,12 +681,12 @@ export default function CheckoutPage() {
               {placing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {paymentMethod === "online" ? "Processing payment…" : "Placing order…"}
+                  Processing payment…
                 </>
               ) : paymentMethod === "online" ? (
                 `Pay ${inr.format(pricing.total)}`
               ) : (
-                "Place order"
+                `Pay ${inr.format(Math.min(COD_ADVANCE_INR, pricing.total))} advance & place order`
               )}
             </Button>
           </div>

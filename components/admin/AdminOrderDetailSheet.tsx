@@ -19,7 +19,15 @@ const inr = new Intl.NumberFormat("en-IN", {
 function formatPayment(method: string) {
   const m = method.toLowerCase();
   if (m === "cod") return "COD";
+  if (m === "online") return "Online";
   return method || "—";
+}
+
+function formatPaymentStatus(s?: string) {
+  if (s === "paid") return "Paid";
+  if (s === "partial") return "Partially paid";
+  if (s === "due") return "Due";
+  return "—";
 }
 
 type AdminOrderDetailSheetProps = {
@@ -60,7 +68,14 @@ export function AdminOrderDetailSheet({
                   : "—"}
               </p>
               <p className="text-xs text-muted-foreground">
-                Payment: {formatPayment(selected.paymentMethod)} · Status:{" "}
+                Payment: {formatPayment(selected.paymentMethod)}
+                {selected.paymentStatus ? (
+                  <>
+                    {" "}
+                    ({formatPaymentStatus(selected.paymentStatus)})
+                  </>
+                ) : null}{" "}
+                · Status:{" "}
                 <span className="font-medium capitalize text-foreground">
                   {selected.status}
                 </span>
@@ -183,6 +198,27 @@ export function AdminOrderDetailSheet({
                       <span className="text-orange-400">
                         {inr.format(selected.pricing.total)}
                       </span>
+                    </div>
+                  ) : null}
+                  {selected.pricing.advancePaid != null &&
+                  selected.pricing.advancePaid > 0 &&
+                  selected.pricing.balanceDue != null &&
+                  selected.pricing.balanceDue > 0 ? (
+                    <div className="mt-2 space-y-1 rounded-md border border-orange-500/30 bg-orange-500/5 p-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Advance paid (online)
+                        </span>
+                        <span className="tabular-nums">
+                          {inr.format(selected.pricing.advancePaid)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-medium">
+                        <span>Balance due on delivery</span>
+                        <span className="tabular-nums text-orange-400">
+                          {inr.format(selected.pricing.balanceDue)}
+                        </span>
+                      </div>
                     </div>
                   ) : null}
                 </div>

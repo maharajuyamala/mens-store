@@ -13,6 +13,7 @@ import {
   recomputeOrderPricing,
 } from "@/lib/server/recompute-pricing";
 import { guardWriteRequest } from "@/lib/api/security";
+import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,11 @@ const bodySchema = z.object({
   discount: z.number().nonnegative().max(1_000_000).optional(),
   /** Short reference shown in Razorpay dashboard; arbitrary string from caller. */
   receipt: z.string().min(1).max(40).optional(),
+  /**
+   * "full" — collect the full order total online (used for Pay Online).
+   * "advance" — collect the COD prepayment only; the rest is collected by courier.
+   */
+  mode: z.enum(["full", "advance"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -77,11 +83,17 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  const mode = parsed.mode ?? "full";
+  const chargeRupees =
+    mode === "advance"
+      ? Math.min(COD_ADVANCE_INR, pricing.total)
+      : pricing.total;
+
   // Razorpay amounts are in the smallest currency unit (paise for INR).
-  const amountInPaise = Math.round(pricing.total * 100);
+  const amountInPaise = Math.round(chargeRupees * 100);
   if (amountInPaise <= 0) {
     return NextResponse.json(
-      { error: "zero_amount", message: "Order total is zero — cannot create payment." },
+      { error: "zero_amount", message: "Charge amount is zero — cannot create payment." },
       { status: 400 }
     );
   }
@@ -101,11 +113,17 @@ export async function POST(request: Request) {
       amount: amountInPaise,
       currency: "INR",
       keyId: process.env.RAZORPAY_KEY_ID,
+      mode,
       pricing: {
         subtotal: pricing.subtotal,
         discount: pricing.discount,
         shipping: pricing.shipping,
         total: pricing.total,
+        advancePaid: mode === "advance" ? chargeRupees : 0,
+        balanceDue:
+          mode === "advance"
+            ? Math.round((pricing.total - chargeRupees) * 100) / 100
+            : 0,
       },
     });
   } catch (e) {

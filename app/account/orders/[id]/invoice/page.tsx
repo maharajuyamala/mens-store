@@ -39,6 +39,8 @@ type InvoiceData = {
     discount: number;
     shipping: number;
     total: number;
+    advancePaid?: number;
+    balanceDue?: number;
   };
   paymentMethod: string;
   paymentStatus?: string;
@@ -126,6 +128,14 @@ export default function InvoicePage() {
             discount: Number(p.discount) || 0,
             shipping: Number(p.shipping) || 0,
             total: Number(p.total) || 0,
+            advancePaid:
+              p.advancePaid != null && !Number.isNaN(Number(p.advancePaid))
+                ? Number(p.advancePaid)
+                : undefined,
+            balanceDue:
+              p.balanceDue != null && !Number.isNaN(Number(p.balanceDue))
+                ? Number(p.balanceDue)
+                : undefined,
           },
           paymentMethod:
             typeof d.paymentMethod === "string" ? d.paymentMethod : "cod",
@@ -304,6 +314,26 @@ export default function InvoicePage() {
                   {inr.format(data.pricing.total)}
                 </td>
               </tr>
+              {data.paymentMethod === "cod" &&
+              data.pricing.balanceDue != null &&
+              data.pricing.balanceDue > 0 ? (
+                <>
+                  <tr>
+                    <td className="py-1 text-muted-foreground">
+                      Advance paid (online)
+                    </td>
+                    <td className="py-1 text-right tabular-nums">
+                      {inr.format(data.pricing.advancePaid ?? 0)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-1 font-semibold">Balance due on delivery</td>
+                    <td className="py-1 text-right font-semibold tabular-nums text-orange-600">
+                      {inr.format(data.pricing.balanceDue)}
+                    </td>
+                  </tr>
+                </>
+              ) : null}
             </tbody>
           </table>
         </div>
