@@ -42,7 +42,13 @@ export function clientIp(req: Request): string {
  * Verify the request originated from our own site. Blocks naive cross-origin
  * abuse but is not a substitute for auth on sensitive endpoints.
  *
- * Allowlist: NEXT_PUBLIC_SITE_URL plus all *.vercel.app preview origins (dev convenience).
+ * Allowlist:
+ *  - NEXT_PUBLIC_SITE_URL (apex + www variant — whichever isn't configured).
+ *  - ALLOWED_ORIGINS: optional comma-separated list of extra full origins
+ *    (e.g. `https://staging.example.com,https://example.com`).
+ *  - All *.vercel.app preview origins (dev / preview convenience).
+ *  - localhost in non-production.
+ *
  * Same-origin browser requests omit Origin/Referer entirely — we allow that case;
  * cross-origin browser fetches always send Origin.
  */
@@ -54,14 +60,33 @@ export function isAllowedOrigin(req: Request): boolean {
   if (!origin && !referer) return true;
 
   const allowed = new Set<string>();
-  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (site) {
+  const addOriginAndAlt = (raw: string) => {
     try {
-      allowed.add(new URL(site).origin);
+      const u = new URL(raw);
+      allowed.add(u.origin);
+      // Toggle www <-> apex so either canonical form works.
+      const host = u.hostname;
+      if (host.startsWith("www.")) {
+        allowed.add(`${u.protocol}//${host.slice(4)}`);
+      } else {
+        allowed.add(`${u.protocol}//www.${host}`);
+      }
     } catch {
-      // ignore bad env value
+      // ignore malformed entries
+    }
+  };
+
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (site) addOriginAndAlt(site);
+
+  const extra = process.env.ALLOWED_ORIGINS?.trim();
+  if (extra) {
+    for (const entry of extra.split(",")) {
+      const t = entry.trim();
+      if (t) addOriginAndAlt(t);
     }
   }
+
   if (process.env.NODE_ENV !== "production") {
     allowed.add("http://localhost:3000");
     allowed.add("http://127.0.0.1:3000");
@@ -70,7 +95,7 @@ export function isAllowedOrigin(req: Request): boolean {
   const candidate = origin ?? (referer ? safeOrigin(referer) : null);
   if (!candidate) return false;
   if (allowed.has(candidate)) return true;
-  // Allow Vercel preview deploys when site var is unset (CI/dev).
+  // Allow Vercel preview deploys.
   if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(candidate)) return true;
   return false;
 }
