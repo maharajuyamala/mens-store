@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   CheckCircle2,
@@ -41,6 +41,11 @@ import {
   buildImageStoragePath,
   validateImageFile,
 } from "@/lib/uploads/validate-image";
+import {
+  formatSizeLabel,
+  getSizeOptions,
+  inferSizeGroup,
+} from "@/lib/products/size-options";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -160,8 +165,6 @@ function QrSuccessScreen({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL", "6XL"];
-
 export default function AddProductPage() {
   // Form state
   const [productName, setProductName] = useState("");
@@ -235,6 +238,36 @@ export default function AddProductPage() {
   const handleQuantityChange = (size: string, qty: number) => {
     setSizeQuantities((prev) => ({ ...prev, [size]: Math.max(0, qty) }));
   };
+
+  // Sizes depend on department + style — kids get age brackets, "pants" style
+  // gets numeric waist sizes, everything else gets the alpha XS–6XL set.
+  const sizeOptions = useMemo<readonly string[]>(() => {
+    if (!selectedAudience) return [];
+    return getSizeOptions(selectedAudience, selectedStyles);
+  }, [selectedAudience, selectedStyles]);
+
+  const sizeGroup = useMemo(
+    () =>
+      selectedAudience
+        ? inferSizeGroup(selectedAudience, selectedStyles)
+        : null,
+    [selectedAudience, selectedStyles]
+  );
+
+  // Drop quantities entered against sizes that no longer apply (e.g. user
+  // switched from Pants to Shirts after typing waist counts).
+  useEffect(() => {
+    setSizeQuantities((prev) => {
+      const allowed = new Set(sizeOptions);
+      let dirty = false;
+      const next: Record<string, number> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (allowed.has(k)) next[k] = v;
+        else dirty = true;
+      }
+      return dirty ? next : prev;
+    });
+  }, [sizeOptions]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -596,59 +629,94 @@ export default function AddProductPage() {
 
         {/* ── Sizes & stock ─────────────────────────────────────────── */}
         <div className="space-y-3">
-          <Label>Available sizes & stock</Label>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-            {SIZES.map((size) => (
-              <div
-                key={size}
-                className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/30 p-2"
-              >
-                <span className="text-sm font-medium">{size}</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() =>
-                      handleQuantityChange(
-                        size,
-                        (sizeQuantities[size] || 0) - 1
-                      )
-                    }
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                  </Button>
-                  <Input
-                    type="number"
-                    className="h-7 w-10 border-border bg-background text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    value={sizeQuantities[size] || 0}
-                    onChange={(e) =>
-                      handleQuantityChange(
-                        size,
-                        parseInt(e.target.value, 10) || 0
-                      )
-                    }
-                    min={0}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() =>
-                      handleQuantityChange(
-                        size,
-                        (sizeQuantities[size] || 0) + 1
-                      )
-                    }
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <Label>Available sizes & stock</Label>
+            {sizeGroup ? (
+              <span className="text-xs text-muted-foreground">
+                {sizeGroup === "kids"
+                  ? "Kids — age brackets"
+                  : sizeGroup === "numeric"
+                    ? "Waist size (inches)"
+                    : "Alpha sizes (XS–6XL)"}
+              </span>
+            ) : null}
           </div>
+          {!selectedAudience ? (
+            <p className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+              Pick a department above to choose sizes.
+            </p>
+          ) : sizeOptions.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+              No size options for this combination.
+            </p>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-3",
+                sizeGroup === "kids"
+                  ? "grid-cols-2 sm:grid-cols-4"
+                  : sizeGroup === "numeric"
+                    ? "grid-cols-3 sm:grid-cols-4"
+                    : "grid-cols-3 sm:grid-cols-5"
+              )}
+            >
+              {sizeOptions.map((size) => (
+                <div
+                  key={size}
+                  className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/30 p-2"
+                >
+                  <span
+                    className="text-sm font-medium"
+                    title={formatSizeLabel(size)}
+                  >
+                    {size}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() =>
+                        handleQuantityChange(
+                          size,
+                          (sizeQuantities[size] || 0) - 1
+                        )
+                      }
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Input
+                      type="number"
+                      className="h-7 w-12 border-border bg-background text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      value={sizeQuantities[size] || 0}
+                      onChange={(e) =>
+                        handleQuantityChange(
+                          size,
+                          parseInt(e.target.value, 10) || 0
+                        )
+                      }
+                      min={0}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() =>
+                        handleQuantityChange(
+                          size,
+                          (sizeQuantities[size] || 0) + 1
+                        )
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Error ─────────────────────────────────────────────────── */}

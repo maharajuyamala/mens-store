@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import imageCompression from "browser-image-compression";
@@ -53,10 +53,14 @@ import {
 import {
   PRODUCT_AUDIENCES,
   PRODUCT_CATEGORIES,
-  SIZE_OPTIONS,
   productFormSchema,
   type ProductFormValues,
 } from "@/lib/products/schema";
+import {
+  formatSizeLabel,
+  getSizeOptions,
+  inferSizeGroup,
+} from "@/lib/products/size-options";
 import {
   buildNewProductData,
   buildUpdateProductData,
@@ -206,6 +210,33 @@ export function ProductFormDialog({
   const [colorDraft, setColorDraft] = useState("");
   const watchedColors = form.watch("colors");
   const watchedSizes = form.watch("sizes");
+  const watchedAudience = form.watch("audience");
+  const watchedCategory = form.watch("category");
+
+  // Size palette is decided by department + category. Kids → age brackets,
+  // pants → numeric waist sizes, everything else → alpha XS–6XL.
+  const sizeOptions = useMemo<readonly string[]>(
+    () => getSizeOptions(watchedAudience, watchedCategory),
+    [watchedAudience, watchedCategory]
+  );
+  const sizeGroup = useMemo(
+    () => inferSizeGroup(watchedAudience, watchedCategory),
+    [watchedAudience, watchedCategory]
+  );
+
+  // Drop previously-selected sizes that aren't in the current palette when the
+  // admin flips a Men → Kids product, or Shirts → Pants. Otherwise the dialog
+  // would silently save invalid sizes that no UI surfaces.
+  useEffect(() => {
+    const allowed = new Set(sizeOptions);
+    const current = form.getValues("sizes");
+    const filtered = current.filter((s) => allowed.has(s));
+    if (filtered.length !== current.length) {
+      form.setValue("sizes", filtered.length > 0 ? filtered : [], {
+        shouldValidate: true,
+      });
+    }
+  }, [sizeOptions, form]);
 
   // Revoke all tracked blob URLs
   const revokeBlobs = useCallback(() => {
@@ -504,14 +535,24 @@ export function ProductFormDialog({
             )}
           </div>
 
-          {/* Sizes */}
+          {/* Sizes — palette is department/category aware. */}
           <div className="space-y-2">
-            <Label>Sizes</Label>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <Label>Sizes</Label>
+              <span className="text-xs text-muted-foreground">
+                {sizeGroup === "kids"
+                  ? "Kids — age brackets"
+                  : sizeGroup === "numeric"
+                    ? "Waist size (inches)"
+                    : "Alpha sizes (XS–6XL)"}
+              </span>
+            </div>
             <div className="flex flex-wrap gap-3">
-              {SIZE_OPTIONS.map((size) => (
+              {sizeOptions.map((size) => (
                 <label
                   key={size}
                   className="flex cursor-pointer items-center gap-2 text-sm"
+                  title={formatSizeLabel(size)}
                 >
                   <Checkbox
                     checked={watchedSizes.includes(size)}

@@ -1,7 +1,6 @@
 import { getSizesMap, totalUnits } from "@/lib/admin/inventory";
 import {
   PRODUCT_CATEGORIES,
-  SIZE_OPTIONS,
   computeProductStatus,
   type ProductCategory,
   type ProductSize,
@@ -95,20 +94,25 @@ export function docToProductRow(id: string, data: Record<string, unknown>): Prod
   };
 }
 
+/**
+ * Pull the list of sizes a product carries, in original storage shape order.
+ * Accepts any string (alpha, numeric waist, age bracket) — the size palette
+ * is decided at form-edit time by `getSizeOptions(audience, category)`.
+ */
 export function parseSizesFromDoc(data: Record<string, unknown>): ProductSize[] {
   const sizes = data.sizes;
   if (Array.isArray(sizes)) {
     const out: ProductSize[] = [];
+    const seen = new Set<string>();
     for (const s of sizes) {
-      const str = String(s);
-      if ((SIZE_OPTIONS as readonly string[]).includes(str)) {
-        out.push(str as ProductSize);
+      const str = String(s).trim();
+      if (str && !seen.has(str)) {
+        seen.add(str);
+        out.push(str);
       }
     }
     if (out.length > 0) return out;
   }
   const map = getSizesMap(data);
-  return Object.keys(map).filter((k) =>
-    (SIZE_OPTIONS as readonly string[]).includes(k)
-  ) as ProductSize[];
+  return Object.keys(map).filter((k) => k.length > 0);
 }
