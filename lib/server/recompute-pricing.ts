@@ -1,4 +1,5 @@
 import { FieldPath, type Firestore } from "firebase-admin/firestore";
+import { getSizesMap, totalUnits } from "@/lib/admin/inventory";
 
 export type OrderItemInput = {
   productId: string;
@@ -54,12 +55,19 @@ function availableForLine(
   data: Record<string, unknown>,
   size: string
 ): number {
-  const sizes = data.sizes;
-  if (size && sizes && typeof sizes === "object" && !Array.isArray(sizes)) {
-    const v = (sizes as Record<string, unknown>)[size];
-    const n = readNum(v);
-    return n === null ? 0 : Math.max(0, Math.floor(n));
+  // Handles both modern `sizes` map and legacy `size: [{ M: 1 }]` arrays via
+  // the shared `getSizesMap` helper — keeps the server in lockstep with the
+  // listing / cart code paths (otherwise the server would say "0 available"
+  // for products that the storefront shows as in stock).
+  const map = getSizesMap(data);
+  const hasMap = Object.keys(map).length > 0;
+  if (size && hasMap) {
+    const n = map[size];
+    return typeof n === "number" && Number.isFinite(n)
+      ? Math.max(0, Math.floor(n))
+      : 0;
   }
+  if (hasMap) return totalUnits(map);
   const stock = readNum(data.stock);
   return stock === null ? 0 : Math.max(0, Math.floor(stock));
 }

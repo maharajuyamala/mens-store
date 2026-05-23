@@ -12,6 +12,7 @@ import {
 } from "@/lib/server/recompute-pricing";
 import { guardWriteRequest } from "@/lib/api/security";
 import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
+import { getSizesMap } from "@/lib/admin/inventory";
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import { renderOrderConfirmationEmail } from "@/lib/email/templates";
 
@@ -259,14 +260,12 @@ export async function POST(request: Request) {
         if (!totals) continue;
 
         const patch: Record<string, unknown> = {};
-        const sizesRaw = data.sizes;
-        if (sizesRaw && typeof sizesRaw === "object" && !Array.isArray(sizesRaw)) {
-          const nextMap: Record<string, number> = {};
-          for (const [k, v] of Object.entries(sizesRaw as Record<string, unknown>)) {
-            const n =
-              typeof v === "number" ? v : Number(typeof v === "string" ? v : 0);
-            nextMap[k] = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-          }
+        // Normalize via shared helper so we cover both the modern `sizes` map
+        // and the legacy `size: [{ M: 1 }]` array shape.
+        const nextMap = { ...getSizesMap(data) };
+        const hasMap = Object.keys(nextMap).length > 0;
+
+        if (hasMap) {
           for (const [size, qty] of totals.bySize) {
             if (!(size in nextMap)) {
               throw new OrderValidationError(
@@ -282,8 +281,26 @@ export async function POST(request: Request) {
             }
             nextMap[size] = nextMap[size]! - qty;
           }
-          patch.sizes = nextMap;
-          patch.stock = Object.values(nextMap).reduce((s, n) => s + n, 0);
+          const stockTotal = Object.values(nextMap).reduce(
+            (s, n) => s + n,
+            0
+          );
+          // Preserve the original storage shape so we don't accidentally
+          // migrate legacy docs and confuse downstream admin tooling.
+          const legacySize = data.size;
+          const usedLegacy =
+            Array.isArray(legacySize) &&
+            legacySize[0] &&
+            typeof legacySize[0] === "object" &&
+            (!data.sizes ||
+              typeof data.sizes !== "object" ||
+              Array.isArray(data.sizes));
+          if (usedLegacy) {
+            patch.size = [nextMap];
+          } else {
+            patch.sizes = nextMap;
+          }
+          patch.stock = stockTotal;
         } else {
           const stock =
             typeof data.stock === "number"

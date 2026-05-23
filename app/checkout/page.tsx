@@ -22,6 +22,7 @@ import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/delivery
 import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
 import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
+import { revalidateCart } from "@/lib/checkout/revalidate-cart";
 import {
   placeOrderViaServer,
   PlaceOrderError,
@@ -151,6 +152,35 @@ export default function CheckoutPage() {
     try {
       const shippingAddress = getValues();
       writeSavedDelivery(shippingAddress);
+
+      // 0) Re-check every line against current Firestore stock. Catches stale
+      //    carts (item went OOS or quantity dropped since the user added it)
+      //    BEFORE charging Razorpay — much nicer than a 400 from the server.
+      try {
+        const { changes, nextItems } = await revalidateCart(items);
+        if (changes.length > 0) {
+          useCartStore.setState({ items: nextItems });
+          const removed = changes.filter((c) => c.type === "removed");
+          const clamped = changes.filter((c) => c.type === "clamped");
+          const parts: string[] = [];
+          if (removed.length > 0) {
+            parts.push(
+              `${removed.length} item${removed.length === 1 ? "" : "s"} no longer available`
+            );
+          }
+          if (clamped.length > 0) {
+            parts.push(
+              `${clamped.length} quantity${clamped.length === 1 ? "" : " items"} reduced`
+            );
+          }
+          toast.warning("Cart updated", {
+            description: `${parts.join(" · ")}. Please review and try again.`,
+          });
+          return;
+        }
+      } catch {
+        // Don't block placement on revalidation network issues — server will catch it.
+      }
 
       // 1) Run Razorpay first. For "online" we charge the full total; for
       //    "cod" we collect only a fixed advance (COD_ADVANCE_INR). The server
