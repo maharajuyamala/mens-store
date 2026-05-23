@@ -18,7 +18,7 @@ export async function checkPincodeServiceable(
     process.env.NEXT_PUBLIC_SHIPROCKET_PICKUP_PINCODE?.trim() ||
     // Fallback so the route can still answer when env is unset — Shiprocket
     // serviceability check works with any valid pickup PIN as the origin.
-    "110001";
+    "500055";
 
   try {
     const res = await fetch("/api/shiprocket/serviceability", {
