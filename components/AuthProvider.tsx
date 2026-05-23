@@ -18,8 +18,11 @@ import {
   type User,
 } from "firebase/auth";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { toast } from "sonner";
 import { getClientFirebase, getDb, getFirebaseAuth } from "@/app/firebase";
 import { AuthContext, type UserProfile } from "@/hooks/useAuth";
+import { revalidateCart } from "@/lib/checkout/revalidate-cart";
+import { useCartStore } from "@/store/cartStore";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -27,6 +30,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const profileBackfillAttempted = useRef(new Set<string>());
+  const cartRevalidatedRef = useRef(false);
+
+  // Once per app load, scrub the persisted cart against current product state
+  // (archived / out-of-stock / over-quantity items). Best-effort; failures are silent.
+  useEffect(() => {
+    if (cartRevalidatedRef.current) return;
+    cartRevalidatedRef.current = true;
+    const items = useCartStore.getState().items;
+    if (items.length === 0) return;
+
+    void (async () => {
+      try {
+        const { changes, nextItems } = await revalidateCart(items);
+        if (changes.length === 0) return;
+        useCartStore.setState({ items: nextItems });
+        const removed = changes.filter((c) => c.type === "removed").length;
+        const clamped = changes.filter((c) => c.type === "clamped").length;
+        const parts: string[] = [];
+        if (removed > 0) parts.push(`${removed} removed`);
+        if (clamped > 0) parts.push(`${clamped} quantity adjusted`);
+        toast.warning("We updated your cart", {
+          description: `${parts.join(" · ")} based on current stock.`,
+        });
+      } catch {
+        // Network or rules problems — don't block the user; checkout will catch real issues.
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const fb = getClientFirebase();

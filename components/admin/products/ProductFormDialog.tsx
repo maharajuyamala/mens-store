@@ -17,7 +17,12 @@ import {
   uploadBytesResumable,
 } from "firebase/storage";
 import { ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, X } from "lucide-react";
+import { toast } from "sonner";
 import { getDb, getFirebaseStorage } from "@/app/firebase";
+import {
+  buildImageStoragePath,
+  validateImageFile,
+} from "@/lib/uploads/validate-image";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -134,9 +139,7 @@ async function uploadCompressedWithProgress(
   onProgress: (id: string, pct: number) => void
 ): Promise<string> {
   const compressed = await imageCompression(file, COMPRESSION);
-  const safeName = file.name.replace(/[^\w.-]+/g, "_");
-  const path = `products/${Date.now()}-${itemId}-${safeName}`;
-  const storageRef = ref(getFirebaseStorage(), path);
+  const storageRef = ref(getFirebaseStorage(), buildImageStoragePath(file, "products"));
   return new Promise((resolve, reject) => {
     const task = uploadBytesResumable(storageRef, compressed);
     task.on(
@@ -233,12 +236,20 @@ export function ProductFormDialog({
   const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = e.target.files;
     if (!list?.length) return;
-    const additions: NewItem[] = Array.from(list).map((file) => {
+    const additions: NewItem[] = [];
+    for (const file of Array.from(list)) {
+      const check = validateImageFile(file);
+      if (!check.ok) {
+        toast.error("Image rejected", { description: check.reason });
+        continue;
+      }
       const preview = URL.createObjectURL(file);
       blobUrlsRef.current.push(preview);
-      return { kind: "new", id: uid(), file, preview };
-    });
-    setImages((prev) => [...prev, ...additions]);
+      additions.push({ kind: "new", id: uid(), file, preview });
+    }
+    if (additions.length > 0) {
+      setImages((prev) => [...prev, ...additions]);
+    }
     e.target.value = "";
   };
 
@@ -569,7 +580,7 @@ export function ProductFormDialog({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/avif"
               multiple
               onChange={onPickFiles}
               style={{ display: "none" }}

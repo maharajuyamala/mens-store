@@ -4,13 +4,20 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
-  deleteDoc,
   doc,
   onSnapshot,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { AlertTriangle, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Archive,
+  ArchiveRestore,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+} from "lucide-react";
 import { getClientFirebase, getDb } from "@/app/firebase";
 import { ProductFormDialog } from "@/components/admin/products/ProductFormDialog";
 import { Button } from "@/components/ui/button";
@@ -296,14 +303,21 @@ export default function AdminProductsPage() {
   const confirmBulkDelete = async () => {
     setBulkWorking(true);
     try {
+      // Soft delete: keep history + order references intact. To restore, click Restore on the row.
       await Promise.all(
-        selectedIds.map((id) => deleteDoc(doc(getDb(), "products", id)))
+        selectedIds.map((id) =>
+          updateDoc(doc(getDb(), "products", id), {
+            archived: true,
+            active: false,
+            deletedAt: serverTimestamp(),
+          })
+        )
       );
       setBulkDeleteOpen(false);
       clearSelection();
     } catch (e) {
       window.alert(
-        e instanceof Error ? e.message : "Could not delete products."
+        e instanceof Error ? e.message : "Could not archive products."
       );
     } finally {
       setBulkWorking(false);
@@ -324,19 +338,37 @@ export default function AdminProductsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleArchive = async (id: string, name: string) => {
     if (
       !window.confirm(
-        `Delete “${name}”? This cannot be undone. Storage files are not removed automatically.`
+        `Archive “${name}”? Customers will no longer see it. You can restore it later.`
       )
     ) {
       return;
     }
     try {
-      await deleteDoc(doc(getDb(), "products", id));
+      await updateDoc(doc(getDb(), "products", id), {
+        archived: true,
+        active: false,
+        deletedAt: serverTimestamp(),
+      });
     } catch (e) {
       window.alert(
-        e instanceof Error ? e.message : "Failed to delete product."
+        e instanceof Error ? e.message : "Failed to archive product."
+      );
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      await updateDoc(doc(getDb(), "products", id), {
+        archived: false,
+        active: true,
+        deletedAt: null,
+      });
+    } catch (e) {
+      window.alert(
+        e instanceof Error ? e.message : "Failed to restore product."
       );
     }
   };
@@ -499,7 +531,10 @@ export default function AdminProductsPage() {
               filtered.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={cn(!row.active && "opacity-50")}
+                  className={cn(
+                    !row.active && "opacity-50",
+                    row.archived && "bg-muted/30"
+                  )}
                 >
                   <TableCell>
                     <Checkbox
@@ -581,12 +616,18 @@ export default function AdminProductsPage() {
                     <span
                       className={cn(
                         "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-                        row.active
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                          : "bg-muted text-muted-foreground"
+                        row.archived
+                          ? "bg-destructive/15 text-destructive"
+                          : row.active
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
                       )}
                     >
-                      {row.active ? "Active" : "Inactive"}
+                      {row.archived
+                        ? "Archived"
+                        : row.active
+                          ? "Active"
+                          : "Inactive"}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -601,16 +642,29 @@ export default function AdminProductsPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => void handleDelete(row.id, row.name)}
-                        aria-label={`Delete ${row.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {row.archived ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-emerald-600 hover:text-emerald-500"
+                          onClick={() => void handleRestore(row.id)}
+                          aria-label={`Restore ${row.name}`}
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => void handleArchive(row.id, row.name)}
+                          aria-label={`Archive ${row.name}`}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -682,7 +736,7 @@ export default function AdminProductsPage() {
                 disabled={bulkWorking}
                 onClick={() => setBulkDeleteOpen(true)}
               >
-                Delete selected
+                Archive selected
               </Button>
               <Button
                 type="button"
@@ -707,10 +761,11 @@ export default function AdminProductsPage() {
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <DialogContent className="border-border bg-card text-card-foreground sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete {selectedCount} products?</DialogTitle>
+            <DialogTitle>Archive {selectedCount} products?</DialogTitle>
             <DialogDescription>
-              This removes the Firestore documents. Images in Storage are not
-              deleted automatically.
+              Archived products are hidden from customers but preserved so that
+              existing orders still reference a real product. You can restore
+              them later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -731,10 +786,10 @@ export default function AdminProductsPage() {
               {bulkWorking ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting…
+                  Archiving…
                 </>
               ) : (
-                "Delete"
+                "Archive"
               )}
             </Button>
           </DialogFooter>

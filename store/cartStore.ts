@@ -37,7 +37,8 @@ type CartState = {
   getCount: () => number;
 };
 
-const MAX_QTY = 999;
+/** Per-line max quantity. Apparel rarely needs more; higher values invite mistakes and abuse. */
+const MAX_QTY = 10;
 
 function lineKey(productId: string, size: string, color: string) {
   return `${productId}|${size}|${color}`;

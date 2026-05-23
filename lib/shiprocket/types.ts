@@ -70,10 +70,14 @@ export type ShiprocketAdhocOrderPayload = {
   weight: number;
 };
 
-/** What we persist on the Firestore order doc under `shipping`. */
+/** What we persist on the Firestore order doc under `shipping`.
+ *  - `pending`: order written to Firestore, Shiprocket call not completed yet
+ *  - `created`: Shiprocket accepted the shipment
+ *  - `failed`: Shiprocket rejected or network error — admin must rebook
+ */
 export type OrderShippingRecord = {
   provider: "shiprocket";
-  status: "created" | "failed";
+  status: "pending" | "created" | "failed";
   shiprocketOrderId?: number;
   shipmentId?: number;
   awbCode?: string | null;

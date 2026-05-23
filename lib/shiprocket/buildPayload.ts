@@ -48,13 +48,23 @@ function readNumber(name: string, fallback: number): number {
 }
 
 function packageDims() {
-  return {
+  const dims = {
     length: readNumber("SHIPROCKET_PACKAGE_LENGTH_CM", 25),
     breadth: readNumber("SHIPROCKET_PACKAGE_BREADTH_CM", 20),
     height: readNumber("SHIPROCKET_PACKAGE_HEIGHT_CM", 5),
     perItemWeightKg: readNumber("SHIPROCKET_PER_ITEM_WEIGHT_KG", 0.5),
     minWeightKg: readNumber("SHIPROCKET_MIN_WEIGHT_KG", 0.5),
   };
+  // Defensive: a misconfigured 0/negative env var would cause Shiprocket to reject the order
+  // with a confusing error. Fail fast with a clear message instead.
+  for (const [k, v] of Object.entries(dims)) {
+    if (!Number.isFinite(v) || v <= 0) {
+      throw new Error(
+        `Shiprocket package config invalid: ${k} must be > 0 (got ${v}). Check SHIPROCKET_PACKAGE_* env vars.`
+      );
+    }
+  }
+  return dims;
 }
 
 function toSku(item: BuildPayloadInput["items"][number]): string {
@@ -115,7 +125,8 @@ export function buildShiprocketPayload(
     billing_state: input.shippingAddress.state,
     billing_country: "India",
     billing_email: input.shippingAddress.email,
-    billing_phone: input.shippingAddress.phone.replace(/\D/g, "").slice(-10),
+    // deliverySchema already normalizes to 10 digits; trust it here.
+    billing_phone: input.shippingAddress.phone,
     shipping_is_billing: true,
     order_items: buildItems(input.items),
     payment_method: paymentMethod,

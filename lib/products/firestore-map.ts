@@ -17,6 +17,7 @@ export type ProductTableRow = {
   stock: number;
   status: ProductStatus;
   active: boolean;
+  archived: boolean;
   thumbnail: string | null;
   data: Record<string, unknown>;
 };
@@ -77,7 +78,8 @@ export function docToProductRow(id: string, data: Record<string, unknown>): Prod
   const stock = resolveStock(data);
   const { label, filter } = resolveCategory(data);
   const images = normalizeImageUrls(data);
-  const active = data.active !== false;
+  const archived = data.archived === true;
+  const active = !archived && data.active !== false;
   return {
     id,
     name: typeof data.name === "string" ? data.name : String(data.name ?? ""),
@@ -87,6 +89,7 @@ export function docToProductRow(id: string, data: Record<string, unknown>): Prod
     stock,
     status: computeProductStatus(stock),
     active,
+    archived,
     thumbnail: images[0] ?? null,
     data,
   };

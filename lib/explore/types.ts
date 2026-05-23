@@ -26,6 +26,7 @@ export type ExploreProduct = {
 };
 
 export function isListedProduct(data: DocumentData): boolean {
+  if (data.archived === true) return false;
   if (data.active === false) return false;
   if (data.status === "inactive") return false;
   return true;

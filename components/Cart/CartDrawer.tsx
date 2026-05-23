@@ -13,9 +13,7 @@ import {
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
-
-const FREE_SHIPPING_THRESHOLD = 999;
-const STANDARD_SHIPPING = 99;
+import { computeShipping } from "@/lib/checkout/pricing";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -32,12 +30,7 @@ export function CartDrawer() {
   const getTotal = useCartStore((s) => s.getTotal);
 
   const subtotal = getTotal();
-  const shipping =
-    items.length === 0
-      ? 0
-      : subtotal >= FREE_SHIPPING_THRESHOLD
-        ? 0
-        : STANDARD_SHIPPING;
+  const shipping = items.length === 0 ? 0 : computeShipping(subtotal);
   const total = subtotal + shipping;
 
   return (
@@ -169,23 +162,12 @@ export function CartDrawer() {
                   <span
                     className={cn(
                       "font-medium tabular-nums",
-                      shipping === 0 &&
-                        subtotal >= FREE_SHIPPING_THRESHOLD &&
-                        "text-emerald-600 dark:text-emerald-400"
+                      shipping === 0 && "text-emerald-600 dark:text-emerald-400"
                     )}
                   >
-                    {subtotal >= FREE_SHIPPING_THRESHOLD
-                      ? "Free"
-                      : inr.format(STANDARD_SHIPPING)}
+                    {shipping === 0 ? "Free" : inr.format(shipping)}
                   </span>
                 </div>
-                {subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD ? (
-                  <p className="text-xs text-muted-foreground">
-                    Add {inr.format(FREE_SHIPPING_THRESHOLD - subtotal)} more
-                    for free shipping (over {inr.format(FREE_SHIPPING_THRESHOLD)}
-                    ).
-                  </p>
-                ) : null}
                 <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
                   <span>Total</span>
                   <span className="tabular-nums text-orange-600">

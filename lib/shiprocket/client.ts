@@ -64,24 +64,62 @@ async function getToken(force = false): Promise<string> {
   return token;
 }
 
+const MAX_TRANSIENT_RETRIES = 2;
+const TRANSIENT_BACKOFF_MS = [300, 900];
+
+function isTransientStatus(status: number): boolean {
+  // 408 Request Timeout, 429 Too Many Requests, 5xx — retry-worthy.
+  return status === 408 || status === 429 || (status >= 500 && status < 600);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function request<T>(
   path: string,
-  init: RequestInit & { retried?: boolean } = {}
+  init: RequestInit & { retried?: boolean; transientAttempt?: number } = {}
 ): Promise<T> {
+  const transientAttempt = init.transientAttempt ?? 0;
   const token = await getToken(init.retried === true);
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init.headers as Record<string, string> | undefined),
-    },
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init.headers as Record<string, string> | undefined),
+      },
+      cache: "no-store",
+    });
+  } catch (e) {
+    // Network error — retry with backoff.
+    if (transientAttempt < MAX_TRANSIENT_RETRIES) {
+      await sleep(TRANSIENT_BACKOFF_MS[transientAttempt] ?? 1500);
+      return request<T>(path, {
+        ...init,
+        transientAttempt: transientAttempt + 1,
+      });
+    }
+    throw new ShiprocketError(
+      e instanceof Error ? e.message : "Network error talking to Shiprocket",
+      0,
+      null
+    );
+  }
 
   if (res.status === 401 && !init.retried) {
     cached = null;
     return request<T>(path, { ...init, retried: true });
+  }
+
+  if (isTransientStatus(res.status) && transientAttempt < MAX_TRANSIENT_RETRIES) {
+    await sleep(TRANSIENT_BACKOFF_MS[transientAttempt] ?? 1500);
+    return request<T>(path, {
+      ...init,
+      transientAttempt: transientAttempt + 1,
+    });
   }
 
   const json = (await res.json().catch(() => null)) as unknown;
@@ -93,6 +131,11 @@ async function request<T>(
     throw new ShiprocketError(message, res.status, json);
   }
   return json as T;
+}
+
+/** Exposed for routes that don't need a typed adhoc result (e.g. serviceability). */
+export async function shiprocketGet<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "GET" });
 }
 
 function describeShiprocketBody(body: unknown): string {

@@ -9,9 +9,18 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Belt-and-braces server-side validation that mirrors lib/uploads/validate-image.ts.
+    function isAllowedImage() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|avif)');
+    }
+
     match /products/{allPaths=**} {
       allow read: if true;
-      allow write, delete: if isAdmin();
+      allow create, update: if isAdmin() && isAllowedImage();
+      allow delete: if isAdmin();
     }
 
     match /{allPaths=**} {

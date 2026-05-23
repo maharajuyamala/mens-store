@@ -6,6 +6,7 @@ import {
 } from "@/lib/shiprocket/buildPayload";
 import { createAdhocOrder, ShiprocketError } from "@/lib/shiprocket/client";
 import type { OrderShippingRecord } from "@/lib/shiprocket/types";
+import { guardWriteRequest } from "@/lib/api/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,14 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const blocked = guardWriteRequest(request, {
+    bucketName: "create-order",
+    // Order placement is expensive; cap aggressively per IP.
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (blocked) return blocked;
+
   let parsed: z.infer<typeof bodySchema>;
   try {
     const json = await request.json();

@@ -58,22 +58,61 @@ service cloud.firestore {
       return s in ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
     }
 
-    // Checkout creates orders (guest or signed-in). Order IDs are unguessable; reads are open for confirmation UX.
+    // Mirrors allowedNextStatuses() in lib/admin/orders-admin.ts. Keep in sync.
+    function isValidStatusTransition(prev, next) {
+      return prev == next
+        || (prev == 'pending' && (next == 'processing' || next == 'cancelled'))
+        || (prev == 'processing' && (next == 'shipped' || next == 'cancelled'))
+        || (prev == 'shipped' && (next == 'delivered' || next == 'cancelled'))
+        || (prev == 'delivered' && next == 'cancelled');
+    }
+
+    // Shipping must be free per business rule; pricing fields must be non-negative numbers
+    // and total = subtotal - discount + shipping. Does not validate per-item prices — for
+    // that we need server-side (Admin SDK) order placement (planned: Batch 2).
+    function validPricing(p) {
+      return p is map
+        && p.subtotal is number && p.subtotal >= 0
+        && p.discount is number && p.discount >= 0
+        && p.shipping is number && p.shipping == 0
+        && p.total is number && p.total >= 0
+        && p.discount <= p.subtotal
+        && p.total == p.subtotal - p.discount + p.shipping;
+    }
+
+    // Checkout creates orders (guest or signed-in). Reads restricted: signed-in owner or admin.
+    // Guests get their order details echoed in the placeOrder response and stashed client-side.
     match /orders/{orderId} {
-      allow read: if true;
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+
       allow create: if request.resource.data.status == 'pending'
         && request.resource.data.userId is string
         && request.resource.data.orderNumber is string
         && request.resource.data.orderNumber.matches('^[A-Z0-9]{8}$')
         && request.resource.data.items is list
         && request.resource.data.shippingAddress is map
-        && request.resource.data.pricing is map
+        && validPricing(request.resource.data.pricing)
         && request.resource.data.paymentMethod in ['cod', 'online']
         && (!('shipping' in request.resource.data.keys()) || request.resource.data.shipping is map);
-      allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusHistory', 'shipping'])
-        && orderStatusValue(request.resource.data.status)
-        && request.resource.data.statusHistory is list;
+
+      // Admin can change status / statusHistory / shipping / inventoryRestored. Status moves
+      // must follow the allowed transition graph. Order owner can only update the shipping
+      // field (used after Shiprocket call completes on the client).
+      allow update: if (
+          isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'statusHistory', 'shipping', 'inventoryRestored'])
+          && orderStatusValue(request.resource.data.status)
+          && request.resource.data.statusHistory is list
+          && isValidStatusTransition(resource.data.status, request.resource.data.status)
+        ) || (
+          isSignedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shipping'])
+          && request.resource.data.shipping is map
+        );
+
       allow delete: if false;
     }
 

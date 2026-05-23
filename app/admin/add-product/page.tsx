@@ -37,6 +37,10 @@ import {
   QUICK_ADD_STYLE_TAGS,
   type AudienceId,
 } from "@/lib/add-product/quick-add-options";
+import {
+  buildImageStoragePath,
+  validateImageFile,
+} from "@/lib/uploads/validate-image";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,9 +189,21 @@ export default function AddProductPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = e.target.files;
     if (!list?.length) return;
-    const newFiles = Array.from(list);
-    const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
-    setImageFiles((prev) => [...prev, ...newFiles]);
+    const accepted: File[] = [];
+    for (const f of Array.from(list)) {
+      const check = validateImageFile(f);
+      if (!check.ok) {
+        toast.error("Image rejected", { description: check.reason });
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length === 0) {
+      e.target.value = "";
+      return;
+    }
+    const newPreviews = accepted.map((f) => URL.createObjectURL(f));
+    setImageFiles((prev) => [...prev, ...accepted]);
     setImagePreviews((prev) => [...prev, ...newPreviews]);
     e.target.value = "";
   };
@@ -271,11 +287,8 @@ export default function AddProductPage() {
 
       const imageUrls: string[] = [];
       for (const file of imageFiles) {
-        const imageRef = ref(
-          fb.storage,
-          `products/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`
-        );
         const compressed = await imageCompression(file, options);
+        const imageRef = ref(fb.storage, buildImageStoragePath(file, "products"));
         await uploadBytes(imageRef, compressed);
         imageUrls.push(await getDownloadURL(imageRef));
       }
@@ -356,7 +369,7 @@ export default function AddProductPage() {
           <input
             ref={imageInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/avif"
             multiple
             onChange={handleImageChange}
             style={{ display: "none" }}

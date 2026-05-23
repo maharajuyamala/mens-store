@@ -10,6 +10,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  type UpdateData,
 } from "firebase/firestore";
 import { Download, Loader2, Package, PanelRight } from "lucide-react";
 import { getDb } from "@/app/firebase";
@@ -86,23 +87,109 @@ async function updateOrderStatusTx(
   nextStatus: OrderStatus,
   updatedBy: string
 ) {
-  const ref = doc(getDb(), "orders", orderId);
-  await runTransaction(getDb(), async (tx) => {
+  const db = getDb();
+  const ref = doc(db, "orders", orderId);
+
+  await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error("Order not found");
     const data = snap.data();
+    const currentStatus = (typeof data.status === "string"
+      ? data.status
+      : "pending") as OrderStatus;
+
+    // Belt-and-braces: rules also enforce this, but reject early with a clear
+    // error before doing any product reads.
+    const allowed = allowedNextStatuses(currentStatus);
+    if (!allowed.includes(nextStatus)) {
+      throw new Error(
+        `Invalid status transition (${currentStatus} → ${nextStatus}).`
+      );
+    }
+
+    // On cancel, restore product stock by re-incrementing the quantities that
+    // placeOrder originally decremented. Idempotent guard: only restore once.
+    let restoreUpdates: Array<{
+      ref: ReturnType<typeof doc>;
+      patch: Record<string, unknown>;
+    }> = [];
+
+    if (
+      nextStatus === "cancelled" &&
+      currentStatus !== "cancelled" &&
+      data.inventoryRestored !== true
+    ) {
+      const items = Array.isArray(data.items) ? data.items : [];
+      const byProduct = new Map<string, Array<{ size?: string; qty: number }>>();
+      for (const raw of items) {
+        if (!raw || typeof raw !== "object") continue;
+        const r = raw as Record<string, unknown>;
+        const pid = typeof r.productId === "string" ? r.productId : null;
+        const qty =
+          typeof r.quantity === "number" ? r.quantity : Number(r.quantity);
+        if (!pid || !Number.isFinite(qty) || qty <= 0) continue;
+        const list = byProduct.get(pid) ?? [];
+        list.push({
+          size: typeof r.size === "string" ? r.size : undefined,
+          qty: Math.floor(qty),
+        });
+        byProduct.set(pid, list);
+      }
+
+      // Must read all products before writing in a transaction.
+      const productSnaps = await Promise.all(
+        [...byProduct.keys()].map((pid) => tx.get(doc(db, "products", pid)))
+      );
+
+      for (const psnap of productSnaps) {
+        if (!psnap.exists()) continue;
+        const pdata = psnap.data();
+        const lines = byProduct.get(psnap.id) ?? [];
+        const totalAdd = lines.reduce((n, l) => n + l.qty, 0);
+
+        const patch: Record<string, unknown> = {};
+        const sizesRaw = pdata.sizes;
+        if (sizesRaw && typeof sizesRaw === "object" && !Array.isArray(sizesRaw)) {
+          const nextMap: Record<string, number> = {};
+          for (const [k, v] of Object.entries(sizesRaw as Record<string, unknown>)) {
+            const cur = typeof v === "number" ? v : Number(v);
+            nextMap[k] = Number.isFinite(cur) ? Math.max(0, Math.floor(cur)) : 0;
+          }
+          for (const line of lines) {
+            if (!line.size || !(line.size in nextMap)) continue;
+            nextMap[line.size] = (nextMap[line.size] ?? 0) + line.qty;
+          }
+          patch.sizes = nextMap;
+          const total = Object.values(nextMap).reduce((s, n) => s + n, 0);
+          patch.stock = total;
+        } else {
+          const curStock =
+            typeof pdata.stock === "number"
+              ? pdata.stock
+              : Number(pdata.stock) || 0;
+          patch.stock = Math.max(0, Math.floor(curStock) + totalAdd);
+        }
+
+        restoreUpdates.push({ ref: psnap.ref, patch });
+      }
+    }
+
     const prev = Array.isArray(data.statusHistory) ? data.statusHistory : [];
-    tx.update(ref, {
+    const orderPatch: Record<string, unknown> = {
       status: nextStatus,
       statusHistory: [
         ...prev,
-        {
-          status: nextStatus,
-          updatedAt: serverTimestamp(),
-          updatedBy,
-        },
+        { status: nextStatus, updatedAt: serverTimestamp(), updatedBy },
       ],
-    });
+    };
+    if (restoreUpdates.length > 0) {
+      orderPatch.inventoryRestored = true;
+    }
+
+    for (const { ref: pref, patch } of restoreUpdates) {
+      tx.update(pref, patch as UpdateData<Record<string, unknown>>);
+    }
+    tx.update(ref, orderPatch as UpdateData<Record<string, unknown>>);
   });
 }
 

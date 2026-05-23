@@ -8,6 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { ChevronLeft, Loader2, Tag } from "lucide-react";
 import { FirebaseError } from "firebase/app";
+import { doc, updateDoc } from "firebase/firestore";
+import { getDb } from "@/app/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,9 @@ import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
 import { generateOrderNumber, placeOrder } from "@/lib/checkout/placeOrder";
 import { CheckoutStockError } from "@/lib/checkout/stock";
 import { createShiprocketOrder } from "@/lib/shiprocket/clientFetch";
+import { checkPincodeServiceable } from "@/lib/shiprocket/clientServiceability";
+import { writeOrderConfirmation } from "@/lib/checkout/order-confirmation-cache";
+import type { OrderShippingRecord } from "@/lib/shiprocket/types";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -52,6 +57,8 @@ export default function CheckoutPage() {
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [deliveryPrefsLoaded, setDeliveryPrefsLoaded] = useState(false);
+  const [pincodeError, setPincodeError] = useState<string | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
 
   const form = useForm<DeliveryFormValues>({
     resolver: zodResolver(deliverySchema),
@@ -139,26 +146,13 @@ export default function CheckoutPage() {
       writeSavedDelivery(shippingAddress);
 
       const orderNumber = generateOrderNumber();
-      const shipping = await createShiprocketOrder({
-        orderNumber,
-        paymentMethod: "cod",
-        items: items.map((i) => ({
-          productId: i.productId,
-          name: i.name,
-          price: i.price,
-          quantity: i.quantity,
-          size: i.size,
-          color: i.color,
-        })),
-        shippingAddress,
-        pricing: {
-          subtotal: pricing.subtotal,
-          discount: pricing.discount,
-          shipping: pricing.shipping,
-          total: pricing.total,
-        },
-      });
+      const pendingShipping: OrderShippingRecord = {
+        provider: "shiprocket",
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      };
 
+      // 1) Persist order first. If this fails, no shipment is booked.
       const result = await placeOrder({
         items,
         shippingAddress,
@@ -167,20 +161,68 @@ export default function CheckoutPage() {
         paymentMethod: "cod",
         userId: user?.uid ?? "guest",
         orderNumber,
-        shipping,
+        shipping: pendingShipping,
       });
+
+      // Stash a local copy so the confirmation page can render even for guests
+      // (Firestore order-read is restricted to owner/admin).
+      writeOrderConfirmation({
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        pricing: {
+          subtotal: pricing.subtotal,
+          discount: pricing.discount,
+          shipping: pricing.shipping,
+          total: pricing.total,
+          couponCode: appliedCoupon?.code ?? null,
+        },
+        items: items.map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        shipping: pendingShipping,
+      });
+
       clearCart();
-      if (shipping.status === "failed") {
-        toast.success("Order placed", {
-          description:
-            "We couldn't reach Shiprocket — staff will book the shipment manually.",
-        });
-      } else {
-        toast.success("Order placed");
-      }
+
+      // Navigate immediately — the Shiprocket booking continues in the background.
       router.push(
         `/order-confirmation?orderId=${encodeURIComponent(result.orderId)}`
       );
+      toast.success("Order placed");
+
+      // 2) Fire-and-forget Shiprocket booking + best-effort order update.
+      void (async () => {
+        const shipping = await createShiprocketOrder({
+          orderNumber,
+          paymentMethod: "cod",
+          items: items.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            size: i.size,
+            color: i.color,
+          })),
+          shippingAddress,
+          pricing: {
+            subtotal: pricing.subtotal,
+            discount: pricing.discount,
+            shipping: pricing.shipping,
+            total: pricing.total,
+          },
+        });
+        try {
+          await updateDoc(doc(getDb(), "orders", result.orderId), {
+            shipping,
+          });
+        } catch (err) {
+          // Owner update permission may be missing (guests, or rules not deployed).
+          // Order is preserved; admin will see shipping.status==="pending" and rebook.
+          console.warn("[checkout] could not update order shipping", err);
+        }
+      })();
     } catch (e) {
       if (e instanceof CheckoutStockError) {
         toast.error(e.message, {
@@ -258,9 +300,24 @@ export default function CheckoutPage() {
       {step === 1 ? (
         <form
           className="mt-10 space-y-6"
-          onSubmit={handleSubmit((data) => {
-            writeSavedDelivery(data);
-            setStep(2);
+          onSubmit={handleSubmit(async (data) => {
+            setPincodeError(null);
+            setCheckingPincode(true);
+            try {
+              const sr = await checkPincodeServiceable(data.pincode, {
+                cod: true,
+              });
+              if (!sr.serviceable && !sr.failOpen) {
+                setPincodeError(
+                  "Sorry — we can't deliver to this PIN code yet. Try a different address."
+                );
+                return;
+              }
+              writeSavedDelivery(data);
+              setStep(2);
+            } finally {
+              setCheckingPincode(false);
+            }
           })}
         >
           <h2 className="text-lg font-semibold">Contact & delivery</h2>
@@ -347,12 +404,27 @@ export default function CheckoutPage() {
               ) : null}
             </div>
           </div>
+          {pincodeError ? (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {pincodeError}
+            </p>
+          ) : null}
           <Button
             type="submit"
             className="bg-orange-600 text-white hover:bg-orange-500"
-            disabled={isSubmitting}
+            disabled={isSubmitting || checkingPincode}
           >
-            Continue to review
+            {checkingPincode ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Checking PIN code…
+              </>
+            ) : (
+              "Continue to review"
+            )}
           </Button>
         </form>
       ) : null}

@@ -3,10 +3,11 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, FirestoreError } from "firebase/firestore";
 import { Loader2, PackageCheck } from "lucide-react";
 import { getDb } from "@/app/firebase";
 import { Button } from "@/components/ui/button";
+import { readOrderConfirmation } from "@/lib/checkout/order-confirmation-cache";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -22,6 +23,12 @@ type OrderPricing = {
   couponCode?: string | null;
 };
 
+type ShippingSummary = {
+  status?: string;
+  awbCode?: string | null;
+  courierName?: string | null;
+};
+
 type LoadedOrder = {
   orderNumber: string;
   pricing: OrderPricing;
@@ -30,7 +37,12 @@ type LoadedOrder = {
     quantity: number;
     price?: number;
   }>;
+  shipping?: ShippingSummary;
 };
+
+function shiprocketTrackingUrl(awbCode: string): string {
+  return `https://shiprocket.co/tracking/${encodeURIComponent(awbCode)}`;
+}
 
 function OrderConfirmationInner() {
   const searchParams = useSearchParams();
@@ -44,6 +56,26 @@ function OrderConfirmationInner() {
     if (!orderId) {
       setLoading(false);
       setError("missing_id");
+      return;
+    }
+
+    // Prefer the cached copy written by the checkout flow. Works for guests too,
+    // since Firestore orders are no longer publicly readable.
+    const cached = readOrderConfirmation(orderId);
+    if (cached) {
+      setOrder({
+        orderNumber: cached.orderNumber,
+        pricing: cached.pricing,
+        items: cached.items,
+        shipping: cached.shipping
+          ? {
+              status: cached.shipping.status,
+              awbCode: cached.shipping.awbCode ?? null,
+              courierName: cached.shipping.courierName ?? null,
+            }
+          : undefined,
+      });
+      setLoading(false);
       return;
     }
 
@@ -68,9 +100,33 @@ function OrderConfirmationInner() {
             typeof row.quantity === "number" ? row.quantity : Number(row.quantity) || 0,
           price: typeof row.price === "number" ? row.price : Number(row.price),
         }));
-        setOrder({ orderNumber, pricing, items });
-      } catch {
-        if (!cancelled) setError("fetch");
+        const shippingRaw = d.shipping;
+        const shipping: ShippingSummary | undefined =
+          shippingRaw && typeof shippingRaw === "object"
+            ? {
+                status:
+                  typeof (shippingRaw as Record<string, unknown>).status === "string"
+                    ? ((shippingRaw as Record<string, unknown>).status as string)
+                    : undefined,
+                awbCode:
+                  typeof (shippingRaw as Record<string, unknown>).awbCode === "string"
+                    ? ((shippingRaw as Record<string, unknown>).awbCode as string)
+                    : null,
+                courierName:
+                  typeof (shippingRaw as Record<string, unknown>).courierName === "string"
+                    ? ((shippingRaw as Record<string, unknown>).courierName as string)
+                    : null,
+              }
+            : undefined;
+        setOrder({ orderNumber, pricing, items, shipping });
+      } catch (e) {
+        if (!cancelled) {
+          setError(
+            e instanceof FirestoreError && e.code === "permission-denied"
+              ? "permission"
+              : "fetch"
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -105,14 +161,21 @@ function OrderConfirmationInner() {
   }
 
   if (error || !order) {
+    const isPermission = error === "permission";
     return (
       <div className="mx-auto max-w-lg px-4 py-28 text-center">
-        <h1 className="text-xl font-semibold">Order not found</h1>
+        <h1 className="text-xl font-semibold">
+          {isPermission ? "Sign in to view this order" : "Order not found"}
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          We couldn&apos;t load this order. The link may be invalid.
+          {isPermission
+            ? "This order can only be viewed by the account that placed it."
+            : "We couldn't load this order. The link may be invalid."}
         </p>
         <Button asChild className="mt-8 bg-orange-600 text-white hover:bg-orange-500">
-          <Link href="/explore">Continue shopping</Link>
+          <Link href={isPermission ? "/auth/sign-in" : "/explore"}>
+            {isPermission ? "Sign in" : "Continue shopping"}
+          </Link>
         </Button>
       </div>
     );
@@ -186,6 +249,32 @@ function OrderConfirmationInner() {
           ) : null}
         </div>
       </div>
+
+      {order.shipping?.awbCode ? (
+        <div className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
+          <p className="font-medium">Your shipment is booked</p>
+          <p className="mt-1 text-muted-foreground">
+            {order.shipping.courierName
+              ? `${order.shipping.courierName} · `
+              : ""}
+            AWB{" "}
+            <span className="font-mono">{order.shipping.awbCode}</span>
+          </p>
+          <a
+            className="mt-2 inline-flex text-orange-600 hover:text-orange-500"
+            href={shiprocketTrackingUrl(order.shipping.awbCode)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Track your package →
+          </a>
+        </div>
+      ) : order.shipping?.status === "pending" ? (
+        <p className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+          We&apos;re booking your shipment. You&apos;ll receive tracking details
+          shortly.
+        </p>
+      ) : null}
 
       <Button asChild className="mt-8 w-full bg-orange-600 text-white hover:bg-orange-500">
         <Link href="/explore">Continue shopping</Link>
