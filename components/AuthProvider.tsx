@@ -23,6 +23,10 @@ import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/fires
 import { toast } from "sonner";
 import { getClientFirebase, getDb, getFirebaseAuth } from "@/app/firebase";
 import { AuthContext, type UserProfile } from "@/hooks/useAuth";
+import {
+  roleGrantsAdminShell,
+  roleIsSuperAdmin,
+} from "@/lib/auth/roles";
 import { revalidateCart } from "@/lib/checkout/revalidate-cart";
 import { useCartStore } from "@/store/cartStore";
 import {
@@ -193,7 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, profile, profileReady]);
 
   const loading = !authReady || (user !== null && !profileReady);
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = roleGrantsAdminShell(profile?.role);
+  const isSuperAdmin = roleIsSuperAdmin(profile?.role);
 
   const ensureUserProfile = useCallback(async (u: User) => {
     const ref = doc(getDb(), "users", u.uid);
@@ -263,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       isAdmin,
+      isSuperAdmin,
       signIn,
       signUp,
       signOut,
@@ -275,6 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       isAdmin,
+      isSuperAdmin,
       signIn,
       signUp,
       signOut,

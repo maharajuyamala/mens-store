@@ -14,16 +14,30 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Admin: document users/{uid} must have role == "admin"
+    // Admin = role `admin` OR `super_admin` (both unlock the admin shell).
+    // Role change is server-only via /api/admin/users/role; rules below never
+    // let a client mutate the role field directly.
     function isAdmin() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'
+        );
     }
 
-    // User profile: read own; create as role "user" with allowed fields only; cannot change role client-side
+    function isSuperAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    // User profile: own user reads + super_admin can list/read everyone.
+    // Creation is locked to role "user" (clients can never self-promote).
+    // Updates are owner-only and may NOT change the role field — only the
+    // server-side Admin SDK route /api/admin/users/role does that.
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isSuperAdmin();
 
       allow create: if isOwner(userId)
         && request.resource.data.role == 'user'

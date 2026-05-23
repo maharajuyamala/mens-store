@@ -43,6 +43,29 @@ export function ExploreProductCard({
   const swatchColors = product.colors.slice(0, 4);
   const extraSwatchCount = Math.max(0, product.colors.length - swatchColors.length);
 
+  /**
+   * Black and white (and their near-pure equivalents) need a hairline border
+   * so they don't blend into the surrounding dark gradient. Every other color
+   * has enough chroma to stand on its own.
+   */
+  const needsSwatchBorder = (name: string, hex?: string) => {
+    const n = name.trim().toLowerCase();
+    if (n === "white" || n === "black") return true;
+    if (!hex) return false;
+    const h = hex.replace("#", "").toLowerCase();
+    const normalized =
+      h.length === 3
+        ? h
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : h;
+    if (!/^[0-9a-f]{6}$/.test(normalized)) return false;
+    if (normalized === "000000") return true;
+    if (normalized === "ffffff") return true;
+    return false;
+  };
+
   useEffect(() => {
     if (!hasMultiple) return;
     if (isHovered) {
@@ -266,12 +289,18 @@ export function ExploreProductCard({
               {swatchColors.map((c) => {
                 const variant = product.colorVariants.find((v) => v.color === c);
                 const fill = variant?.hex ?? swatchColor(c);
+                const showBorder = needsSwatchBorder(c, variant?.hex);
                 return (
                   <span
                     key={c}
                     title={c}
                     aria-label={`Available in ${c}`}
-                    className="h-3 w-3 rounded-full border border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.35)] ring-0"
+                    className={cn(
+                      "h-3 w-3 rounded-full ring-0",
+                      showBorder
+                        ? "border border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                        : ""
+                    )}
                     style={{ backgroundColor: fill }}
                   />
                 );

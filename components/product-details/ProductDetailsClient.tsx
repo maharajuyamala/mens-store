@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Check,
   ChevronRight,
   Heart,
   Minus,
@@ -32,6 +33,38 @@ import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
+
+/**
+ * Decide whether a swatch fill is "light" enough that a white tick mark on
+ * top of it would disappear. Accepts hex (#rgb / #rrggbb) and css colour
+ * strings like `hsl(...)`. Returns false for anything we can't parse, which
+ * is the safer default — a white check + dark drop shadow stays readable on
+ * mid-tone colours.
+ */
+function isLightSwatch(fill: string | undefined): boolean {
+  if (!fill) return false;
+  const trimmed = fill.trim();
+  if (trimmed.startsWith("#")) {
+    const h = trimmed.slice(1).toLowerCase();
+    const normalized =
+      h.length === 3
+        ? h
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : h;
+    if (!/^[0-9a-f]{6}$/.test(normalized)) return false;
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    // YIQ brightness — anything above ~160 reads as light.
+    return (r * 299 + g * 587 + b * 114) / 1000 > 165;
+  }
+  // hsl(h s% l%) — light if lightness > 65%.
+  const hsl = trimmed.match(/hsl\([^)]*\s(\d{1,3})%\s*\)/i);
+  if (hsl?.[1]) return Number(hsl[1]) > 65;
+  return false;
+}
 
 function stockBadgeCopy(product: ProductDetail): string {
   if (product.stockStatus === "out_of_stock") return "Out of stock";
@@ -431,16 +464,16 @@ function ProductDetailContent({
                         )
                       : null;
                     const soldOut = variantStock === 0;
+                    const light = isLightSwatch(fill);
                     return (
                       <button
                         key={c}
                         type="button"
                         onClick={() => setSelectedColor(c)}
                         className={cn(
-                          "relative h-10 w-10 rounded-full border-2 transition-all",
-                          selected
-                            ? "border-orange-500 ring-2 ring-orange-500/30 ring-offset-2 ring-offset-background"
-                            : "border-border hover:border-orange-500/40",
+                          "relative h-10 w-10 rounded-full border transition-colors",
+                          // Neutral border for every state — no orange highlight.
+                          "border-border hover:border-foreground/30",
                           soldOut && "opacity-40"
                         )}
                         style={{ backgroundColor: fill }}
@@ -449,10 +482,27 @@ function ProductDetailContent({
                         aria-pressed={selected}
                       >
                         <span className="sr-only">{label}</span>
+                        {selected ? (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                          >
+                            <Check
+                              className={cn(
+                                "h-5 w-5",
+                                light ? "text-zinc-900" : "text-white",
+                                light
+                                  ? "drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)]"
+                                  : "drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]"
+                              )}
+                              strokeWidth={3}
+                            />
+                          </span>
+                        ) : null}
                         {soldOut ? (
                           <span
                             aria-hidden
-                            className="pointer-events-none absolute inset-1 rounded-full border-t-2 border-foreground/60"
+                            className="pointer-events-none absolute inset-1 rounded-full border-t-2"
                             style={{
                               transform: "rotate(-45deg)",
                               borderColor: "rgba(0,0,0,0.55)",

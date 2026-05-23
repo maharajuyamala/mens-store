@@ -16,31 +16,43 @@ import {
   ScanBarcode,
   ShoppingBag,
   ShoppingCart,
+  Users as UsersIcon,
   X,
 } from "lucide-react";
 import { AdminGuard } from "@/components/AdminGuard";
 import { CartDrawer } from "@/components/Cart/CartDrawer";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  /** When true, only super_admin sees it (filtered at render time). */
+  superAdminOnly?: boolean;
+};
+
+const NAV: readonly NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/add-product", label: "Add Product", icon: PlusCircle },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/inventory/scan", label: "Scan & stock", icon: ScanBarcode },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/media", label: "Media", icon: ImageIcon },
-] as const;
+  { href: "/admin/users", label: "Users", icon: UsersIcon, superAdminOnly: true },
+];
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, isSuperAdmin } = useAuth();
   const setCartOpen = useCartDrawerStore((s) => s.setOpen);
   const cartCount = useCartStore((s) => s.getCount());
+  const navItems = NAV.filter((item) => !item.superAdminOnly || isSuperAdmin);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -61,6 +73,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <AdminGuard>
+      <ScrollToTop />
       <div className="min-h-screen bg-background text-foreground">
         <div className="sticky top-0 z-30 flex h-11 items-center gap-2 border-b border-border bg-card px-3 lg:hidden">
           <Button
@@ -143,7 +156,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </div>
 
               <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
-                {NAV.map((item, i) => {
+                {navItems.map((item, i) => {
                   const active =
                     item.href === "/admin"
                       ? pathname === "/admin"

@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileNav } from "@/components/MobileNav";
 import { NewsletterBanner } from "@/components/NewsletterBanner";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 /**
  * Wraps page content with the store header, footer, mobile nav, newsletter.
@@ -19,6 +20,7 @@ export function StoreChrome({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <ScrollToTop />
       <Header />
       <div className="pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         {children}

@@ -14,7 +14,10 @@ export type AuthContextValue = {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  /** True for `admin` AND `super_admin` roles — both unlock the admin shell. */
   isAdmin: boolean;
+  /** True only for `super_admin` — unlocks /admin/users role management. */
+  isSuperAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
