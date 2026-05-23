@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import imageCompression from "browser-image-compression";
@@ -16,13 +15,9 @@ import {
   ref,
   uploadBytesResumable,
 } from "firebase/storage";
-import { ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, X } from "lucide-react";
-import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { getDb, getFirebaseStorage } from "@/app/firebase";
-import {
-  buildImageStoragePath,
-  validateImageFile,
-} from "@/lib/uploads/validate-image";
+import { buildImageStoragePath } from "@/lib/uploads/validate-image";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -65,13 +60,19 @@ import {
   buildNewProductData,
   buildUpdateProductData,
 } from "@/lib/products/submit-helpers";
-import { cn } from "@/lib/utils";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type ExistingItem = { kind: "existing"; id: string; url: string };
-type NewItem = { kind: "new"; id: string; file: File; preview: string };
-type ImageItem = ExistingItem | NewItem;
+import {
+  parseColorVariants,
+  sanitizeVariantForWrite,
+  type ColorVariant,
+} from "@/lib/products/color-variants";
+import {
+  ColorVariantsEditor,
+  canonicalVariantName,
+  makeEmptyVariantDraft,
+  makeVariantDraftFromExisting,
+  type DraftImage,
+  type VariantDraft,
+} from "@/components/admin/products/ColorVariantsEditor";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -81,12 +82,38 @@ const COMPRESSION = {
   useWebWorker: true,
 } as const;
 
-let _uid = 0;
-function uid() {
-  return `img-${++_uid}`;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Build the initial color drafts for a product:
+ *  • If the product already has `colorVariants`, load each one with its
+ *    existing image URLs (admin can append/remove photos and rename).
+ *  • Otherwise migrate the legacy flat `images` + `colors` fields into a
+ *    single starter variant so admins can split into per-color groups later.
+ *    The first legacy color (if any) seeds the variant name.
+ */
+function buildInitialColorDrafts(
+  data: Record<string, unknown> | null
+): VariantDraft[] {
+  if (!data) return [makeEmptyVariantDraft()];
+  const existing = parseColorVariants(data);
+  if (existing.length > 0) {
+    return existing.map((v) => makeVariantDraftFromExisting(v));
+  }
+  const flatImages = normalizeImageUrls(data);
+  const flatColors = Array.isArray(data.colors)
+    ? data.colors.map((c) => String(c)).filter(Boolean)
+    : [];
+  if (flatImages.length === 0 && flatColors.length === 0) {
+    return [makeEmptyVariantDraft()];
+  }
+  return [
+    makeVariantDraftFromExisting({
+      color: flatColors[0] ?? "default",
+      images: flatImages,
+    }),
+  ];
+}
 
 function formDefaultsFromDoc(
   data: Record<string, unknown> | null
@@ -191,15 +218,12 @@ export function ProductFormDialog({
   initialData,
   onSaved,
 }: ProductFormDialogProps) {
-  // Unified image list — both existing URLs and new local files live here
-  const [images, setImages] = useState<ImageItem[]>([]);
-  const [progress, setProgress] = useState<Record<string, number>>({});
+  /** One row per colorway. Each row holds its own existing URLs + new uploads. */
+  const [colorDrafts, setColorDrafts] = useState<VariantDraft[]>([
+    makeEmptyVariantDraft(),
+  ]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const blobUrlsRef = useRef<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const openPicker = () => fileInputRef.current?.click();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema) as Resolver<ProductFormValues>,
@@ -207,8 +231,6 @@ export function ProductFormDialog({
   });
   const { reset } = form;
 
-  const [colorDraft, setColorDraft] = useState("");
-  const watchedColors = form.watch("colors");
   const watchedSizes = form.watch("sizes");
   const watchedAudience = form.watch("audience");
   const watchedCategory = form.watch("category");
@@ -238,151 +260,112 @@ export function ProductFormDialog({
     }
   }, [sizeOptions, form]);
 
-  // Revoke all tracked blob URLs
-  const revokeBlobs = useCallback(() => {
-    blobUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
-    blobUrlsRef.current = [];
+  /** Revoke blob previews held by the current drafts (used on close/reset). */
+  const revokeDraftBlobs = useCallback((drafts: VariantDraft[]) => {
+    for (const d of drafts) {
+      for (const img of d.images) {
+        if (img.kind === "new") URL.revokeObjectURL(img.preview);
+      }
+    }
   }, []);
 
   // Reset everything when dialog opens/closes
   useEffect(() => {
     if (!open) {
-      revokeBlobs();
-      setImages([]);
-      setProgress({});
+      setColorDrafts((prev) => {
+        revokeDraftBlobs(prev);
+        return [makeEmptyVariantDraft()];
+      });
       setSubmitError(null);
-      setColorDraft("");
       return;
     }
     reset(formDefaultsFromDoc(initialData));
-    const existingUrls = initialData ? normalizeImageUrls(initialData) : [];
-    setImages(
-      existingUrls.map((url) => ({ kind: "existing", id: uid(), url }))
-    );
-    setProgress({});
+    setColorDrafts(buildInitialColorDrafts(initialData));
     setSubmitError(null);
-  }, [open, initialData, reset, revokeBlobs]);
-
-  // Pick files → add to unified list
-  const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files;
-    if (!list?.length) return;
-    const additions: NewItem[] = [];
-    for (const file of Array.from(list)) {
-      const check = validateImageFile(file);
-      if (!check.ok) {
-        toast.error("Image rejected", { description: check.reason });
-        continue;
-      }
-      const preview = URL.createObjectURL(file);
-      blobUrlsRef.current.push(preview);
-      additions.push({ kind: "new", id: uid(), file, preview });
-    }
-    if (additions.length > 0) {
-      setImages((prev) => [...prev, ...additions]);
-    }
-    e.target.value = "";
-  };
-
-  // Remove an item
-  const removeImage = (id: string) => {
-    setImages((prev) => {
-      const item = prev.find((x) => x.id === id);
-      if (item?.kind === "new") {
-        URL.revokeObjectURL(item.preview);
-        blobUrlsRef.current = blobUrlsRef.current.filter(
-          (u) => u !== item.preview
-        );
-      }
-      return prev.filter((x) => x.id !== id);
-    });
-  };
-
-  // Move left / right
-  const moveImage = (id: string, dir: -1 | 1) => {
-    setImages((prev) => {
-      const idx = prev.findIndex((x) => x.id === id);
-      if (idx < 0) return prev;
-      const next = [...prev];
-      const swapIdx = idx + dir;
-      if (swapIdx < 0 || swapIdx >= next.length) return prev;
-      [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
-      return next;
-    });
-  };
-
-  // Color helpers
-  const addColorTags = () => {
-    const parts = colorDraft
-      .split(/[,;\n]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length === 0) return;
-    form.setValue("colors", [...form.getValues("colors"), ...parts], {
-      shouldValidate: true,
-    });
-    setColorDraft("");
-  };
-  const removeColorAt = (index: number) => {
-    form.setValue(
-      "colors",
-      form.getValues("colors").filter((_, i) => i !== index),
-      { shouldValidate: true }
-    );
-  };
+  }, [open, initialData, reset, revokeDraftBlobs]);
 
   // Submit
   const onSubmit = form.handleSubmit(async (values) => {
-    if (images.length < 1) {
-      setSubmitError("Add at least one image.");
+    const usableDrafts = colorDrafts.filter((d) => d.images.length > 0);
+    if (usableDrafts.length === 0) {
+      setSubmitError("Add at least one color with photos.");
+      return;
+    }
+    const nameCounts = new Map<string, number>();
+    for (const d of usableDrafts) {
+      const n = canonicalVariantName(d);
+      nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1);
+    }
+    if (Array.from(nameCounts.values()).some((c) => c > 1)) {
+      setSubmitError(
+        "Two colors share the same name. Give each color a unique name."
+      );
       return;
     }
     setSubmitError(null);
     setSubmitting(true);
-    setProgress({});
 
     try {
-      // Upload all new items, track progress per id
-      const onProgress = (id: string, pct: number) =>
-        setProgress((prev) => ({ ...prev, [id]: pct }));
-
-      const uploadedUrls: Record<string, string> = {};
-      for (const item of images) {
-        if (item.kind === "new") {
-          uploadedUrls[item.id] = await uploadCompressedWithProgress(
-            item.file,
-            item.id,
-            onProgress
+      // Upload each variant's images in order; existing URLs are kept as-is.
+      const variants: ColorVariant[] = [];
+      for (const draft of usableDrafts) {
+        const urls: string[] = [];
+        for (const img of draft.images) {
+          if (img.kind === "existing") {
+            urls.push(img.url);
+            continue;
+          }
+          const url = await uploadCompressedWithProgress(
+            img.file,
+            img.id,
+            () => {}
           );
+          urls.push(url);
         }
+        variants.push(
+          sanitizeVariantForWrite({
+            color: canonicalVariantName(draft),
+            label: draft.label,
+            hex: draft.hex,
+            images: urls,
+          })
+        );
       }
 
-      // Collect final ordered URL list
-      const allUrls = images.map((item) =>
-        item.kind === "existing" ? item.url : (uploadedUrls[item.id] ?? "")
-      ).filter(Boolean);
+      // Backward-compat: derive the flat fields legacy listing code reads.
+      const flatImages = variants.flatMap((v) => v.images);
+      const flatColors = variants.map((v) => v.color);
+
+      // Splice variants + colors into the buildXProductData payloads. We keep
+      // `colors` in sync with variants so explore-page filtering still works.
+      const valuesForSubmit: ProductFormValues = {
+        ...values,
+        colors: flatColors,
+      };
 
       if (mode === "create") {
-        const created = await addDoc(
-          collection(getDb(), "products"),
-          buildNewProductData(values, allUrls)
-        );
-        revokeBlobs();
+        const created = await addDoc(collection(getDb(), "products"), {
+          ...buildNewProductData(valuesForSubmit, flatImages),
+          colorVariants: variants,
+          image: flatImages[0] ?? "",
+        });
+        revokeDraftBlobs(colorDrafts);
         onSaved({
           productId: created.id,
           name: values.name.trim(),
           price: values.price,
-          imageUrl: allUrls[0] ?? null,
+          imageUrl: flatImages[0] ?? null,
         });
       } else if (productId) {
-        await updateDoc(
-          doc(getDb(), "products", productId),
-          buildUpdateProductData(values, allUrls)
-        );
-        revokeBlobs();
+        await updateDoc(doc(getDb(), "products", productId), {
+          ...buildUpdateProductData(valuesForSubmit, flatImages),
+          colorVariants: variants,
+          image: flatImages[0] ?? "",
+        });
+        revokeDraftBlobs(colorDrafts);
         onSaved();
       } else {
-        revokeBlobs();
+        revokeDraftBlobs(colorDrafts);
         onSaved();
       }
 
@@ -397,7 +380,15 @@ export function ProductFormDialog({
     }
   });
 
-  const newCount = images.filter((x) => x.kind === "new").length;
+  const newImageCount = useMemo(
+    () =>
+      colorDrafts.reduce(
+        (acc, d) =>
+          acc + d.images.filter((i: DraftImage) => i.kind === "new").length,
+        0
+      ),
+    [colorDrafts]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -575,222 +566,16 @@ export function ProductFormDialog({
             )}
           </div>
 
-          {/* Colors */}
-          <div className="space-y-2">
-            <Label>Colors</Label>
-            <div className="flex gap-2">
-              <Input
-                value={colorDraft}
-                onChange={(e) => setColorDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addColorTags();
-                  }
-                }}
-                placeholder="Comma-separated or Enter"
-                className="border-border bg-background"
-              />
-              <Button type="button" variant="secondary" onClick={addColorTags}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {watchedColors.map((color, index) => (
-                <span
-                  key={`${color}-${index}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
-                >
-                  {color}
-                  <button
-                    type="button"
-                    className="rounded-full p-0.5 hover:bg-background"
-                    onClick={() => removeColorAt(index)}
-                    aria-label={`Remove ${color}`}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
+          {/* ── Colors & per-color images ─────────────────────────────── */}
+          <ColorVariantsEditor
+            drafts={colorDrafts}
+            onChange={setColorDrafts}
+            disabled={submitting}
+          />
 
-          {/* ── Images ─────────────────────────────────────────────────── */}
-          <div className="space-y-3">
-            {/* Single hidden file input — triggered via ref only */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/avif"
-              multiple
-              onChange={onPickFiles}
-              style={{ display: "none" }}
-            />
-
-            {/* Header row */}
-            <div className="flex items-center justify-between">
-              <Label>
-                Images
-                {images.length > 0 && (
-                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                    {images.length} photo{images.length !== 1 ? "s" : ""}
-                    {newCount > 0 && ` · ${newCount} new`}
-                  </span>
-                )}
-              </Label>
-              <button
-                type="button"
-                onClick={openPicker}
-                className="flex items-center gap-1.5 rounded-lg border border-dashed border-orange-500/70 bg-orange-500/5 px-3 py-1.5 text-xs font-semibold text-orange-500 transition-colors hover:bg-orange-500/10 active:bg-orange-500/20"
-              >
-                <ImagePlus className="h-3.5 w-3.5" />
-                Add photos
-              </button>
-            </div>
-
-            {/* Empty state — big tap target */}
-            {images.length === 0 && (
-              <button
-                type="button"
-                onClick={openPicker}
-                className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 py-10 text-center transition-colors hover:border-orange-500/40 hover:bg-muted/40"
-              >
-                <div className="rounded-full bg-muted p-4">
-                  <ImagePlus className="h-7 w-7 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Tap to add product photos</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    JPG · PNG · WEBP — select multiple at once
-                  </p>
-                </div>
-              </button>
-            )}
-
-            {/* Image grid */}
-            {images.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  First image = card cover. ‹ › to reorder, × to remove.
-                </p>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {images.map((item, idx) => {
-                    const src =
-                      item.kind === "existing" ? item.url : item.preview;
-                    const uploadPct =
-                      item.kind === "new" ? (progress[item.id] ?? 0) : 100;
-                    const isUploading =
-                      submitting && item.kind === "new" && uploadPct < 100;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          "relative overflow-hidden rounded-xl border-2 bg-muted",
-                          idx === 0 ? "border-orange-500" : "border-border"
-                        )}
-                      >
-                        <div className="relative aspect-square">
-                          <Image
-                            src={src}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            sizes="100px"
-                            unoptimized={item.kind === "new"}
-                          />
-                        </div>
-
-                        {/* Upload progress overlay */}
-                        {isUploading && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
-                            <Loader2 className="h-5 w-5 animate-spin text-white" />
-                            <span className="mt-1 text-[10px] font-bold text-white">
-                              {Math.round(uploadPct)}%
-                            </span>
-                            <div className="absolute bottom-0 inset-x-0 h-1 bg-black/30">
-                              <div
-                                className="h-full bg-orange-500 transition-all duration-200"
-                                style={{ width: `${uploadPct}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Cover / order badge */}
-                        {idx === 0 ? (
-                          <div className="absolute bottom-0 inset-x-0 bg-orange-500 py-0.5 text-center text-[9px] font-bold uppercase tracking-widest text-white">
-                            Cover
-                          </div>
-                        ) : (
-                          <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                            {idx + 1}
-                          </div>
-                        )}
-
-                        {/* Remove — always visible, top-right */}
-                        <button
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => removeImage(item.id)}
-                          aria-label="Remove image"
-                          className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow transition-colors hover:bg-red-600 disabled:opacity-40"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-
-                        {/* Move left — top-left (only when not first) */}
-                        {idx > 0 && (
-                          <button
-                            type="button"
-                            disabled={submitting}
-                            onClick={() => moveImage(item.id, -1)}
-                            aria-label="Move left"
-                            className="absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow transition-colors hover:bg-black disabled:opacity-40"
-                          >
-                            <ChevronLeft className="h-3 w-3" />
-                          </button>
-                        )}
-
-                        {/* Move right — bottom-right above cover badge */}
-                        {idx < images.length - 1 && (
-                          <button
-                            type="button"
-                            disabled={submitting}
-                            onClick={() => moveImage(item.id, 1)}
-                            aria-label="Move right"
-                            className="absolute bottom-5 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow transition-colors hover:bg-black disabled:opacity-40"
-                          >
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        )}
-
-                        {/* Orange dot = not yet uploaded */}
-                        {item.kind === "new" && !submitting && (
-                          <div className="absolute left-1 bottom-1 h-2 w-2 rounded-full bg-orange-400 ring-1 ring-white/50" />
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Add more tile */}
-                  <button
-                    type="button"
-                    onClick={openPicker}
-                    className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/20 text-muted-foreground transition-colors hover:border-orange-500/50 hover:bg-muted/40 hover:text-orange-500"
-                    style={{ aspectRatio: "1 / 1" }}
-                  >
-                    <Plus className="h-5 w-5" />
-                    <span className="text-[10px] font-semibold">Add more</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {submitError && (
-              <p className="text-sm text-destructive">{submitError}</p>
-            )}
-          </div>
+          {submitError && (
+            <p className="text-sm text-destructive">{submitError}</p>
+          )}
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -809,8 +594,8 @@ export function ProductFormDialog({
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {newCount > 0
-                    ? `Uploading ${newCount} image${newCount !== 1 ? "s" : ""}…`
+                  {newImageCount > 0
+                    ? `Uploading ${newImageCount} image${newImageCount !== 1 ? "s" : ""}…`
                     : "Saving…"}
                 </>
               ) : mode === "create" ? (

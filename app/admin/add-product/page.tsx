@@ -1,18 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   CheckCircle2,
-  ChevronLeft,
-  ImagePlus,
   Loader2,
   Minus,
   Plus,
   PlusCircle,
   Printer,
-  UploadCloud,
-  X,
 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { getClientFirebase } from "@/app/firebase";
@@ -37,15 +33,18 @@ import {
   QUICK_ADD_STYLE_TAGS,
   type AudienceId,
 } from "@/lib/add-product/quick-add-options";
-import {
-  buildImageStoragePath,
-  validateImageFile,
-} from "@/lib/uploads/validate-image";
+import { buildImageStoragePath } from "@/lib/uploads/validate-image";
 import {
   formatSizeLabel,
   getSizeOptions,
   inferSizeGroup,
 } from "@/lib/products/size-options";
+import {
+  ColorVariantsEditor,
+  canonicalVariantName,
+  makeEmptyVariantDraft,
+  type VariantDraft,
+} from "@/components/admin/products/ColorVariantsEditor";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,16 +168,14 @@ export default function AddProductPage() {
   // Form state
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [pickerColor, setPickerColor] = useState("#000000");
+  const [colorDrafts, setColorDrafts] = useState<VariantDraft[]>(() => [
+    makeEmptyVariantDraft(),
+  ]);
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
     {}
   );
   const [selectedAudience, setSelectedAudience] = useState<AudienceId | "">("");
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -187,57 +184,29 @@ export default function AddProductPage() {
     null
   );
 
-  const openPicker = () => imageInputRef.current?.click();
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files;
-    if (!list?.length) return;
-    const accepted: File[] = [];
-    for (const f of Array.from(list)) {
-      const check = validateImageFile(f);
-      if (!check.ok) {
-        toast.error("Image rejected", { description: check.reason });
-        continue;
-      }
-      accepted.push(f);
-    }
-    if (accepted.length === 0) {
-      e.target.value = "";
-      return;
-    }
-    const newPreviews = accepted.map((f) => URL.createObjectURL(f));
-    setImageFiles((prev) => [...prev, ...accepted]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
-    e.target.value = "";
-  };
-
-  const removeImageAt = (index: number) => {
-    setImagePreviews((prev) => {
-      const url = prev[index];
-      if (url) URL.revokeObjectURL(url);
-      return prev.filter((_, i) => i !== index);
-    });
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const resetForm = useCallback(() => {
     setProductName("");
     setPrice("");
-    setSelectedColors([]);
-    setPickerColor("#000000");
     setSizeQuantities({});
     setSelectedAudience("");
     setSelectedStyles([]);
-    imagePreviews.forEach((u) => URL.revokeObjectURL(u));
-    setImageFiles([]);
-    setImagePreviews([]);
+    setColorDrafts((prev) => {
+      // Revoke blob URLs we own so we don't leak previews.
+      for (const d of prev) {
+        for (const img of d.images) {
+          if (img.kind === "new") URL.revokeObjectURL(img.preview);
+        }
+      }
+      return [makeEmptyVariantDraft()];
+    });
     setError(null);
     setCreatedProduct(null);
-  }, [imagePreviews]);
+  }, []);
 
   const handleQuantityChange = (size: string, qty: number) => {
     setSizeQuantities((prev) => ({ ...prev, [size]: Math.max(0, qty) }));
   };
+
 
   // Sizes depend on department + style — kids get age brackets, "pants" style
   // gets numeric waist sizes, everything else gets the alpha XS–6XL set.
@@ -283,18 +252,31 @@ export default function AddProductPage() {
         {} as Record<string, number>
       );
 
+    // Filter to drafts that have at least one image — empty placeholders are
+    // ignored so admins don't have to clean them up manually.
+    const usableDrafts = colorDrafts.filter((d) => d.images.length > 0);
+
+    // Detect duplicate canonical names so two drafts don't collide silently.
+    const nameCounts = new Map<string, number>();
+    for (const d of usableDrafts) {
+      const n = canonicalVariantName(d);
+      nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1);
+    }
+    const hasDupes = Array.from(nameCounts.values()).some((c) => c > 1);
+
     if (
       !productName ||
       !price ||
       Number.isNaN(finalPrice) ||
-      imageFiles.length === 0 ||
-      !selectedColors.length ||
+      usableDrafts.length === 0 ||
       !selectedAudience ||
       Object.keys(sizesToSubmit).length === 0 ||
-      selectedStyles.length === 0
+      selectedStyles.length === 0 ||
+      hasDupes
     ) {
-      const msg =
-        "Fill all fields: department, at least one style, color, image, price, name, and stock for at least one size.";
+      const msg = hasDupes
+        ? "Two colors share the same name. Give each color a unique name."
+        : "Fill all fields: department, at least one style, at least one color with photos, price, name, and stock for at least one size.";
       setError(msg);
       toast.error("Complete the form", { description: msg });
       return;
@@ -318,23 +300,56 @@ export default function AddProductPage() {
         useWebWorker: true,
       };
 
-      const imageUrls: string[] = [];
-      for (const file of imageFiles) {
-        const compressed = await imageCompression(file, options);
-        const imageRef = ref(fb.storage, buildImageStoragePath(file, "products"));
-        await uploadBytes(imageRef, compressed);
-        imageUrls.push(await getDownloadURL(imageRef));
+      // Upload each color's photos in order so the array we persist matches
+      // the order shown to the admin. /admin/add-product only creates NEW
+      // images, but we defensively pass-through any "existing" URLs in case
+      // this branch is reused for editing later.
+      const colorVariants: Array<{
+        color: string;
+        label?: string;
+        hex?: string;
+        images: string[];
+      }> = [];
+      for (const draft of usableDrafts) {
+        const urls: string[] = [];
+        for (const img of draft.images) {
+          if (img.kind === "existing") {
+            urls.push(img.url);
+            continue;
+          }
+          const compressed = await imageCompression(img.file, options);
+          const imageRef = ref(
+            fb.storage,
+            buildImageStoragePath(img.file, "products")
+          );
+          await uploadBytes(imageRef, compressed);
+          urls.push(await getDownloadURL(imageRef));
+        }
+        const colorName = canonicalVariantName(draft);
+        const friendlyLabel = draft.label.trim();
+        colorVariants.push({
+          color: colorName,
+          ...(friendlyLabel ? { label: friendlyLabel } : {}),
+          ...(draft.hex ? { hex: draft.hex } : {}),
+          images: urls,
+        });
       }
+
+      // Backward-compat: flatten so legacy consumers that read `images`/`colors`
+      // still get a sensible value.
+      const flatImages = colorVariants.flatMap((v) => v.images);
+      const colorNames = colorVariants.map((v) => v.color);
 
       const productData = {
         id: `${Date.now()}`,
         name: productName,
         price: finalPrice,
-        images: imageUrls,
-        image: imageUrls[0] ?? "",
+        images: flatImages,
+        image: flatImages[0] ?? "",
         tags: [selectedAudience, ...selectedStyles],
         audience: selectedAudience,
-        colors: selectedColors,
+        colors: colorNames,
+        colorVariants,
         description: "",
         size: [sizesToSubmit],
       };
@@ -346,7 +361,7 @@ export default function AddProductPage() {
         productId: newDoc.id,
         name: productName,
         price: finalPrice,
-        imageUrl: imageUrls[0] ?? null,
+        imageUrl: flatImages[0] ?? null,
       });
     } catch (err) {
       console.error("Error adding product:", err);
@@ -375,115 +390,6 @@ export default function AddProductPage() {
         onSubmit={(e) => void handleSubmit(e)}
         className="space-y-6"
       >
-        {/* ── Images ──────────────────────────────────────────────── */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>
-              Product images
-              {imagePreviews.length > 0 && (
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                  {imagePreviews.length} photo
-                  {imagePreviews.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </Label>
-            {imagePreviews.length > 0 && (
-              <button
-                type="button"
-                onClick={openPicker}
-                className="flex items-center gap-1.5 rounded-lg border border-dashed border-orange-500/70 bg-orange-500/5 px-3 py-1.5 text-xs font-semibold text-orange-500 transition-colors hover:bg-orange-500/10"
-              >
-                <ImagePlus className="h-3.5 w-3.5" />
-                Add more
-              </button>
-            )}
-          </div>
-
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
-            multiple
-            onChange={handleImageChange}
-            style={{ display: "none" }}
-          />
-
-          {imagePreviews.length === 0 ? (
-            <button
-              type="button"
-              onClick={openPicker}
-              className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 py-12 transition-colors hover:border-orange-500/40 hover:bg-muted/40"
-            >
-              <div className="rounded-full bg-muted p-4">
-                <UploadCloud className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold">
-                  Tap to select product photos
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Select multiple at once — first image = card cover
-                </p>
-              </div>
-            </button>
-          ) : (
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground">
-                First image = card cover. Tap × to remove.
-              </p>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                {imagePreviews.map((src, idx) => (
-                  <div
-                    key={src}
-                    className={cn(
-                      "relative overflow-hidden rounded-xl border-2 bg-muted",
-                      idx === 0 ? "border-orange-500" : "border-border"
-                    )}
-                  >
-                    <div className="relative aspect-square">
-                      <Image
-                        src={src}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="100px"
-                        unoptimized
-                      />
-                    </div>
-                    {idx === 0 && (
-                      <div className="absolute inset-x-0 bottom-0 bg-orange-500 py-0.5 text-center text-[8px] font-bold uppercase tracking-widest text-white">
-                        Cover
-                      </div>
-                    )}
-                    {idx > 0 && (
-                      <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[8px] font-bold text-white">
-                        {idx + 1}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeImageAt(idx)}
-                      aria-label="Remove image"
-                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow hover:bg-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={openPicker}
-                  className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/20 text-muted-foreground transition-colors hover:border-orange-500/50 hover:text-orange-500"
-                  style={{ aspectRatio: "1 / 1" }}
-                >
-                  <Plus className="h-5 w-5" />
-                  <span className="text-[9px] font-semibold">Add</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* ── Name & Price ─────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -566,66 +472,12 @@ export default function AddProductPage() {
           </p>
         )}
 
-        {/* ── Colors ────────────────────────────────────────────────── */}
-        <div className="space-y-3">
-          <Label>Colors (pick one or more)</Label>
-          <div className="flex items-center gap-3">
-            <label className="relative flex h-10 w-10 cursor-pointer items-center justify-center">
-              <input
-                type="color"
-                value={pickerColor}
-                onChange={(e) => setPickerColor(e.target.value)}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              />
-              <span
-                className="block h-9 w-9 rounded-full border-2 border-border shadow-sm transition-transform hover:scale-110"
-                style={{ backgroundColor: pickerColor }}
-              />
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const c = pickerColor.toLowerCase();
-                if (!selectedColors.includes(c)) {
-                  setSelectedColors((prev) => [...prev, c]);
-                }
-              }}
-              className="gap-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add color
-            </Button>
-          </div>
-          {selectedColors.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedColors.map((hex) => (
-                <span
-                  key={hex}
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm"
-                >
-                  <span
-                    className="inline-block h-4 w-4 rounded-full border border-border/50 shadow-inner"
-                    style={{ backgroundColor: hex }}
-                  />
-                  <span className="font-mono text-xs uppercase">{hex}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedColors((prev) =>
-                        prev.filter((v) => v !== hex)
-                      )
-                    }
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* ── Colors & per-color images ─────────────────────────────── */}
+        <ColorVariantsEditor
+          drafts={colorDrafts}
+          onChange={setColorDrafts}
+          disabled={isLoading}
+        />
 
         {/* ── Sizes & stock ─────────────────────────────────────────── */}
         <div className="space-y-3">

@@ -4,6 +4,11 @@ import {
   computeProductStatus,
   type ProductAudience,
 } from "@/lib/products/schema";
+import {
+  flattenVariantImages,
+  parseColorVariants,
+  type ColorVariant,
+} from "@/lib/products/color-variants";
 
 export type SortMode = "newest" | "price-asc" | "price-desc" | "match";
 
@@ -23,6 +28,11 @@ export type ExploreProduct = {
   /** Per-size available units. Empty when product has no size map (legacy flat stock). */
   sizesStock: Record<string, number>;
   colors: string[];
+  /**
+   * Per-color image groups. Empty when the product doesn't have variants —
+   * consumers should fall back to `images` in that case.
+   */
+  colorVariants: ColorVariant[];
   stockStatus: ReturnType<typeof computeProductStatus>;
   stock: number;
   createdAtMs: number;
@@ -48,10 +58,15 @@ function createdAtToMs(data: DocumentData): number {
 }
 
 export function docToExploreProduct(id: string, data: DocumentData): ExploreProduct {
-  const images = Array.isArray(data.images)
+  const colorVariants = parseColorVariants(data as Record<string, unknown>);
+  const flatImagesField = Array.isArray(data.images)
     ? (data.images as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
   const single = typeof data.image === "string" ? data.image : "";
+  // Prefer flattened variant images so the listing always reflects the actual
+  // product photography even when the legacy `images` field is stale.
+  const variantImages = flattenVariantImages(colorVariants);
+  const images = variantImages.length > 0 ? variantImages : flatImagesField;
   const image = images[0] ?? single ?? "";
 
   const price =
@@ -96,9 +111,15 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     sizes = [];
   }
 
-  const colors = Array.isArray(data.colors)
-    ? data.colors.map((c) => String(c).toLowerCase().trim())
+  const colorsFromField = Array.isArray(data.colors)
+    ? data.colors.map((c) => String(c).toLowerCase().trim()).filter(Boolean)
     : [];
+  // Variants are the source of truth when present; fall back to the legacy
+  // flat `colors` array otherwise.
+  const colors =
+    colorVariants.length > 0
+      ? colorVariants.map((v) => v.color)
+      : colorsFromField;
 
   // Per-size stock map (kept only when we actually have one; empty for legacy flat-stock docs).
   const sizesStock: Record<string, number> = {};
@@ -130,6 +151,7 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     sizes,
     sizesStock,
     colors,
+    colorVariants,
     stockStatus,
     stock,
     createdAtMs: createdAtToMs(data),

@@ -23,6 +23,10 @@ import {
   parseProductDetail,
   type ProductDetail,
 } from "@/lib/product-detail";
+import {
+  imagesForColor,
+  variantLabel,
+} from "@/lib/products/color-variants";
 import { cn, inr as currency } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
@@ -68,7 +72,7 @@ function ProductDetailContent({
 
   useEffect(() => {
     setMainIndex(0);
-  }, [productId, product?.id]);
+  }, [productId, product?.id, selectedColor]);
 
   useEffect(() => {
     if (!productId || !product) return;
@@ -98,7 +102,23 @@ function ProductDetailContent({
     setQty((q) => Math.min(Math.max(1, q), maxQty));
   }, [maxQty]);
 
-  const mainSrc = product?.images[mainIndex] ?? product?.images[0] ?? "";
+  /**
+   * Gallery for the selected color. Falls back to the product image pool when
+   * the product has no variants or the variant has no images yet.
+   */
+  const displayImages = useMemo<string[]>(() => {
+    if (!product) return [];
+    if (product.colorVariants.length > 0) {
+      return imagesForColor(
+        product.colorVariants,
+        selectedColor || null,
+        product.images
+      );
+    }
+    return product.images;
+  }, [product, selectedColor]);
+
+  const mainSrc = displayImages[mainIndex] ?? displayImages[0] ?? "";
 
   const isSale =
     product &&
@@ -132,7 +152,7 @@ function ProductDetailContent({
       color,
       quantity: qty,
       price: product.price,
-      image: product.images[0] ?? "",
+      image: displayImages[0] ?? product.images[0] ?? "",
     });
     toast.success("Added to cart", {
       description: product.name,
@@ -241,9 +261,9 @@ function ProductDetailContent({
                 )}
               </AnimatePresence>
             </div>
-            {product.images.length > 1 ? (
+            {displayImages.length > 1 ? (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {product.images.map((src, i) => (
+                {displayImages.map((src, i) => (
                   <button
                     key={`${src}-${i}`}
                     type="button"
@@ -343,27 +363,44 @@ function ProductDetailContent({
 
             {product.colors.length > 0 ? (
               <div>
-                <p className="mb-2 text-sm font-medium">Color</p>
+                <div className="mb-2 flex items-baseline gap-2">
+                  <p className="text-sm font-medium">Color</p>
+                  {selectedColor ? (
+                    <span className="text-sm text-muted-foreground">
+                      {(() => {
+                        const v = product.colorVariants.find(
+                          (x) => x.color === selectedColor
+                        );
+                        return v ? variantLabel(v) : selectedColor;
+                      })()}
+                    </span>
+                  ) : null}
+                </div>
                 <div className="flex flex-wrap gap-3">
                   {product.colors.map((c) => {
-                    const fill = swatchColor(c);
+                    const variant = product.colorVariants.find(
+                      (v) => v.color === c
+                    );
+                    const fill = variant?.hex ?? swatchColor(c);
                     const selected = selectedColor === c;
+                    const label = variant ? variantLabel(variant) : c;
                     return (
                       <button
                         key={c}
                         type="button"
                         onClick={() => setSelectedColor(c)}
                         className={cn(
-                          "relative h-9 w-9 rounded-full border-2 transition-shadow",
+                          "relative h-10 w-10 rounded-full border-2 transition-all",
                           selected
-                            ? ""
+                            ? "border-orange-500 ring-2 ring-orange-500/30 ring-offset-2 ring-offset-background"
                             : "border-border hover:border-orange-500/40"
                         )}
                         style={{ backgroundColor: fill }}
-                        title={c}
-                        aria-label={`Color ${c}`}
+                        title={label}
+                        aria-label={`Color ${label}`}
+                        aria-pressed={selected}
                       >
-                        <span className="sr-only">{c}</span>
+                        <span className="sr-only">{label}</span>
                       </button>
                     );
                   })}

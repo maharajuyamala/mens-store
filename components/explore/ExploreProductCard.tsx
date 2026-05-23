@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
 import type { ExploreProduct } from "@/lib/explore/types";
+import { swatchColor } from "@/lib/explore/color-swatches";
 import { cn, inr } from "@/lib/utils";
 import { useWishlistStore } from "@/store/wishlistStore";
 
@@ -37,6 +38,10 @@ export function ExploreProductCard({
         ? [product.image]
         : [];
   const hasMultiple = images.length > 1;
+
+  // Show up to 4 color swatches; collapse the rest behind a "+N" pill.
+  const swatchColors = product.colors.slice(0, 4);
+  const extraSwatchCount = Math.max(0, product.colors.length - swatchColors.length);
 
   useEffect(() => {
     if (!hasMultiple) return;
@@ -256,6 +261,28 @@ export function ExploreProductCard({
               </span>
             )}
           </div>
+          {swatchColors.length > 0 && (
+            <div className="mt-1 flex items-center gap-1">
+              {swatchColors.map((c) => {
+                const variant = product.colorVariants.find((v) => v.color === c);
+                const fill = variant?.hex ?? swatchColor(c);
+                return (
+                  <span
+                    key={c}
+                    title={c}
+                    aria-label={`Available in ${c}`}
+                    className="h-3 w-3 rounded-full border border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.35)] ring-0"
+                    style={{ backgroundColor: fill }}
+                  />
+                );
+              })}
+              {extraSwatchCount > 0 && (
+                <span className="rounded-full bg-white/15 px-1.5 py-px text-[9px] font-semibold leading-none text-white/90 backdrop-blur-sm">
+                  +{extraSwatchCount}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {onQuickAdd && (

@@ -2,6 +2,11 @@ import type { DocumentData } from "firebase/firestore";
 import { getSizesMap, totalUnits } from "@/lib/admin/inventory";
 import { docToExploreProduct, isListedProduct } from "@/lib/explore/types";
 import { computeProductStatus, type ProductStatus } from "@/lib/products/schema";
+import {
+  flattenVariantImages,
+  parseColorVariants,
+  type ColorVariant,
+} from "@/lib/products/color-variants";
 
 export type ProductDetail = {
   id: string;
@@ -11,8 +16,11 @@ export type ProductDetail = {
   compareAtPrice?: number;
   category?: string;
   tags: string[];
+  /** Default image pool (flat list — used as fallback before a color is picked). */
   images: string[];
   colors: string[];
+  /** Per-color image groups. Empty for legacy products without variants. */
+  colorVariants: ColorVariant[];
   sizes: string[];
   stockForSize: (size: string) => number;
   totalStock: number;
@@ -66,9 +74,14 @@ export function parseProductDetail(
     if (!Number.isNaN(n)) compareAtPrice = n;
   }
 
-  const colors = Array.isArray(data.colors)
+  const colorVariants = parseColorVariants(raw);
+  const colorsFromField = Array.isArray(data.colors)
     ? data.colors.map((c) => String(c).toLowerCase().trim()).filter(Boolean)
     : [];
+  const colors =
+    colorVariants.length > 0
+      ? colorVariants.map((v) => v.color)
+      : colorsFromField;
 
   const sizesField = data.sizes;
   const isStringSizeArray =
@@ -103,6 +116,11 @@ export function parseProductDetail(
 
   const stockStatus = computeProductStatus(totalStock);
 
+  // Prefer flattened variant images so the gallery isn't out of sync when the
+  // legacy `images` field wasn't kept up to date.
+  const variantImages = flattenVariantImages(colorVariants);
+  const baseImages = variantImages.length > 0 ? variantImages : collectImages(data);
+
   return {
     id,
     name,
@@ -111,8 +129,9 @@ export function parseProductDetail(
     compareAtPrice,
     category,
     tags,
-    images: collectImages(data),
+    images: baseImages,
     colors,
+    colorVariants,
     sizes,
     stockForSize,
     totalStock,
