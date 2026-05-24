@@ -626,16 +626,20 @@ function AdminInventoryScanPageInner() {
       <section className="grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:grid-cols-[1fr_1fr]">
         <div className="space-y-3">
           <Label className="text-foreground">Camera</Label>
-          <div
-            id={READER_ID}
-            className={cn(
-              "mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl border border-border bg-black/40",
-              !camOn &&
-                "flex items-center justify-center text-center text-xs text-muted-foreground"
-            )}
-          >
+          {/*
+            html5-qrcode owns the inside of this div: it calls
+            `element.innerHTML = ""` on init and injects its own video/canvas.
+            We MUST NOT put any React-rendered children inside it — otherwise
+            React's reconciler can't find the nodes the library wiped, throws
+            "Node to be removed is not a child", and the admin error boundary
+            catches it. The placeholder lives as an absolute sibling instead.
+          */}
+          <div className="relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl border border-border bg-black/40">
+            <div id={READER_ID} className="absolute inset-0" />
             {!camOn ? (
-              <span className="px-4">Tap Start to use the camera.</span>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                Tap Start to use the camera.
+              </div>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
