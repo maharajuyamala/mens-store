@@ -472,8 +472,15 @@ export default function AdminCouponsPage() {
         open={dialogOpen}
         onOpenChange={(o) => !saving && setDialogOpen(o)}
       >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        {/*
+          The default Dialog is centered with no max-height, so a tall form
+          (this one has 8 inputs + 3 toggles + helper text) overflows past
+          the viewport on shorter admin screens — pushing the Save button
+          out of reach. Cap the dialog at ~90vh and let only the form body
+          scroll so the footer stays pinned.
+        */}
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border px-6 pb-4 pt-6">
             <DialogTitle>
               {dialogMode === "create" ? "New coupon" : `Edit ${editingCode}`}
             </DialogTitle>
@@ -483,7 +490,7 @@ export default function AdminCouponsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="cp-code">Code</Label>
@@ -641,7 +648,7 @@ export default function AdminCouponsPage() {
             ) : null}
           </div>
 
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <DialogFooter className="flex-col gap-2 border-t border-border bg-card px-6 py-4 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}
