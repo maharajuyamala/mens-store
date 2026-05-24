@@ -99,11 +99,12 @@ export type StyleTag = { id: string; label: string };
  */
 export const QUICK_ADD_STYLE_TAGS_BY_AUDIENCE: Record<AudienceId, StyleTag[]> = {
   men: [
-    { id: "sports", label: "Sports" },
-    { id: "casual", label: "Casual" },
-    { id: "formal", label: "Formal" },
     { id: "shirts", label: "Shirts" },
     { id: "pants", label: "Pants" },
+    { id: "casual", label: "Casual" },
+    { id: "formal", label: "Formal" },
+    { id: "party", label: "Party" },
+    { id: "sports", label: "Sports" },
     { id: "undergarments", label: "Undergarments" },
   ],
   women: [
@@ -111,15 +112,20 @@ export const QUICK_ADD_STYLE_TAGS_BY_AUDIENCE: Record<AudienceId, StyleTag[]> = 
     { id: "bottom", label: "Bottom" },
     { id: "casual", label: "Casual" },
     { id: "formal", label: "Formal" },
+    { id: "party", label: "Party" },
     { id: "sports", label: "Sports" },
     { id: "undergarments", label: "Undergarments" },
   ],
   kids: [
     { id: "top", label: "Top" },
     { id: "bottom", label: "Bottom" },
+    { id: "shirts", label: "Shirts" },
+    { id: "pants", label: "Pants" },
     { id: "casual", label: "Casual" },
     { id: "formal", label: "Formal" },
+    { id: "party", label: "Party" },
     { id: "sports", label: "Sports" },
+    { id: "undergarments", label: "Undergarments" },
   ],
 };
 

@@ -5,14 +5,16 @@ export const EXPLORE_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
 export const LEGACY_TAGS = [
   "sport",
+  "sports",
   "casual",
   "formal",
+  "party",
   "shirts",
   "pants",
   "shorts",
   "undergarments",
   "luxury",
-  // Women's silhouette tags exposed in the admin "Style & type" chips.
+  // Silhouette tags exposed in the admin "Style & type" chips (Women / Kids).
   "top",
   "bottom",
 ] as const;
