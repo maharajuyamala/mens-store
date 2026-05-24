@@ -5,9 +5,9 @@ import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import imageCompression from "browser-image-compression";
 import {
-  addDoc,
   collection,
   doc,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import {
@@ -62,6 +62,7 @@ import {
   sanitizeVariantForWrite,
   type ColorVariant,
 } from "@/lib/products/color-variants";
+import { generateVariantCode } from "@/lib/products/variant-code";
 import {
   ColorVariantsEditor,
   canonicalVariantName,
@@ -331,6 +332,17 @@ export function ProductFormDialog({
     setSubmitting(true);
 
     try {
+      // For create flow, pre-allocate the doc id so deterministic variant
+      // codes (which depend on productId) can be stamped into the same write.
+      // For edit, we already know the id.
+      const targetRef =
+        mode === "create"
+          ? doc(collection(getDb(), "products"))
+          : productId
+            ? doc(getDb(), "products", productId)
+            : null;
+      const targetId = targetRef?.id ?? productId ?? "";
+
       // Upload each variant's images in order; existing URLs are kept as-is.
       const variants: ColorVariant[] = [];
       for (const draft of usableDrafts) {
@@ -347,16 +359,23 @@ export function ProductFormDialog({
           );
           urls.push(url);
         }
+        const colorName = canonicalVariantName(draft);
         variants.push(
           sanitizeVariantForWrite({
-            color: canonicalVariantName(draft),
+            color: colorName,
             label: draft.label,
             hex: draft.hex,
             images: urls,
             sizes: draft.sizes,
+            code: targetId ? generateVariantCode(targetId, colorName) : undefined,
           })
         );
       }
+
+      // Flat code list mirrors the variants for Firestore array-contains.
+      const variantCodes = variants
+        .map((v) => v.code)
+        .filter((c): c is string => Boolean(c));
 
       // Mirrors for legacy readers: flat images / colors, union sizes map,
       // aggregate stock total.
@@ -385,24 +404,26 @@ export function ProductFormDialog({
         stock: stockTotal,
       };
 
-      if (mode === "create") {
-        const created = await addDoc(collection(getDb(), "products"), {
+      if (mode === "create" && targetRef) {
+        await setDoc(targetRef, {
           ...buildNewProductData(valuesForSubmit, flatImages),
           colorVariants: variants,
+          variantCodes,
           sizes: unionSizes, // size → total stock across colors (back-compat)
           image: flatImages[0] ?? "",
         });
         revokeDraftBlobs(colorDrafts);
         onSaved({
-          productId: created.id,
+          productId: targetRef.id,
           name: values.name.trim(),
           price: values.price,
           imageUrl: flatImages[0] ?? null,
         });
-      } else if (productId) {
-        await updateDoc(doc(getDb(), "products", productId), {
+      } else if (productId && targetRef) {
+        await updateDoc(targetRef, {
           ...buildUpdateProductData(valuesForSubmit, flatImages),
           colorVariants: variants,
+          variantCodes,
           sizes: unionSizes,
           image: flatImages[0] ?? "",
         });

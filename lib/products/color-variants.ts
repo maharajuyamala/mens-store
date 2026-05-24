@@ -5,9 +5,10 @@
  *
  * Stored on the product doc as:
  *   colorVariants: [
- *     { color: "wine", hex: "#722F37", images: [...], sizes: { M: 2, L: 1 } },
- *     { color: "navy", hex: "#001F3F", images: [...], sizes: { S: 0, M: 3 } }
+ *     { color: "wine", hex: "#722F37", code: "AB12X", images: [...], sizes: { M: 2, L: 1 } },
+ *     { color: "navy", hex: "#001F3F", code: "QW34Z", images: [...], sizes: { S: 0, M: 3 } }
  *   ]
+ *   variantCodes: ["AB12X", "QW34Z"]   // flat list for Firestore array-contains search
  *
  * Backward compat: we also keep the legacy fields in lockstep —
  *   colors: ["wine", "navy"]          // for old filters
@@ -16,6 +17,8 @@
  *   sizes:  union of variant sizes    // legacy single-map readers still work
  *   stock:  sum of all variant stock  // legacy aggregate readers still work
  */
+
+import { generateVariantCode } from "./variant-code";
 
 export type ColorVariant = {
   /** Canonical lowercase id used in cart / orders. */
@@ -28,6 +31,13 @@ export type ColorVariant = {
   images: string[];
   /** Per-size stock map for this color (e.g. `{ M: 2, L: 1 }`). Empty when not tracked per size. */
   sizes: Record<string, number>;
+  /**
+   * Short shareable code for this (product, color) — 5-character uppercase
+   * alphanumeric, displayed on labels, the details page and used as a
+   * search shortcut. Persisted on write; readers should fall back to
+   * `generateVariantCode(productId, color)` when missing.
+   */
+  code?: string;
 };
 
 function asStringArray(v: unknown): string[] {
@@ -97,8 +107,10 @@ export function parseColorVariants(
     // `sizes` may be on the variant itself, or on the legacy `size` field —
     // we accept both so docs migrated from the flat shape still keep stock.
     const sizes = parseSizesMap(r.sizes ?? r.size);
+    const codeRaw = typeof r.code === "string" ? r.code.trim().toUpperCase() : "";
+    const code = /^[A-Z0-9]{4,8}$/.test(codeRaw) ? codeRaw : undefined;
     seen.add(color);
-    out.push({ color, label, hex, images, sizes });
+    out.push({ color, label, hex, images, sizes, ...(code ? { code } : {}) });
   }
   return out;
 }
@@ -166,6 +178,40 @@ export function sanitizeVariantForWrite(v: ColorVariant): ColorVariant {
   };
   if (v.label && v.label.trim()) out.label = v.label.trim();
   if (v.hex && v.hex.trim()) out.hex = v.hex.trim();
+  if (v.code && v.code.trim()) out.code = v.code.trim().toUpperCase();
+  return out;
+}
+
+/**
+ * Resolve the displayable code for a variant. Reads the persisted `code`
+ * when present, falls back to a deterministic hash so freshly authored or
+ * legacy variants still show a usable code.
+ */
+export function variantCode(
+  productId: string,
+  variant: Pick<ColorVariant, "color" | "code">
+): string {
+  if (variant.code && variant.code.trim()) return variant.code.trim().toUpperCase();
+  return generateVariantCode(productId, variant.color);
+}
+
+/**
+ * Flat list of every variant code on a product, ready to persist on the
+ * doc's top-level `variantCodes` field so Firestore can `array-contains`
+ * search them. Always returns canonical uppercase codes, no duplicates.
+ */
+export function collectVariantCodes(
+  productId: string,
+  variants: readonly ColorVariant[]
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const v of variants) {
+    const c = variantCode(productId, v);
+    if (!c || seen.has(c)) continue;
+    seen.add(c);
+    out.push(c);
+  }
   return out;
 }
 

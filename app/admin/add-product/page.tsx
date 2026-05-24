@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { getClientFirebase } from "@/app/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, doc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
   inferSizeGroup,
 } from "@/lib/products/size-options";
 import type { ColorVariant } from "@/lib/products/color-variants";
+import { generateVariantCode } from "@/lib/products/variant-code";
 import { VariantQrSheet } from "@/components/admin/products/VariantQrSheet";
 import {
   ColorVariantsEditor,
@@ -296,13 +297,12 @@ export default function AddProductPage() {
       // the order shown to the admin. /admin/add-product only creates NEW
       // images, but we defensively pass-through any "existing" URLs in case
       // this branch is reused for editing later.
-      const colorVariants: Array<{
-        color: string;
-        label?: string;
-        hex?: string;
-        images: string[];
-        sizes: Record<string, number>;
-      }> = [];
+      // Pre-allocate the doc id so we can stamp deterministic variant codes
+      // (which depend on productId) into the same write — no second update.
+      const newRef = doc(collection(fb.db, "products"));
+      const newProductId = newRef.id;
+
+      const colorVariants: ColorVariant[] = [];
       for (const draft of usableDrafts) {
         const urls: string[] = [];
         for (const img of draft.images) {
@@ -332,8 +332,15 @@ export default function AddProductPage() {
           ...(draft.hex ? { hex: draft.hex } : {}),
           images: urls,
           sizes: sizesClean,
+          code: generateVariantCode(newProductId, colorName),
         });
       }
+
+      // Flat list of variant codes — persisted at the top level so Firestore
+      // can `array-contains` search them when a customer types a code.
+      const variantCodes = colorVariants
+        .map((v) => v.code)
+        .filter((c): c is string => Boolean(c));
 
       // Backward-compat mirrors so legacy listing / filter / inventory code
       // that hasn't been migrated to colorVariants still sees correct data.
@@ -357,16 +364,17 @@ export default function AddProductPage() {
         audience: selectedAudience,
         colors: colorNames,
         colorVariants,
+        variantCodes,
         description: "",
         sizes: unionSizes,
         stock: totalStock,
       };
 
-      const newDoc = await addDoc(collection(fb.db, "products"), productData);
+      await setDoc(newRef, productData);
 
       toast.success("Product added!");
       setCreatedProduct({
-        productId: newDoc.id,
+        productId: newProductId,
         name: productName,
         price: finalPrice,
         imageUrl: flatImages[0] ?? null,

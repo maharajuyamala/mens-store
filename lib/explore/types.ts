@@ -5,6 +5,7 @@ import {
   type ProductAudience,
 } from "@/lib/products/schema";
 import {
+  collectVariantCodes,
   flattenVariantImages,
   parseColorVariants,
   type ColorVariant,
@@ -33,6 +34,12 @@ export type ExploreProduct = {
    * consumers should fall back to `images` in that case.
    */
   colorVariants: ColorVariant[];
+  /**
+   * Short 5-char codes — one per color variant — for search and labels.
+   * Reads the persisted `variantCodes` field when present; falls back to
+   * deterministic hashing so legacy products are still searchable by code.
+   */
+  variantCodes: string[];
   stockStatus: ReturnType<typeof computeProductStatus>;
   stock: number;
   createdAtMs: number;
@@ -140,6 +147,19 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
 
   const stockStatus = computeProductStatus(stock);
 
+  // Variant codes — read the flat list off the doc when available, else
+  // compute deterministically so search keeps working for legacy products
+  // that were saved before the field existed.
+  const storedCodes = Array.isArray(data.variantCodes)
+    ? (data.variantCodes as unknown[])
+        .map((c) => (typeof c === "string" ? c.trim().toUpperCase() : ""))
+        .filter((c) => c.length > 0)
+    : [];
+  const variantCodes =
+    storedCodes.length > 0
+      ? storedCodes
+      : collectVariantCodes(id, colorVariants);
+
   return {
     doc_id: id,
     name: typeof data.name === "string" ? data.name : String(data.name ?? ""),
@@ -154,6 +174,7 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     sizesStock,
     colors,
     colorVariants,
+    variantCodes,
     stockStatus,
     stock,
     createdAtMs: createdAtToMs(data),

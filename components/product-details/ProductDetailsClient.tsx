@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentData } from "firebase/firestore";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronRight,
+  Copy,
   Heart,
   Minus,
   Package,
@@ -26,8 +28,10 @@ import {
 } from "@/lib/product-detail";
 import {
   imagesForColor,
+  variantCode as resolveVariantCode,
   variantLabel,
 } from "@/lib/products/color-variants";
+import { normalizeVariantCode } from "@/lib/products/variant-code";
 import { cn, inr as currency } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
@@ -85,6 +89,7 @@ function ProductDetailContent({
   initialProductData,
   initialRelated,
 }: ProductDetailsClientProps) {
+  const searchParams = useSearchParams();
   const product = useMemo(() => {
     if (!productId || !initialProductData) return null;
     return parseProductDetail(productId, initialProductData as DocumentData);
@@ -96,6 +101,7 @@ function ProductDetailContent({
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [qty, setQty] = useState(1);
   const [descOpen, setDescOpen] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const inWishlist = useWishlistStore((s) =>
     productId ? s.ids.includes(productId) : false
@@ -112,22 +118,66 @@ function ProductDetailContent({
     recordView(productId);
   }, [productId, product, recordView]);
 
-  // Pick the first color that actually has stock so the initial size picker
-  // isn't completely greyed out for variant-aware products.
+  // Pick the initial color. If the URL carries `?c=<code>`, prefer the
+  // variant whose code matches so deep-links land on the right colorway.
+  // Otherwise pick the first colour that actually has stock.
   useEffect(() => {
     if (!product) return;
     let initialColor = "";
-    if (product.colorVariants.length > 0) {
-      initialColor =
-        product.colorVariants.find((v) =>
-          Object.values(v.sizes).some((q) => Number(q) > 0)
-        )?.color ?? product.colors[0] ?? "";
-    } else if (product.colors.length > 0) {
-      initialColor = product.colors[0]!;
+    const wantedCode = normalizeVariantCode(searchParams.get("c"));
+    if (wantedCode && product.colorVariants.length > 0) {
+      const match = product.colorVariants.find(
+        (v) => resolveVariantCode(product.id, v) === wantedCode
+      );
+      if (match) initialColor = match.color;
+    }
+    if (!initialColor) {
+      if (product.colorVariants.length > 0) {
+        initialColor =
+          product.colorVariants.find((v) =>
+            Object.values(v.sizes).some((q) => Number(q) > 0)
+          )?.color ?? product.colors[0] ?? "";
+      } else if (product.colors.length > 0) {
+        initialColor = product.colors[0]!;
+      }
     }
     setSelectedColor(initialColor);
     setQty(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
+
+  // Active variant + its code (used in the URL and the badge).
+  const activeVariant = useMemo(() => {
+    if (!product) return null;
+    return (
+      product.colorVariants.find((v) => v.color === selectedColor) ?? null
+    );
+  }, [product, selectedColor]);
+
+  const activeCode = useMemo(() => {
+    if (!product) return "";
+    if (activeVariant) return resolveVariantCode(product.id, activeVariant);
+    // Legacy product without variants — fall back to the first stored code
+    // (or empty) so we don't fabricate a colour out of thin air.
+    return "";
+  }, [product, activeVariant]);
+
+  // Keep the URL in lockstep with the chosen colour — `?c=<code>` — so a
+  // shared link always reopens on the matching variant. Uses history.replace
+  // (not router.push) to avoid polluting the back-stack on every click.
+  useEffect(() => {
+    if (typeof window === "undefined" || !product) return;
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get("c") ?? "";
+    if (activeCode) {
+      if (current === activeCode) return;
+      url.searchParams.set("c", activeCode);
+    } else {
+      if (!current) return;
+      url.searchParams.delete("c");
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, [activeCode, product]);
 
   // When the color changes (or on first mount), pick the first size that
   // actually has stock *for that color*. Falls back to any size if none are
@@ -344,9 +394,41 @@ function ProductDetailContent({
 
           <div className="space-y-6">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                {product.name}
-              </h1>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                  {product.name}
+                </h1>
+                {activeCode ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(activeCode);
+                        setCodeCopied(true);
+                        toast.success(`Copied code ${activeCode}`);
+                        window.setTimeout(() => setCodeCopied(false), 1400);
+                      } catch {
+                        /* clipboard unavailable */
+                      }
+                    }}
+                    title="Variant code — tap to copy"
+                    className={cn(
+                      "shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-xs font-semibold uppercase tracking-[0.18em] transition-colors",
+                      codeCopied
+                        ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "border-border bg-muted/40 text-foreground/85 hover:border-orange-500/60 hover:text-orange-600"
+                    )}
+                    aria-label={`Variant code ${activeCode} — tap to copy`}
+                  >
+                    {codeCopied ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 opacity-70" />
+                    )}
+                    {activeCode}
+                  </button>
+                ) : null}
+              </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <span className="text-2xl font-semibold text-orange-600">
                   {currency.format(product.price)}

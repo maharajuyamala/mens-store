@@ -17,6 +17,7 @@ import {
   isListedProduct,
   type ExploreProduct,
 } from "@/lib/explore/types";
+import { isVariantCode, normalizeVariantCode } from "@/lib/products/variant-code";
 
 function mergeProducts(
   into: Map<string, ExploreProduct>,
@@ -72,10 +73,23 @@ export async function searchListedProducts(
     limit(40)
   );
 
+  // Variant-code shortcut — when the typed term looks like a 5-char code,
+  // also try an exact array-contains on `variantCodes`. Cheap query and
+  // takes the customer straight to the matching product card.
+  const normalizedCode = normalizeVariantCode(term);
+  const codeQuery = isVariantCode(normalizedCode)
+    ? query(
+        collection(db, "products"),
+        where("variantCodes", "array-contains", normalizedCode),
+        limit(10)
+      )
+    : null;
+
   const snaps = await Promise.all([
     getDocs(tagFull),
     tagToken ? getDocs(tagToken) : Promise.resolve(null),
     getDocs(namePrefix).catch(() => null),
+    codeQuery ? getDocs(codeQuery).catch(() => null) : Promise.resolve(null),
   ]);
 
   mergeProducts(results, snaps[0]!.docs);
@@ -84,6 +98,9 @@ export async function searchListedProducts(
   }
   if (snaps[2]) {
     mergeProducts(results, snaps[2].docs);
+  }
+  if (snaps[3]) {
+    mergeProducts(results, snaps[3].docs);
   }
 
   if (results.size < 12) {
@@ -103,7 +120,14 @@ export async function searchListedProducts(
         const tagOk = p.tags.some(
           (t) => t.includes(lower) || lower.includes(t)
         );
-        if (nameOk || tagOk) {
+        // Catches legacy docs that haven't been re-saved with a flat
+        // `variantCodes` field yet — `docToExploreProduct` already
+        // backfills the codes deterministically, so an `includes` check
+        // works for both stored and computed values.
+        const codeOk =
+          normalizedCode.length >= 2 &&
+          p.variantCodes.some((c) => c.includes(normalizedCode));
+        if (nameOk || tagOk || codeOk) {
           results.set(d.id, p);
         }
       }

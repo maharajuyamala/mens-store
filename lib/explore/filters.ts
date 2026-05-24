@@ -92,8 +92,17 @@ export function productMatchesInStockOnly(
 }
 
 export function productMatchesQuery(p: ExploreProduct, q: string): boolean {
-  if (!q.trim()) return true;
-  return p.name.toLowerCase().includes(q.trim().toLowerCase());
+  const needle = q.trim();
+  if (!needle) return true;
+  const lower = needle.toLowerCase();
+  if (p.name.toLowerCase().includes(lower)) return true;
+  // Short variant codes (e.g. "AB12X") — match when the typed query is
+  // contained in any of the product's codes, case-insensitive.
+  const codeNeedle = needle.toUpperCase().replace(/\s+/g, "");
+  if (codeNeedle.length >= 2) {
+    if (p.variantCodes.some((c) => c.includes(codeNeedle))) return true;
+  }
+  return false;
 }
 
 export function filterExploreProducts(
@@ -118,6 +127,13 @@ function bestMatchScore(p: ExploreProduct, q: string): number {
   if (n === needle) return 100;
   if (n.startsWith(needle)) return 80;
   if (n.includes(needle)) return 50;
+  // Exact variant-code matches sort right behind a name match so that
+  // typing a code from a sticker takes the customer straight to the
+  // matching card.
+  const codeNeedle = q.trim().toUpperCase().replace(/\s+/g, "");
+  if (codeNeedle.length >= 2 && p.variantCodes.some((c) => c === codeNeedle)) {
+    return 90;
+  }
   return 0;
 }
 
