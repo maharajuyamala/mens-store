@@ -15,15 +15,46 @@ export const POS_PLACEHOLDER_ADDRESS: DeliveryFormValues = {
   pincode: "000000",
 };
 
-export async function placePosSale(input: {
+/**
+ * Compose a POS-grade shipping address. The phone is mandatory at the till
+ * because it doubles as the customer identifier on the printed receipt and
+ * for reprint links shared by SMS/WhatsApp.
+ */
+export function buildPosAddress(input: {
+  customerName?: string | null;
+  customerPhone: string;
+}): DeliveryFormValues {
+  const name = input.customerName?.trim();
+  return {
+    ...POS_PLACEHOLDER_ADDRESS,
+    fullName: name && name.length > 0 ? name : POS_PLACEHOLDER_ADDRESS.fullName,
+    phone: input.customerPhone.trim() || POS_PLACEHOLDER_ADDRESS.phone,
+  };
+}
+
+export type PlacePosSaleInput = {
   userId: string;
-  item: CartItem;
-}): Promise<PlacedOrder> {
-  const { item, userId } = input;
+  /** One or many cart items — the whole "bucket" the cashier rang up. */
+  items: CartItem[];
+  /** Optional customer contact captured at the mobile-number step. */
+  customerName?: string | null;
+  customerPhone?: string | null;
+};
+
+export async function placePosSale(
+  input: PlacePosSaleInput
+): Promise<PlacedOrder> {
+  const { items, userId, customerName, customerPhone } = input;
+  if (items.length === 0) {
+    throw new Error("Cart is empty");
+  }
+  const address = customerPhone
+    ? buildPosAddress({ customerName, customerPhone })
+    : POS_PLACEHOLDER_ADDRESS;
   return placeOrder({
-    items: [item],
-    shippingAddress: POS_PLACEHOLDER_ADDRESS,
-    pricing: computePricing([item], 0),
+    items,
+    shippingAddress: address,
+    pricing: computePricing(items, 0),
     couponCode: null,
     paymentMethod: "cod",
     userId,

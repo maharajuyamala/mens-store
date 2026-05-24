@@ -12,7 +12,6 @@ import imageCompression from "browser-image-compression";
 import { getClientFirebase } from "@/app/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, inr } from "@/lib/utils";
-import { productScanStockUrl } from "@/lib/barcode/payload";
 import {
   QUICK_ADD_AUDIENCES,
   getQuickAddStyleTags,
@@ -36,6 +34,8 @@ import {
   getSizeOptions,
   inferSizeGroup,
 } from "@/lib/products/size-options";
+import type { ColorVariant } from "@/lib/products/color-variants";
+import { VariantQrSheet } from "@/components/admin/products/VariantQrSheet";
 import {
   ColorVariantsEditor,
   canonicalVariantName,
@@ -50,6 +50,7 @@ type CreatedProduct = {
   name: string;
   price: number;
   imageUrl: string | null;
+  variants: ColorVariant[];
 };
 
 // ─── QR Success Screen ───────────────────────────────────────────────────────
@@ -61,82 +62,64 @@ function QrSuccessScreen({
   product: CreatedProduct;
   onDone: () => void;
 }) {
-  const [qrSrc, setQrSrc] = useState<string | null>(null);
-  const deepLink = productScanStockUrl(product.productId);
-
-  useEffect(() => {
-    let cancelled = false;
-    QRCode.toDataURL(deepLink, {
-      width: 240,
-      margin: 2,
-      errorCorrectionLevel: "M",
-    })
-      .then((url) => {
-        if (!cancelled) setQrSrc(url);
-      })
-      .catch(() => {
-        if (!cancelled) setQrSrc(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [deepLink]);
-
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-6 py-8 text-center">
-      <div className="rounded-full bg-emerald-500/10 p-4">
-        <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-      </div>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 py-6">
+      <style>{`
+        @page { margin: 0.25in; size: auto; }
+        @media print {
+          body * { visibility: hidden !important; }
+          #variant-qr-print-root,
+          #variant-qr-print-root * { visibility: visible !important; }
+          #variant-qr-print-root {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: black !important;
+          }
+          .variant-qr-label { break-inside: avoid; page-break-inside: avoid; }
+        }
+      `}</style>
 
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Product added!</h2>
-        <p className="mt-1 text-muted-foreground">{product.name}</p>
-        <p className="text-lg font-semibold text-orange-500">
-          {inr.format(product.price)}
-        </p>
-      </div>
-
-      {product.imageUrl && (
-        <div className="relative mx-auto h-32 w-32 overflow-hidden rounded-xl border border-border">
-          <Image
-            src={product.imageUrl}
-            alt=""
-            fill
-            className="object-cover"
-            unoptimized
-          />
+      <div className="flex flex-col items-center gap-3 text-center print:hidden">
+        <div className="rounded-full bg-emerald-500/10 p-3">
+          <CheckCircle2 className="h-10 w-10 text-emerald-500" />
         </div>
-      )}
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Product added!</h2>
+          <p className="mt-1 text-muted-foreground">{product.name}</p>
+          <p className="text-lg font-semibold text-orange-500">
+            {inr.format(product.price)}
+          </p>
+        </div>
 
-      <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-muted-foreground">
-          Scan QR to open{" "}
-          <span className="font-medium">Scan & stock</span> for this product.
-        </p>
-        {qrSrc ? (
-          <img
-            src={qrSrc}
-            alt="QR code for this product"
-            width={200}
-            height={200}
-            className="rounded-xl"
-          />
-        ) : (
-          <div className="flex h-[200px] w-[200px] items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
-            Generating QR…
+        {product.imageUrl ? (
+          <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border">
+            <Image
+              src={product.imageUrl}
+              alt=""
+              fill
+              className="object-cover"
+              unoptimized
+            />
           </div>
-        )}
-        <p className="max-w-[300px] break-all text-center font-mono text-[10px] leading-snug text-muted-foreground">
-          {deepLink}
+        ) : null}
+
+        <p className="text-xs text-muted-foreground">
+          Product ID:{" "}
+          <span className="font-mono text-orange-400">{product.productId}</span>
         </p>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Product ID:{" "}
-        <span className="font-mono text-orange-400">{product.productId}</span>
-      </p>
+      <VariantQrSheet
+        productId={product.productId}
+        productName={product.name}
+        price={product.price}
+        variants={product.variants}
+      />
 
-      <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center print:hidden">
         <Button
           type="button"
           variant="outline"
@@ -144,7 +127,7 @@ function QrSuccessScreen({
           className="gap-2"
         >
           <Printer className="h-4 w-4" />
-          Print QR
+          Print labels
         </Button>
         <Button
           type="button"
@@ -387,6 +370,7 @@ export default function AddProductPage() {
         name: productName,
         price: finalPrice,
         imageUrl: flatImages[0] ?? null,
+        variants: colorVariants,
       });
     } catch (err) {
       console.error("Error adding product:", err);

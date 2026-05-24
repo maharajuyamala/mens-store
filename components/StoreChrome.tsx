@@ -15,8 +15,10 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 export function StoreChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
+  // Receipt pages render bare for clean printing / PDF saving.
+  const isReceipt = pathname.startsWith("/receipt/");
 
-  if (isAdmin) return <>{children}</>;
+  if (isAdmin || isReceipt) return <>{children}</>;
 
   return (
     <>
