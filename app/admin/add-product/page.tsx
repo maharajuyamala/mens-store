@@ -28,7 +28,7 @@ import { cn, inr } from "@/lib/utils";
 import { productScanStockUrl } from "@/lib/barcode/payload";
 import {
   QUICK_ADD_AUDIENCES,
-  QUICK_ADD_STYLE_TAGS,
+  getQuickAddStyleTags,
   type AudienceId,
 } from "@/lib/add-product/quick-add-options";
 import { buildImageStoragePath } from "@/lib/uploads/validate-image";
@@ -238,6 +238,20 @@ export default function AddProductPage() {
       return dirty ? next : prev;
     });
   }, [sizeOptions]);
+
+  // Drop previously-picked style chips that the new audience doesn't offer
+  // (e.g. "shirts" was set under Men, then merchant flips to Women where
+  // the palette is Top / Bottom / Casual / Formal / Sports / Undergarments).
+  useEffect(() => {
+    if (!selectedAudience) return;
+    const allowed = new Set(
+      getQuickAddStyleTags(selectedAudience).map((t) => t.id)
+    );
+    setSelectedStyles((prev) => {
+      const next = prev.filter((id) => allowed.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [selectedAudience]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -454,7 +468,7 @@ export default function AddProductPage() {
           <div className="space-y-2">
             <Label>Style & type (select one or more)</Label>
             <div className="flex flex-wrap gap-2 pt-1">
-              {QUICK_ADD_STYLE_TAGS.map((tag) => (
+              {getQuickAddStyleTags(selectedAudience).map((tag) => (
                 <button
                   type="button"
                   key={tag.id}

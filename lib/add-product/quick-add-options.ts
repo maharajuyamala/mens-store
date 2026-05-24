@@ -83,15 +83,67 @@ export const QUICK_ADD_AUDIENCES: { id: AudienceId; label: string }[] = [
   { id: "kids", label: "Kids" },
 ];
 
-/** Shown after an audience is selected (same set for Men / Women / Kids). */
-export const QUICK_ADD_STYLE_TAGS: { id: string; label: string }[] = [
-  { id: "sports", label: "Sports" },
-  { id: "casual", label: "Casual" },
-  { id: "formal", label: "Formal" },
-  { id: "pants", label: "Pants" },
-  { id: "shirts", label: "Shirts" },
-  { id: "undergarments", label: "Undergarments" },
-];
+export type StyleTag = { id: string; label: string };
+
+/**
+ * Style / type chips shown after an audience is picked in the admin forms.
+ *
+ * Each department gets its own list so the chips reflect how merchants
+ * actually think about that audience: women browse by *silhouette* (top vs
+ * bottom) more than by exact garment type, while men's catalog historically
+ * separates "shirts" from "pants" outright.
+ *
+ * Important: the chip `id` is what we persist on the product's `tags` array,
+ * so changes here cascade to size inference (`inferSizeGroup`) and the
+ * explore filter pills. Keep ids lowercase and stable.
+ */
+export const QUICK_ADD_STYLE_TAGS_BY_AUDIENCE: Record<AudienceId, StyleTag[]> = {
+  men: [
+    { id: "sports", label: "Sports" },
+    { id: "casual", label: "Casual" },
+    { id: "formal", label: "Formal" },
+    { id: "shirts", label: "Shirts" },
+    { id: "pants", label: "Pants" },
+    { id: "undergarments", label: "Undergarments" },
+  ],
+  women: [
+    { id: "top", label: "Top" },
+    { id: "bottom", label: "Bottom" },
+    { id: "casual", label: "Casual" },
+    { id: "formal", label: "Formal" },
+    { id: "sports", label: "Sports" },
+    { id: "undergarments", label: "Undergarments" },
+  ],
+  kids: [
+    { id: "top", label: "Top" },
+    { id: "bottom", label: "Bottom" },
+    { id: "casual", label: "Casual" },
+    { id: "formal", label: "Formal" },
+    { id: "sports", label: "Sports" },
+  ],
+};
+
+/**
+ * Return the style chip palette for a given audience. Falls back to the
+ * men's list when called with no audience (e.g. during initial render before
+ * the merchant has picked one).
+ */
+export function getQuickAddStyleTags(
+  audience: AudienceId | "" | null | undefined
+): StyleTag[] {
+  if (audience && QUICK_ADD_STYLE_TAGS_BY_AUDIENCE[audience]) {
+    return QUICK_ADD_STYLE_TAGS_BY_AUDIENCE[audience];
+  }
+  return QUICK_ADD_STYLE_TAGS_BY_AUDIENCE.men;
+}
+
+/**
+ * @deprecated Use `getQuickAddStyleTags(audience)` so the chip palette
+ *             matches the selected department. Kept exported only for the
+ *             handful of call sites that still need a flat list.
+ */
+export const QUICK_ADD_STYLE_TAGS: StyleTag[] =
+  QUICK_ADD_STYLE_TAGS_BY_AUDIENCE.men;
 
 export function colorSwatchByValue(value: string): ColorSwatch | undefined {
   return QUICK_ADD_COLOR_SWATCHES.find((c) => c.value === value);

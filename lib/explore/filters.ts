@@ -12,6 +12,9 @@ export const LEGACY_TAGS = [
   "shorts",
   "undergarments",
   "luxury",
+  // Women's silhouette tags exposed in the admin "Style & type" chips.
+  "top",
+  "bottom",
 ] as const;
 
 /** Categories shown in filter = admin categories + legacy tags + any seen on products */

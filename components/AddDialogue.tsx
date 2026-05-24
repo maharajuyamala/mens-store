@@ -33,9 +33,9 @@ import {
 import { cn } from "@/lib/utils";
 import {
   colorSwatchByValue,
+  getQuickAddStyleTags,
   QUICK_ADD_AUDIENCES,
   QUICK_ADD_COLOR_SWATCHES,
-  QUICK_ADD_STYLE_TAGS,
   type AudienceId,
 } from "@/lib/add-product/quick-add-options";
 
@@ -454,11 +454,14 @@ export function AddItemDialog() {
             <div className="space-y-2">
               <Label>Style & type (select one or more)</Label>
               <p className="text-xs text-muted-foreground">
-                Tags for this department: sports, casual, formal, pants, shirts,
-                undergarments.
+                Tags for this department:{" "}
+                {getQuickAddStyleTags(selectedAudience)
+                  .map((t) => t.label.toLowerCase())
+                  .join(", ")}
+                .
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
-                {QUICK_ADD_STYLE_TAGS.map((tag) => (
+                {getQuickAddStyleTags(selectedAudience).map((tag) => (
                   <button
                     type="button"
                     key={tag.id}
