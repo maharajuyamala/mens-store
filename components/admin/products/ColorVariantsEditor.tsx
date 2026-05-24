@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ImagePlus,
   Minus,
@@ -102,7 +102,39 @@ export function ColorVariantsEditor({
   sizeGroupLabel,
   disabled,
 }: EditorProps) {
-  const addDraft = () => onChange([...drafts, makeEmptyVariantDraft()]);
+  // Tracks the most-recently-added draft so we can scroll it into view (and
+  // focus its name input) once React has had a chance to render the new card.
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+
+  const addDraft = () => {
+    const draft = makeEmptyVariantDraft();
+    onChange([...drafts, draft]);
+    setJustAddedId(draft.id);
+  };
+
+  // Scroll the newly added card into view and focus its name input. We watch
+  // `drafts` so the effect fires only after the new card has actually been
+  // committed to the DOM (parent → child re-render).
+  useEffect(() => {
+    if (!justAddedId) return;
+    const exists = drafts.some((d) => d.id === justAddedId);
+    if (!exists) return;
+    const el = document.querySelector<HTMLElement>(
+      `[data-variant-id="${justAddedId}"]`
+    );
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Defer focus until the smooth-scroll has settled — avoids jank where the
+    // browser races scroll vs caret-into-view jumps.
+    const t = window.setTimeout(() => {
+      const input = el.querySelector<HTMLInputElement>(
+        `#vd-name-${justAddedId}`
+      );
+      input?.focus({ preventScroll: true });
+    }, 350);
+    setJustAddedId(null);
+    return () => window.clearTimeout(t);
+  }, [justAddedId, drafts]);
 
   const removeDraft = (id: string) => {
     const next: VariantDraft[] = [];
@@ -202,17 +234,6 @@ export function ColorVariantsEditor({
             ({usableCount} with photos)
           </span>
         </Label>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={addDraft}
-          disabled={disabled}
-          className="gap-1.5"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add color
-        </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -239,6 +260,19 @@ export function ColorVariantsEditor({
           />
         ))}
       </div>
+
+      {/* Primary "add" affordance lives below the list so it's always within
+          thumb reach after the cashier finishes wiring up the previous color. */}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={addDraft}
+        disabled={disabled}
+        className="w-full gap-2 border-dashed border-orange-500/50 bg-orange-500/5 py-6 text-sm font-semibold text-orange-500 hover:border-orange-500 hover:bg-orange-500/10"
+      >
+        <Plus className="h-4 w-4" />
+        Add another color
+      </Button>
     </div>
   );
 }
@@ -283,7 +317,10 @@ function VariantDraftCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-muted/20 p-3 sm:p-4">
+    <div
+      data-variant-id={draft.id}
+      className="scroll-mt-24 rounded-2xl border border-border bg-muted/20 p-3 sm:p-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span
