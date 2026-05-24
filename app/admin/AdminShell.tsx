@@ -17,6 +17,7 @@ import {
   ScanBarcode,
   Sparkles,
   ShoppingBag,
+  Ticket,
   Users as UsersIcon,
   X,
 } from "lucide-react";
@@ -62,6 +63,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/admin/inventory/scan", label: "Scan & stock", icon: ScanBarcode },
       { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
+      { href: "/admin/coupons", label: "Coupons", icon: Ticket },
       { href: "/admin/media", label: "Media", icon: ImageIcon },
     ],
   },

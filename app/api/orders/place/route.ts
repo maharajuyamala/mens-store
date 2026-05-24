@@ -13,6 +13,12 @@ import {
 import { guardWriteRequest } from "@/lib/api/security";
 import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
 import {
+  discountFromCoupon,
+  evaluateCouponEligibility,
+  normalizeCouponCode,
+  parseCouponDoc,
+} from "@/lib/checkout/coupon";
+import {
   decrementLegacyStock,
   decrementVariantStock,
   hasVariantStock,
@@ -160,11 +166,110 @@ export async function POST(request: Request) {
     );
   }
 
-  // Recompute pricing server-side. Discount is capped at subtotal.
+  // Resolve coupon server-side. If a code is supplied, ignore the
+  // client-quoted discount entirely and recompute from the live coupon
+  // doc + user eligibility. This is the only place a redemption gets
+  // counted.
+  const requestedCode = parsed.couponCode
+    ? normalizeCouponCode(parsed.couponCode)
+    : "";
+  let resolvedCoupon: {
+    code: string;
+    discount: number;
+    type: "percent" | "amount";
+    value: number;
+    oncePerCustomer: boolean;
+    newCustomerOnly: boolean;
+  } | null = null;
+
+  if (requestedCode) {
+    const couponSnap = await db.collection("coupons").doc(requestedCode).get();
+    if (!couponSnap.exists) {
+      return NextResponse.json(
+        { error: "coupon_invalid", message: "Coupon code is no longer valid." },
+        { status: 400 }
+      );
+    }
+    const coupon = parseCouponDoc(
+      couponSnap.data() as Record<string, unknown>,
+      requestedCode
+    );
+    if (!coupon) {
+      return NextResponse.json(
+        { error: "coupon_invalid", message: "Coupon code is no longer valid." },
+        { status: 400 }
+      );
+    }
+
+    // We need the cart subtotal before applying any discount to evaluate
+    // the min-subtotal rule. Do a quick pricing pass with discount=0.
+    let provisional;
+    try {
+      provisional = await recomputeOrderPricing(db, parsed.items, { discount: 0 });
+    } catch (e) {
+      if (e instanceof OrderValidationError) {
+        return NextResponse.json(
+          { error: e.code.toLowerCase(), message: e.message },
+          { status: 400 }
+        );
+      }
+      throw e;
+    }
+
+    let alreadyRedeemed = false;
+    let hasPriorOrders = false;
+    if (uid) {
+      const [redemption, ordersSnap] = await Promise.all([
+        coupon.oncePerCustomer
+          ? db
+              .collection("coupons")
+              .doc(requestedCode)
+              .collection("redemptions")
+              .doc(uid)
+              .get()
+          : Promise.resolve(null),
+        coupon.newCustomerOnly
+          ? db
+              .collection("orders")
+              .where("userId", "==", uid)
+              .limit(1)
+              .get()
+          : Promise.resolve(null),
+      ]);
+      if (redemption?.exists) alreadyRedeemed = true;
+      if (ordersSnap && !ordersSnap.empty) hasPriorOrders = true;
+    }
+
+    const verdict = evaluateCouponEligibility(coupon, {
+      subtotal: provisional.subtotal,
+      hasUid: Boolean(uid),
+      alreadyRedeemed,
+      hasPriorOrders,
+    });
+    if (!verdict.ok) {
+      return NextResponse.json(
+        { error: `coupon_${verdict.reason}`, message: verdict.message },
+        { status: 400 }
+      );
+    }
+
+    resolvedCoupon = {
+      code: coupon.code,
+      discount: discountFromCoupon(coupon, provisional.subtotal),
+      type: coupon.type,
+      value: coupon.value,
+      oncePerCustomer: coupon.oncePerCustomer,
+      newCustomerOnly: coupon.newCustomerOnly,
+    };
+  }
+
+  // Recompute pricing server-side. When a coupon resolved, use its
+  // discount; otherwise fall back to any client-supplied discount (which
+  // recomputeOrderPricing already clamps to the subtotal).
   let pricing;
   try {
     pricing = await recomputeOrderPricing(db, parsed.items, {
-      discount: parsed.discount ?? 0,
+      discount: resolvedCoupon ? resolvedCoupon.discount : parsed.discount ?? 0,
     });
   } catch (e) {
     if (e instanceof OrderValidationError) {
@@ -208,7 +313,7 @@ export async function POST(request: Request) {
       total: pricing.total,
       advancePaid,
       balanceDue,
-      couponCode: parsed.couponCode ?? null,
+      couponCode: resolvedCoupon?.code ?? null,
     },
     status: "pending",
     paymentMethod: parsed.paymentMethod,
@@ -292,6 +397,31 @@ export async function POST(request: Request) {
           .doc(orderRef.id);
         tx.set(userOrderRef, orderDoc);
       }
+
+      // Coupon bookkeeping inside the same transaction so the redemption
+      // either commits with the order or doesn't get recorded at all.
+      // - Always bump the global usage counter.
+      // - Record a per-user redemption doc when the customer is signed in,
+      //   which is what enforces `oncePerCustomer` going forward.
+      if (resolvedCoupon) {
+        const couponRef = db.collection("coupons").doc(resolvedCoupon.code);
+        tx.update(couponRef, {
+          usageCount: FieldValue.increment(1),
+          lastRedeemedAt: FieldValue.serverTimestamp(),
+        });
+        if (uid) {
+          const redemptionRef = couponRef
+            .collection("redemptions")
+            .doc(uid);
+          tx.set(redemptionRef, {
+            uid,
+            orderId: orderRef.id,
+            orderNumber,
+            amount: pricing.discount,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
     });
   } catch (e) {
     if (e instanceof OrderValidationError) {
@@ -346,7 +476,7 @@ export async function POST(request: Request) {
       total: pricing.total,
       advancePaid,
       balanceDue,
-      couponCode: parsed.couponCode ?? null,
+      couponCode: resolvedCoupon?.code ?? null,
     },
     paymentMethod: parsed.paymentMethod,
     paymentStatus,

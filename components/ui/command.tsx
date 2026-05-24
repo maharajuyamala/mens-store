@@ -75,8 +75,11 @@ function CommandInput({
       <SearchIcon className="size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input
         data-slot="command-input"
+        // text-base on mobile (>=16px) keeps iOS Safari from auto-zooming
+        // when the input gains focus; shrink back to text-sm on desktop
+        // where the zoom rule doesn't apply.
         className={cn(
-          "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+          "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           className
         )}
         {...props}

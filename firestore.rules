@@ -59,9 +59,18 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Coupons: public can read (so the checkout UI can fetch one by code),
+    // admins manage. The redemptions subcollection is server-only — the
+    // /api/orders/place route uses the Admin SDK to bump usageCount and
+    // record a per-user redemption doc, so clients never need write access.
     match /coupons/{couponId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      match /redemptions/{userId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
     }
 
     // Public newsletter signups (site banner)

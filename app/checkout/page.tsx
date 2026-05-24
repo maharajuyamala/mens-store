@@ -15,9 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   discountFromCoupon,
-  fetchCouponByCode,
-  type CouponDoc,
+  normalizeCouponCode,
 } from "@/lib/checkout/coupon";
+import { validateCouponClient } from "@/lib/checkout/coupon-client";
 import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/deliverySchema";
 import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
@@ -51,6 +51,22 @@ const STEPS = [
   { n: 3, label: "Payment" },
 ] as const;
 
+/**
+ * Minimal coupon snapshot we keep on the page after server validation. We
+ * intentionally don't store the full doc so the UI can't second-guess the
+ * server-side eligibility verdict; we just need enough to recompute the
+ * discount when the cart subtotal changes.
+ */
+type AppliedCouponState = {
+  code: string;
+  type: "percent" | "amount";
+  value: number;
+  maxDiscount: number | null;
+  minSubtotal: number;
+  /** Discount last reported by the server for the subtotal at apply time. */
+  discount: number;
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -59,7 +75,9 @@ export default function CheckoutPage() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponDoc | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCouponState | null>(
+    null
+  );
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
@@ -102,8 +120,16 @@ export default function CheckoutPage() {
   }, [deliveryPrefsLoaded, user?.email, getValues, setValue]);
 
   const subtotal = useMemo(() => cartSubtotal(items), [items]);
+  // Keep the discount reactive to cart changes (e.g. user adjusts quantity
+  // after applying). If the cart drops below the coupon's minimum, fall
+  // back to zero — the order placement will then no longer try to charge a
+  // discount and the server will reject any stale coupon code that comes
+  // through.
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
+    if (appliedCoupon.minSubtotal && subtotal < appliedCoupon.minSubtotal) {
+      return 0;
+    }
     return discountFromCoupon(appliedCoupon, subtotal);
   }, [appliedCoupon, subtotal]);
 
@@ -112,24 +138,46 @@ export default function CheckoutPage() {
     [items, discountAmount]
   );
 
+  // If the cart drops below the minimum after applying, surface a hint so
+  // the customer knows the discount has been temporarily disabled.
+  const couponInactiveReason = useMemo(() => {
+    if (!appliedCoupon) return null;
+    if (
+      appliedCoupon.minSubtotal &&
+      subtotal < appliedCoupon.minSubtotal
+    ) {
+      return `Add ${inr.format(appliedCoupon.minSubtotal - subtotal)} more to use ${appliedCoupon.code}.`;
+    }
+    return null;
+  }, [appliedCoupon, subtotal]);
+
   const applyCoupon = async () => {
     setCouponMessage(null);
-    const raw = couponInput.trim();
+    const raw = normalizeCouponCode(couponInput);
     if (!raw) {
       setCouponMessage("Enter a coupon code.");
       return;
     }
     setCouponLoading(true);
     try {
-      const c = await fetchCouponByCode(raw);
-      if (!c) {
+      const res = await validateCouponClient({ code: raw, subtotal });
+      if (!res.ok) {
         setAppliedCoupon(null);
-        setCouponMessage("Invalid or expired coupon.");
+        setCouponMessage(res.message);
         return;
       }
-      setAppliedCoupon(c);
-      setCouponMessage(`Applied ${c.code}.`);
-      toast.success("Coupon applied");
+      setAppliedCoupon({
+        code: res.code,
+        type: res.type,
+        value: res.value,
+        maxDiscount: res.maxDiscount,
+        minSubtotal: 0, // server already cleared the subtotal check
+        discount: res.discount,
+      });
+      setCouponMessage(`Applied ${res.code}.`);
+      toast.success("Coupon applied", {
+        description: `You saved ${inr.format(res.discount)}.`,
+      });
     } catch {
       setCouponMessage("Could not verify coupon. Try again.");
     } finally {
@@ -567,6 +615,11 @@ export default function CheckoutPage() {
             </div>
             {couponMessage ? (
               <p className="mt-2 text-sm text-muted-foreground">{couponMessage}</p>
+            ) : null}
+            {couponInactiveReason ? (
+              <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                {couponInactiveReason}
+              </p>
             ) : null}
           </div>
 
