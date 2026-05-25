@@ -71,6 +71,12 @@ import {
   type DraftImage,
   type VariantDraft,
 } from "@/components/admin/products/ColorVariantsEditor";
+import {
+  ITEM_SELECTIONS,
+  getCategoriesFor,
+  type ItemSelection,
+} from "@/lib/add-product/category-options";
+import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -171,6 +177,30 @@ function formDefaultsFromDoc(
   };
 }
 
+function readItemSelection(
+  data: Record<string, unknown> | null
+): ItemSelection | "" {
+  const raw = data?.itemSelection;
+  if (typeof raw !== "string") return "";
+  return (ITEM_SELECTIONS as readonly string[]).includes(raw)
+    ? (raw as ItemSelection)
+    : "";
+}
+
+function readCategories(data: Record<string, unknown> | null): string[] {
+  const raw = data?.categories;
+  if (typeof raw === "string") {
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((s) => String(s).trim()).filter(Boolean);
+  }
+  return [];
+}
+
 async function uploadCompressedWithProgress(
   file: File,
   itemId: string,
@@ -229,6 +259,8 @@ export function ProductFormDialog({
   const [colorDrafts, setColorDrafts] = useState<VariantDraft[]>([
     makeEmptyVariantDraft(),
   ]);
+  const [itemSelection, setItemSelection] = useState<ItemSelection | "">("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -294,13 +326,32 @@ export function ProductFormDialog({
         revokeDraftBlobs(prev);
         return [makeEmptyVariantDraft()];
       });
+      setItemSelection("");
+      setSelectedCategories([]);
       setSubmitError(null);
       return;
     }
     reset(formDefaultsFromDoc(initialData));
     setColorDrafts(buildInitialColorDrafts(initialData));
+    setItemSelection(readItemSelection(initialData));
+    setSelectedCategories(readCategories(initialData));
     setSubmitError(null);
   }, [open, initialData, reset, revokeDraftBlobs]);
+
+  const categoryOptions = useMemo(
+    () => getCategoriesFor(watchedAudience, itemSelection),
+    [watchedAudience, itemSelection]
+  );
+
+  // Drop selected categories that no longer apply after audience or item
+  // selection changes (e.g. admin flips Men → Women, the Men palette is gone).
+  useEffect(() => {
+    const allowed = new Set(categoryOptions);
+    setSelectedCategories((prev) => {
+      const next = prev.filter((c) => allowed.has(c));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [categoryOptions]);
 
   // Submit
   const onSubmit = form.handleSubmit(async (values) => {
@@ -411,6 +462,8 @@ export function ProductFormDialog({
           variantCodes,
           sizes: unionSizes, // size → total stock across colors (back-compat)
           image: flatImages[0] ?? "",
+          itemSelection,
+          categories: selectedCategories.join(", "),
         });
         revokeDraftBlobs(colorDrafts);
         onSaved({
@@ -426,6 +479,8 @@ export function ProductFormDialog({
           variantCodes,
           sizes: unionSizes,
           image: flatImages[0] ?? "",
+          itemSelection,
+          categories: selectedCategories.join(", "),
         });
         revokeDraftBlobs(colorDrafts);
         onSaved();
@@ -572,6 +627,68 @@ export function ProductFormDialog({
               />
             </div>
           </div>
+
+          {/* Item selection (Top / Bottom / Set / …) */}
+          <div className="space-y-2">
+            <Label>Item selection</Label>
+            <Select
+              value={itemSelection || undefined}
+              onValueChange={(v) => {
+                setItemSelection(v as ItemSelection);
+                setSelectedCategories([]);
+              }}
+            >
+              <SelectTrigger className="w-full border-border bg-background">
+                <SelectValue placeholder="Top, Bottom, Set…" />
+              </SelectTrigger>
+              <SelectContent>
+                {ITEM_SELECTIONS.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Category chips, scoped to audience + item selection */}
+          {itemSelection ? (
+            categoryOptions.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Categories (select one or more)</Label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {categoryOptions.map((cat) => {
+                    const active = selectedCategories.includes(cat);
+                    return (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() =>
+                          setSelectedCategories((prev) =>
+                            prev.includes(cat)
+                              ? prev.filter((c) => c !== cat)
+                              : [...prev, cat]
+                          )
+                        }
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+                          active
+                            ? "bg-orange-600 text-white shadow-md"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No predefined categories for this combination.
+              </p>
+            )
+          ) : null}
 
           {/* Stock + sizes live INSIDE each color variant card now. */}
           <ColorVariantsEditor

@@ -14,6 +14,7 @@ import {
   Menu,
   Package,
   PlusCircle,
+  Search,
   ShoppingCart,
   Sparkles,
   Store,
@@ -22,9 +23,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AddItemDialog, AddProductOpenButton } from "@/components/AddDialogue";
+import { AddItemDialog } from "@/components/AddDialogue";
 import { ProductBarcodeDialog } from "@/components/admin/ProductBarcodeDialog";
 import { CartDrawer } from "@/components/Cart/CartDrawer";
+import { SearchCategoryDialog } from "@/components/SearchCategoryDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
@@ -34,6 +36,7 @@ import { cn } from "@/lib/utils";
 export function Header() {
   const { user, loading, isAdmin, signOut } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const setCartOpen = useCartDrawerStore((s) => s.setOpen);
   const cartCount = useCartStore((s) => s.getCount());
@@ -141,10 +144,19 @@ export function Header() {
         </motion.nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setIsSearchOpen(true)}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-transparent text-foreground transition-colors duration-300 hover:border-orange-500"
+            aria-label="Search categories"
+          >
+            <Search className="h-5 w-5 shrink-0" aria-hidden />
+          </motion.button>
+
           {isAdmin ? (
             <>
-              <AddProductOpenButton variant="icon-only" className="md:hidden" />
-              <AddProductOpenButton />
               <Link
                 href="/admin"
                 className="hidden items-center gap-2 rounded-full border border-orange-500/40 bg-orange-500/10 px-4 py-2 text-sm font-semibold text-orange-400 transition-colors hover:bg-orange-500/20 md:inline-flex"
@@ -519,6 +531,7 @@ export function Header() {
           <ProductBarcodeDialog />
         </>
       ) : null}
+      <SearchCategoryDialog open={isSearchOpen} onOpenChange={setIsSearchOpen} />
       <CartDrawer />
     </>
   );

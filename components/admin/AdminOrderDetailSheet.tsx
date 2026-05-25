@@ -9,6 +9,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { buildTimeline, type AdminOrder } from "@/lib/admin/orders-admin";
+import {
+  getPlatformFee,
+  getRefundableAmount,
+} from "@/lib/payments/refund-policy";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -217,6 +221,33 @@ export function AdminOrderDetailSheet({
                         <span>Balance due on delivery</span>
                         <span className="tabular-nums text-orange-400">
                           {inr.format(selected.pricing.balanceDue)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/*
+                    Platform fee + refundable amount. The fee is already
+                    settled to the developer's Razorpay linked account at
+                    capture time and is non-refundable, so the admin
+                    issuing a refund (manual in dashboard today) must cap
+                    the refund at "refundable amount" — shown here so
+                    nobody types the wrong number.
+                  */}
+                  {getPlatformFee(selected.pricing) > 0 ? (
+                    <div className="mt-2 space-y-1 rounded-md border border-sky-500/30 bg-sky-500/5 p-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Platform fee (non-refundable)
+                        </span>
+                        <span className="tabular-nums">
+                          {inr.format(getPlatformFee(selected.pricing))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-medium">
+                        <span>Refundable amount</span>
+                        <span className="tabular-nums text-sky-400">
+                          {inr.format(getRefundableAmount(selected.pricing))}
                         </span>
                       </div>
                     </div>

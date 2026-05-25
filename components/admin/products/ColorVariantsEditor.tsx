@@ -323,11 +323,20 @@ function VariantDraftCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="h-7 w-7 rounded-full border-2 border-border shadow-inner"
-            style={{ backgroundColor: draft.hex || "#000000" }}
-          />
+        <label className="relative flex h-10 w-10 cursor-pointer items-center justify-center">
+            <input
+              type="color"
+              value={draft.hex}
+              onChange={(e) => onChange({ hex: e.target.value })}
+              disabled={disabled}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+              aria-label="Pick swatch color"
+            />
+            <span
+              className="block h-9 w-9 rounded-full border-2 border-border shadow-sm transition-transform hover:scale-110"
+              style={{ backgroundColor: draft.hex }}
+            />
+          </label>
           <span className="text-sm font-semibold text-muted-foreground">
             Color {index}
           </span>
@@ -348,21 +357,7 @@ function VariantDraftCard({
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr_1fr]">
         <div className="space-y-1">
-          <Label className="text-xs">Swatch</Label>
-          <label className="relative flex h-10 w-10 cursor-pointer items-center justify-center">
-            <input
-              type="color"
-              value={draft.hex}
-              onChange={(e) => onChange({ hex: e.target.value })}
-              disabled={disabled}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-              aria-label="Pick swatch color"
-            />
-            <span
-              className="block h-9 w-9 rounded-full border-2 border-border shadow-sm transition-transform hover:scale-110"
-              style={{ backgroundColor: draft.hex }}
-            />
-          </label>
+          
         </div>
         <div className="space-y-1">
           <Label htmlFor={`vd-name-${draft.id}`} className="text-xs">
@@ -377,20 +372,7 @@ function VariantDraftCard({
             className="border-border bg-background"
           />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`vd-label-${draft.id}`} className="text-xs">
-            Display label{" "}
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Input
-            id={`vd-label-${draft.id}`}
-            placeholder="Wine red"
-            value={draft.label}
-            onChange={(e) => onChange({ label: e.target.value })}
-            disabled={disabled}
-            className="border-border bg-background"
-          />
-        </div>
+       
       </div>
 
       <div className="mt-4 space-y-2">

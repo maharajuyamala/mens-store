@@ -1,5 +1,9 @@
 import type { ExploreProduct, SortMode } from "@/lib/explore/types";
-import { PRODUCT_AUDIENCES, PRODUCT_CATEGORIES } from "@/lib/products/schema";
+import {
+  PRODUCT_AUDIENCES,
+  PRODUCT_CATEGORIES,
+  type ProductAudience,
+} from "@/lib/products/schema";
 
 export const EXPLORE_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
@@ -41,6 +45,7 @@ export function uniqueColors(products: ExploreProduct[]): string[] {
 
 export type ExploreFilterInput = {
   categories: string[];
+  audience: ProductAudience | "all";
   sizes: string[];
   colors: string[];
   priceMin: number;
@@ -52,15 +57,28 @@ export type ExploreFilterInput = {
 
 export function productMatchesCategory(p: ExploreProduct, selected: string[]): boolean {
   if (selected.length === 0) return true;
-  const cat = p.category ?? "";
-  const aud = p.audience;
-  return selected.some(
-    (s) =>
+  const cat = (p.category ?? "").toLowerCase();
+  const aud = p.audience.toLowerCase();
+  const lowerTags = p.tags.map((t) => t.toLowerCase());
+  const lowerCats = p.categories.map((c) => c.toLowerCase());
+  return selected.some((rawSel) => {
+    const s = rawSel.toLowerCase();
+    if (!s) return false;
+    return (
       cat === s ||
       aud === s ||
-      p.tags.includes(s) ||
-      p.tags.includes(s.toLowerCase())
-  );
+      lowerTags.includes(s) ||
+      lowerCats.includes(s)
+    );
+  });
+}
+
+export function productMatchesAudience(
+  p: ExploreProduct,
+  audience: ProductAudience | "all"
+): boolean {
+  if (audience === "all") return true;
+  return p.audience === audience;
 }
 
 export function productMatchesSize(p: ExploreProduct, selected: string[]): boolean {
@@ -111,6 +129,7 @@ export function filterExploreProducts(
 ): ExploreProduct[] {
   return products.filter(
     (p) =>
+      productMatchesAudience(p, f.audience) &&
       productMatchesCategory(p, f.categories) &&
       productMatchesSize(p, f.sizes) &&
       productMatchesColor(p, f.colors) &&

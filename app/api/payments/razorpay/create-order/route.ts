@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/recompute-pricing";
 import { guardWriteRequest } from "@/lib/api/security";
 import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
+import { buildOrderTransfers } from "@/lib/payments/platform-fee";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,13 +101,38 @@ export async function POST(request: Request) {
 
   try {
     const razorpay = getRazorpay();
-    const rzpOrder = await razorpay.orders.create({
+
+    // Razorpay Route — split the captured payment so the developer's
+    // linked account receives PLATFORM_FEE_INR and the owner (primary
+    // merchant) keeps the rest. When Route isn't configured we skip the
+    // transfers field entirely so single-account setups still work.
+    const splitInfo = buildOrderTransfers(amountInPaise, {
+      mode,
+    });
+
+    // The razorpay-node typings don't expose `transfers` on orders.create
+    // yet (Route was added after the type defs were last updated), so we
+    // build a loose payload object, attach `transfers` when configured,
+    // and cast at the call site.
+    const orderPayload: Record<string, unknown> = {
       amount: amountInPaise,
       currency: "INR",
       receipt:
         parsed.receipt ?? `r_${Date.now().toString(36)}`.slice(0, 40),
       payment_capture: true,
-    });
+    };
+    if (splitInfo) {
+      orderPayload.transfers = splitInfo.transfers;
+    }
+
+    const rzpOrder = await razorpay.orders.create(
+      orderPayload as unknown as Parameters<typeof razorpay.orders.create>[0]
+    );
+
+    const platformFeeRupees = splitInfo
+      ? Math.round(splitInfo.feeInPaise) / 100
+      : 0;
+
     return NextResponse.json({
       ok: true,
       razorpayOrderId: rzpOrder.id,
@@ -124,6 +150,7 @@ export async function POST(request: Request) {
           mode === "advance"
             ? Math.round((pricing.total - chargeRupees) * 100) / 100
             : 0,
+        platformFee: platformFeeRupees,
       },
     });
   } catch (e) {

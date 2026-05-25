@@ -42,6 +42,10 @@ import {
   type ExploreProduct,
   type SortMode,
 } from "@/lib/explore/types";
+import {
+  PRODUCT_AUDIENCES,
+  type ProductAudience,
+} from "@/lib/products/schema";
 import { cn } from "@/lib/utils";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
@@ -85,6 +89,12 @@ function parsePriceRange(
   return bounds;
 }
 
+function parseAudience(sp: URLSearchParams): ProductAudience | "all" {
+  const raw = sp.get("audience")?.toLowerCase();
+  if (raw === "men" || raw === "women" || raw === "kids") return raw;
+  return "all";
+}
+
 function parseSort(sp: URLSearchParams): SortMode {
   const s = sp.get("sort");
   if (
@@ -110,6 +120,7 @@ function countActiveExploreFilters(
   const [lo, hi] = parsePriceRange(sp, bounds);
   if (lo > bounds[0] || hi < bounds[1]) n++;
   if (sp.get("inStock") === "1") n++;
+  if (parseAudience(sp) !== "all") n++;
   return n;
 }
 
@@ -328,6 +339,7 @@ function FiltersBlock({
               p.delete("color");
               p.delete("price");
               p.delete("inStock");
+              p.delete("audience");
             })
           }
         >
@@ -395,12 +407,18 @@ function ExploreCatalog({
 
   const sort = useMemo(() => parseSort(searchParams), [spKey, searchParams]);
 
+  const audience = useMemo(
+    () => parseAudience(searchParams),
+    [spKey, searchParams]
+  );
+
   const filterInput: ExploreFilterInput = useMemo(() => {
     const [pMin, pMax] = parsePriceRange(searchParams, bounds);
     return {
       categories: parseListParam(searchParams, "category").map((c) =>
         c.toLowerCase()
       ),
+      audience,
       sizes: parseListParam(searchParams, "size").map((s) =>
         s.trim().toUpperCase()
       ),
@@ -413,7 +431,7 @@ function ExploreCatalog({
       sort,
       query: searchParams.get("q") ?? "",
     };
-  }, [spKey, searchParams, bounds, sort]);
+  }, [spKey, searchParams, bounds, sort, audience]);
 
   const visible = useMemo(() => {
     const filtered = filterExploreProducts(products, filterInput);
@@ -603,7 +621,32 @@ function ExploreCatalog({
             {visible.length === 1 ? "piece" : "pieces"}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
-            
+            <Select
+              value={audience}
+              onValueChange={(v) =>
+                replaceQuery((p) => {
+                  if (v === "all") p.delete("audience");
+                  else p.set("audience", v);
+                })
+              }
+            >
+              <SelectTrigger
+                id="explore-audience"
+                size="sm"
+                className="h-7 w-[6.5rem] rounded-md border-zinc-700/80 bg-zinc-900/90 px-2 text-[11px] font-medium text-zinc-200 shadow-none backdrop-blur-sm transition-colors hover:border-zinc-600 sm:h-8 sm:w-[8rem] sm:px-2.5 sm:text-xs [&_svg]:size-3"
+              >
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
+                <SelectItem value="all">All departments</SelectItem>
+                {PRODUCT_AUDIENCES.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a.charAt(0).toUpperCase() + a.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select
               value={sort}
               onValueChange={(v) =>
@@ -664,6 +707,7 @@ function ExploreCatalog({
                       p.delete("inStock");
                       p.delete("q");
                       p.delete("sort");
+                      p.delete("audience");
                     })
                   }
                 >

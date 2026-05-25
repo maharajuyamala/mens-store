@@ -26,9 +26,13 @@ import {
 import { cn, inr } from "@/lib/utils";
 import {
   QUICK_ADD_AUDIENCES,
-  getQuickAddStyleTags,
   type AudienceId,
 } from "@/lib/add-product/quick-add-options";
+import {
+  ITEM_SELECTIONS,
+  getCategoriesFor,
+  type ItemSelection,
+} from "@/lib/add-product/category-options";
 import { buildImageStoragePath } from "@/lib/uploads/validate-image";
 import {
   getSizeOptions,
@@ -153,7 +157,8 @@ export default function AddProductPage() {
     makeEmptyVariantDraft(),
   ]);
   const [selectedAudience, setSelectedAudience] = useState<AudienceId | "">("");
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [itemSelection, setItemSelection] = useState<ItemSelection | "">("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -166,7 +171,8 @@ export default function AddProductPage() {
     setProductName("");
     setPrice("");
     setSelectedAudience("");
-    setSelectedStyles([]);
+    setItemSelection("");
+    setSelectedCategories([]);
     setColorDrafts((prev) => {
       // Revoke blob URLs we own so we don't leak previews.
       for (const d of prev) {
@@ -180,19 +186,20 @@ export default function AddProductPage() {
     setCreatedProduct(null);
   }, []);
 
-  // Sizes depend on department + style — kids get age brackets, "pants" style
-  // gets numeric waist sizes, everything else gets the alpha XS–6XL set.
+  // Sizes depend on department + item selection — kids get age brackets,
+  // "Bottom" maps to numeric waist sizes (via the lowercased hint matching
+  // BOTTOM_HINTS in inferSizeGroup), everything else gets alpha XS–6XL.
   const sizeOptions = useMemo<readonly string[]>(() => {
     if (!selectedAudience) return [];
-    return getSizeOptions(selectedAudience, selectedStyles);
-  }, [selectedAudience, selectedStyles]);
+    return getSizeOptions(selectedAudience, itemSelection);
+  }, [selectedAudience, itemSelection]);
 
   const sizeGroup = useMemo(
     () =>
       selectedAudience
-        ? inferSizeGroup(selectedAudience, selectedStyles)
+        ? inferSizeGroup(selectedAudience, itemSelection)
         : null,
-    [selectedAudience, selectedStyles]
+    [selectedAudience, itemSelection]
   );
 
   const sizeGroupLabel = useMemo(() => {
@@ -223,19 +230,21 @@ export default function AddProductPage() {
     });
   }, [sizeOptions]);
 
-  // Drop previously-picked style chips that the new audience doesn't offer
-  // (e.g. "shirts" was set under Men, then merchant flips to Women where
-  // the palette is Top / Bottom / Casual / Formal / Sports / Undergarments).
+  const categoryOptions = useMemo(
+    () => getCategoriesFor(selectedAudience, itemSelection),
+    [selectedAudience, itemSelection]
+  );
+
+  // Drop selected category chips that no longer apply after audience or
+  // item-selection changes (e.g. Men + Top "Linen Shirts" picked, then user
+  // switches to Bottom — the Top palette is gone, so the chip should clear).
   useEffect(() => {
-    if (!selectedAudience) return;
-    const allowed = new Set(
-      getQuickAddStyleTags(selectedAudience).map((t) => t.id)
-    );
-    setSelectedStyles((prev) => {
-      const next = prev.filter((id) => allowed.has(id));
+    const allowed = new Set(categoryOptions);
+    setSelectedCategories((prev) => {
+      const next = prev.filter((c) => allowed.has(c));
       return next.length === prev.length ? prev : next;
     });
-  }, [selectedAudience]);
+  }, [categoryOptions]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -264,12 +273,12 @@ export default function AddProductPage() {
       Number.isNaN(finalPrice) ||
       usableDrafts.length === 0 ||
       !selectedAudience ||
-      selectedStyles.length === 0 ||
+      !itemSelection ||
       hasDupes
     ) {
       const msg = hasDupes
         ? "Two colors share the same name. Give each color a unique name."
-        : "Fill every section: department, at least one style, and at least one color with photos AND per-size stock.";
+        : "Fill every section: department, item selection, and at least one color with photos AND per-size stock.";
       setError(msg);
       toast.error("Complete the form", { description: msg });
       return;
@@ -360,8 +369,12 @@ export default function AddProductPage() {
         price: finalPrice,
         images: flatImages,
         image: flatImages[0] ?? "",
-        tags: [selectedAudience, ...selectedStyles],
+        // Mirror item selection into the legacy `tags` array so explore
+        // filters / size inference that still read tags keep working.
+        tags: [selectedAudience, itemSelection.toLowerCase()],
         audience: selectedAudience,
+        itemSelection,
+        categories: selectedCategories.join(", "),
         colors: colorNames,
         colorVariants,
         variantCodes,
@@ -439,7 +452,8 @@ export default function AddProductPage() {
             value={selectedAudience || undefined}
             onValueChange={(v) => {
               setSelectedAudience(v as AudienceId);
-              setSelectedStyles([]);
+              setItemSelection("");
+              setSelectedCategories([]);
             }}
           >
             <SelectTrigger className="w-full border-border bg-background">
@@ -455,39 +469,69 @@ export default function AddProductPage() {
           </Select>
         </div>
 
-        {/* ── Style tags ────────────────────────────────────────────── */}
+        {/* ── Item selection ───────────────────────────────────────── */}
         {selectedAudience ? (
           <div className="space-y-2">
-            <Label>Style & type (select one or more)</Label>
-            <div className="flex flex-wrap gap-2 pt-1">
-              {getQuickAddStyleTags(selectedAudience).map((tag) => (
-                <button
-                  type="button"
-                  key={tag.id}
-                  onClick={() =>
-                    setSelectedStyles((prev) =>
-                      prev.includes(tag.id)
-                        ? prev.filter((t) => t !== tag.id)
-                        : [...prev, tag.id]
-                    )
-                  }
-                  className={cn(
-                    "rounded-full px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
-                    selectedStyles.includes(tag.id)
-                      ? "bg-orange-600 text-white shadow-md"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  )}
-                >
-                  {tag.label}
-                </button>
-              ))}
-            </div>
+            <Label>Item selection</Label>
+            <Select
+              value={itemSelection || undefined}
+              onValueChange={(v) => {
+                setItemSelection(v as ItemSelection);
+                setSelectedCategories([]);
+              }}
+            >
+              <SelectTrigger className="w-full border-border bg-background">
+                <SelectValue placeholder="Top, Bottom, Set…" />
+              </SelectTrigger>
+              <SelectContent>
+                {ITEM_SELECTIONS.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Select a department above to choose styles.
-          </p>
-        )}
+        ) : null}
+
+        {/* ── Category chips (multi-select) ────────────────────────── */}
+        {selectedAudience && itemSelection ? (
+          categoryOptions.length > 0 ? (
+            <div className="space-y-2">
+              <Label>Categories (select one or more)</Label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {categoryOptions.map((cat) => {
+                  const active = selectedCategories.includes(cat);
+                  return (
+                    <button
+                      type="button"
+                      key={cat}
+                      onClick={() =>
+                        setSelectedCategories((prev) =>
+                          prev.includes(cat)
+                            ? prev.filter((c) => c !== cat)
+                            : [...prev, cat]
+                        )
+                      }
+                      className={cn(
+                        "rounded-full px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+                        active
+                          ? "bg-orange-600 text-white shadow-md"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No predefined categories for this combination.
+            </p>
+          )
+        ) : null}
 
         {/* ── Colors, photos & per-color sizes ──────────────────────── */}
         <ColorVariantsEditor

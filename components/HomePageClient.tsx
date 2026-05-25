@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Hero } from "@/components/Hero";
+import { CategorySection } from "@/components/ShopByCategory";
+import { CategoryGallery } from "@/components/CategoryGallery";
 import { ShirtSection } from "@/components/ShirtSection";
 import { Testimonials } from "@/components/Testimonial";
 import { WhyChooseUs } from "@/components/WhyUs";
-import { CategorySection } from "@/components/ShopByCategory";
 import { RecentlyViewedSection } from "@/components/RecentlyViewedSection";
 import type { ExploreProduct } from "@/lib/explore/types";
 
@@ -96,8 +97,9 @@ export default function HomePageClient({
       {!loading && (
         <main className="bg-zinc-950 text-white antialiased">
           <Hero />
-          <ShirtSection products={signatureProducts} />
           <CategorySection />
+          <CategoryGallery />
+          <ShirtSection products={signatureProducts} />
           <RecentlyViewedSection variant="dark" />
           <WhyChooseUs />
           <Testimonials />

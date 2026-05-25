@@ -61,33 +61,42 @@ export const Hero = () => {
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 mx-auto max-w-4xl px-5 pt-16 sm:px-8"
       >
-        <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.35em] text-orange-400/95 sm:text-xs">
-          SecondSkin
+        <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.4em] text-orange-400/90 sm:text-xs">
+          SecondSkin · est. Hyderabad
         </p>
-        <h1 className="mb-6 bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-5xl font-extrabold leading-[1.05] tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
-          Style redefined.
+        <h1 className="mb-6 bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-4xl font-light leading-[1.06] tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
+          Wear it like a{" "}
+          <span className="bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-medium italic text-transparent">
+            second skin
+          </span>
+          .
         </h1>
-        <p className="mx-auto mb-10 max-w-xl text-base leading-relaxed text-zinc-400 sm:text-lg md:text-xl">
-          Curated menswear where premium craftsmanship meets contemporary
-          design — built to move with you.
+        <p className="mx-auto mb-10 max-w-xl text-[15px] leading-relaxed text-zinc-400 sm:text-lg md:text-xl">
+          Cloth chosen for the way it feels — quiet luxury for the way you
+          actually live.
         </p>
-        <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
-          <Link href="/explore" className="inline-flex">
+        <div className="flex flex-col items-center justify-center gap-5">
+          <Link href="/explore" className="inline-flex w-full sm:w-auto">
             <motion.span
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-orange-500/25 ring-1 ring-white/10 transition-shadow hover:shadow-orange-500/35"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-orange-500/25 ring-1 ring-white/10 transition-shadow hover:shadow-orange-500/35 sm:w-auto"
             >
-              Explore collection
+              Shop the collection
               <ArrowRight className="h-5 w-5" aria-hidden />
             </motion.span>
           </Link>
-          <Link
-            href="/explore"
-            className="text-sm font-medium text-zinc-300 underline-offset-4 transition-colors hover:text-white hover:underline"
+
+          <ul
+            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium tracking-wide text-zinc-500 sm:text-xs"
+            aria-label="Shopping perks"
           >
-            View new arrivals
-          </Link>
+            <li>Free shipping</li>
+            <li className="h-1 w-1 rounded-full bg-zinc-700" aria-hidden />
+            <li>7-day exchange</li>
+            <li className="h-1 w-1 rounded-full bg-zinc-700" aria-hidden />
+            <li>Cash on delivery</li>
+          </ul>
         </div>
       </motion.div>
 

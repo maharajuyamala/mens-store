@@ -24,6 +24,13 @@ export type ExploreProduct = {
   /** Department: men / women / kids (defaults to men when missing in Firestore). */
   audience: ProductAudience;
   tags: string[];
+  /**
+   * Friendly category names persisted by the admin form
+   * (e.g. `["Plain Shirts", "Designer Shirts"]`). Stored on Firestore as a
+   * comma-separated string under the `categories` field; parsed here so the
+   * explore filter can do a case-insensitive match.
+   */
+  categories: string[];
   /** Sizes the customer can actually buy (per-size stock > 0 when known). */
   sizes: string[];
   /** Per-size available units. Empty when product has no size map (legacy flat stock). */
@@ -92,6 +99,19 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
   const tags = Array.isArray(data.tags)
     ? data.tags.map((t) => String(t).toLowerCase())
     : [];
+
+  // `categories` is written as a comma-separated string by the admin forms.
+  // Tolerate legacy/alt shapes (array, missing) so older docs still parse.
+  let categories: string[] = [];
+  const catsRaw = data.categories;
+  if (typeof catsRaw === "string") {
+    categories = catsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } else if (Array.isArray(catsRaw)) {
+    categories = catsRaw.map((s) => String(s).trim()).filter(Boolean);
+  }
 
   const category =
     typeof data.category === "string"
@@ -170,6 +190,7 @@ export function docToExploreProduct(id: string, data: DocumentData): ExploreProd
     category,
     audience,
     tags,
+    categories,
     sizes,
     sizesStock,
     colors,

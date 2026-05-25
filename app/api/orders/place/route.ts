@@ -19,6 +19,10 @@ import {
   parseCouponDoc,
 } from "@/lib/checkout/coupon";
 import {
+  getPlatformFeeRupees,
+  isRouteConfigured,
+} from "@/lib/payments/platform-fee";
+import {
   decrementLegacyStock,
   decrementVariantStock,
   hasVariantStock,
@@ -294,6 +298,20 @@ export async function POST(request: Request) {
       : pricing.total;
   const balanceDue =
     Math.round((pricing.total - advancePaid) * 100) / 100;
+
+  // Platform fee comes out of the amount we actually collected online
+  // (full total for "online", advance for "cod"). Razorpay Route does
+  // the actual split at capture time — we just record it here for
+  // bookkeeping and the admin's "earnings" view.
+  const onlineCharge =
+    parsed.paymentMethod === "online" ? pricing.total : advancePaid;
+  const platformFeeRupees = isRouteConfigured()
+    ? Math.min(getPlatformFeeRupees(), Math.max(0, onlineCharge - 0.01))
+    : 0;
+  const ownerNet = Math.max(
+    0,
+    Math.round((pricing.total - platformFeeRupees) * 100) / 100
+  );
   const paymentStatus =
     parsed.paymentMethod === "online"
       ? "paid"
@@ -314,6 +332,8 @@ export async function POST(request: Request) {
       advancePaid,
       balanceDue,
       couponCode: resolvedCoupon?.code ?? null,
+      platformFee: platformFeeRupees,
+      ownerNet,
     },
     status: "pending",
     paymentMethod: parsed.paymentMethod,
@@ -477,6 +497,8 @@ export async function POST(request: Request) {
       advancePaid,
       balanceDue,
       couponCode: resolvedCoupon?.code ?? null,
+      platformFee: platformFeeRupees,
+      ownerNet,
     },
     paymentMethod: parsed.paymentMethod,
     paymentStatus,

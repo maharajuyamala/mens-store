@@ -22,6 +22,10 @@ export type OrderPricing = {
   advancePaid?: number;
   balanceDue?: number;
   couponCode?: string | null;
+  /** Platform fee already settled to the developer (non-refundable). */
+  platformFee?: number;
+  /** Owner's net after the platform fee. Equals total - platformFee. */
+  ownerNet?: number;
 };
 
 export type OrderLine = {
@@ -159,6 +163,8 @@ function parsePricing(raw: unknown): OrderPricing {
       r.couponCode === null || typeof r.couponCode === "string"
         ? (r.couponCode as string | null)
         : undefined,
+    platformFee: "platformFee" in r ? num("platformFee") : undefined,
+    ownerNet: "ownerNet" in r ? num("ownerNet") : undefined,
   };
 }
 
