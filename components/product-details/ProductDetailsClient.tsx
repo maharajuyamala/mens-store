@@ -345,7 +345,7 @@ function ProductDetailContent({
                       src={mainSrc}
                       alt={product.name}
                       fill
-                      className="object-cover"
+                      className="object-cover object-top"
                       sizes="(max-width: 1024px) 100vw, 50vw"
                       priority={mainIndex === 0}
                     />
@@ -384,7 +384,7 @@ function ProductDetailContent({
                       alt=""
                       width={64}
                       height={64}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover object-top"
                     />
                   </button>
                 ))}

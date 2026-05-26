@@ -158,7 +158,7 @@ export function ExploreProductCard({
                   }
                   fill
                   className={cn(
-                    "object-cover transition-transform duration-700 ease-out will-change-transform",
+                    "object-cover object-top transition-transform duration-700 ease-out will-change-transform",
                     isHovered && i === activeIndex && "scale-[1.03]"
                   )}
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
