@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ColorSwatchPicker } from "@/components/admin/products/ColorSwatchPicker";
 import { validateImageFile } from "@/lib/uploads/validate-image";
 import { formatSizeLabel } from "@/lib/products/size-options";
 import { cn } from "@/lib/utils";
@@ -323,20 +324,11 @@ function VariantDraftCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-        <label className="relative flex h-10 w-10 cursor-pointer items-center justify-center">
-            <input
-              type="color"
-              value={draft.hex}
-              onChange={(e) => onChange({ hex: e.target.value })}
-              disabled={disabled}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-              aria-label="Pick swatch color"
-            />
-            <span
-              className="block h-9 w-9 rounded-full border-2 border-border shadow-sm transition-transform hover:scale-110"
-              style={{ backgroundColor: draft.hex }}
-            />
-          </label>
+          <ColorSwatchPicker
+            value={draft.hex}
+            onChange={(hex) => onChange({ hex })}
+            disabled={disabled}
+          />
           <span className="text-sm font-semibold text-muted-foreground">
             Color {index}
           </span>
