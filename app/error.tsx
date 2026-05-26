@@ -29,6 +29,11 @@ export default function RootError({
           <Link href="/">Home</Link>
         </Button>
       </div>
+      {error.digest ? (
+        <p className="mt-2 font-mono text-[11px] text-muted-foreground/70">
+          Ref: {error.digest}
+        </p>
+      ) : null}
     </div>
   );
 }

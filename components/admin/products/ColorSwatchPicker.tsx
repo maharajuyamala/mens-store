@@ -144,6 +144,7 @@ export function ColorSwatchPicker({
   };
 
   const selected = value.toLowerCase();
+  const swatchIsLight = isLightColor(value);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -152,12 +153,23 @@ export function ColorSwatchPicker({
           type="button"
           disabled={disabled}
           aria-label="Pick swatch color"
-          className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(
+            "group relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-all",
+            "ring-2 ring-offset-2 ring-offset-background hover:ring-orange-500 focus-visible:outline-none focus-visible:ring-orange-500",
+            swatchIsLight ? "ring-border" : "ring-white/70",
+            "disabled:cursor-not-allowed disabled:opacity-50"
+          )}
         >
           <span
-            className="block h-9 w-9 rounded-full border-2 border-border shadow-sm transition-transform hover:scale-110"
+            className="block h-10 w-10 rounded-full shadow-md transition-transform group-hover:scale-105 group-active:scale-95"
             style={{ backgroundColor: value }}
           />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-white shadow ring-2 ring-background"
+          >
+            <Pipette className="h-2.5 w-2.5" strokeWidth={2.5} />
+          </span>
         </button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto p-0 sm:max-w-md">

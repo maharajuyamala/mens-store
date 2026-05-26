@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 import { AuthProvider } from "@/components/AuthProvider";
+import { ChunkErrorReloader } from "@/components/ChunkErrorReloader";
 import { StoreChrome } from "@/components/StoreChrome";
 import { GlobalSearchCommand } from "@/components/search/GlobalSearchCommand";
 import { SearchDialogProvider } from "@/components/search/SearchDialogContext";
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-background text-foreground antialiased`}
       >
+        <ChunkErrorReloader />
         <AuthProvider>
           <SearchDialogProvider>
             <StoreChrome>
