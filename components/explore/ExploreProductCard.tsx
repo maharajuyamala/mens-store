@@ -9,6 +9,11 @@ import { swatchColor } from "@/lib/explore/color-swatches";
 import { cn, inr } from "@/lib/utils";
 import { useWishlistStore } from "@/store/wishlistStore";
 
+// 1×1 dark-zinc PNG so the Image element fades in from the card background
+// instead of flashing white before the remote photo decodes.
+const BLUR_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=";
+
 type Props = {
   product: ExploreProduct;
   onQuickAdd?: (product: ExploreProduct) => void;
@@ -141,31 +146,45 @@ export function ExploreProductCard({
         </Link>
         {images.length > 0 ? (
           <>
-            {images.map((src, i) => (
-              <div
-                key={src}
-                className={cn(
-                  "absolute inset-0 transition-opacity duration-500 ease-out",
-                  i === activeIndex ? "z-0 opacity-100" : "z-0 opacity-0"
-                )}
-              >
-                <Image
-                  src={src}
-                  alt={
-                    i === 0
-                      ? product.name
-                      : `${product.name} – view ${i + 1}`
-                  }
-                  fill
+            {images.map((src, i) => {
+              // Only render the active slide (+ the immediate next/prev once the
+              // user has interacted) so a 5-image card doesn't kick off 5 network
+              // fetches on first paint. Other slides stay null until needed.
+              const nextIdx = (activeIndex + 1) % images.length;
+              const prevIdx = (activeIndex - 1 + images.length) % images.length;
+              const shouldRender =
+                i === activeIndex ||
+                (isHovered && (i === nextIdx || i === prevIdx));
+              if (!shouldRender) return null;
+              return (
+                <div
+                  key={src}
                   className={cn(
-                    "object-cover object-top transition-transform duration-700 ease-out will-change-transform",
-                    isHovered && i === activeIndex && "scale-[1.03]"
+                    "absolute inset-0 transition-opacity duration-500 ease-out",
+                    i === activeIndex ? "z-0 opacity-100" : "z-0 opacity-0"
                   )}
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  priority={imagePriority && i === 0}
-                />
-              </div>
-            ))}
+                >
+                  <Image
+                    src={src}
+                    alt={
+                      i === 0
+                        ? product.name
+                        : `${product.name} – view ${i + 1}`
+                    }
+                    fill
+                    className={cn(
+                      "object-cover object-top transition-transform duration-700 ease-out will-change-transform",
+                      isHovered && i === activeIndex && "scale-[1.03]"
+                    )}
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    priority={imagePriority && i === 0}
+                    fetchPriority={imagePriority && i === 0 ? "high" : "auto"}
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                  />
+                </div>
+              );
+            })}
           </>
         ) : (
           <div className="flex aspect-[3/4] w-full items-center justify-center text-xs text-zinc-600">

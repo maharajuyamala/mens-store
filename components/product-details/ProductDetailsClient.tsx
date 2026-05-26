@@ -35,6 +35,11 @@ import { normalizeVariantCode } from "@/lib/products/variant-code";
 import { cn, inr as currency } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
+
+// 1×1 dark-zinc PNG used as a blur placeholder so the main image fades in
+// from the card background instead of flashing white.
+const BLUR_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 
@@ -348,6 +353,8 @@ function ProductDetailContent({
                       className="object-cover object-top"
                       sizes="(max-width: 1024px) 100vw, 50vw"
                       priority={mainIndex === 0}
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
                     />
                   </motion.div>
                 ) : (

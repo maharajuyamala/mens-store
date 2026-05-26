@@ -1,30 +1,27 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 export const Hero = () => {
   const videoRef = useRef(null);
+  // Skip video on slow connections / data saver so customers don't burn data
+  // staring at a black hero. The text/banner still loads.
+  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
 
   useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
-    const attemptPlay = () => {
-      videoElement.play().catch((error) => {
-        console.error("Video autoplay was prevented:", error);
-      });
-    };
-
-    videoElement.addEventListener("canplay", attemptPlay);
-    if (videoElement.readyState >= 3) {
-      attemptPlay();
-    }
-
-    return () => {
-      videoElement.removeEventListener("canplay", attemptPlay);
-    };
+    if (typeof navigator === "undefined") return;
+    const conn =
+      navigator.connection ||
+      navigator.mozConnection ||
+      navigator.webkitConnection;
+    const slow =
+      conn?.saveData ||
+      conn?.effectiveType === "slow-2g" ||
+      conn?.effectiveType === "2g" ||
+      conn?.effectiveType === "3g";
+    setShouldPlayVideo(!slow);
   }, []);
 
   return (
@@ -38,19 +35,23 @@ export const Hero = () => {
         aria-hidden
       />
 
-      <video
-        ref={videoRef}
-        loop
-        muted
-        playsInline
-        className="absolute left-1/2 top-0 z-0 max-w-none min-h-full min-w-full -translate-x-1/2 object-cover object-top opacity-35"
-      >
-        <source
-          src="https://www.secondskinmensworld.com/shirts.mov"
-          type="video/mp4"
-        />
-        Your browser does not support the video tag.
-      </video>
+      {shouldPlayVideo ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          poster="/hero-poster.jpg"
+          className="absolute left-1/2 top-0 z-0 max-w-none min-h-full min-w-full -translate-x-1/2 object-cover object-top opacity-35"
+        >
+          <source
+            src="https://www.secondskinmensworld.com/shirts.mov"
+            type="video/mp4"
+          />
+        </video>
+      ) : null}
 
       <div className="absolute inset-0 z-[1] bg-gradient-to-b from-zinc-950/80 via-zinc-950/40 to-zinc-950" />
       <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(249,115,22,0.12),transparent_55%)]" />
