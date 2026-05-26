@@ -86,11 +86,6 @@ export default function CheckoutPage() {
   const [checkingPincode, setCheckingPincode] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("online");
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [step]);
 
   const form = useForm<DeliveryFormValues>({
     resolver: zodResolver(deliverySchema),
@@ -385,19 +380,11 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-24 pb-16">
-      <Link
-        href="/explore"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to shop
-      </Link>
+      
 
-      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-        Checkout
-      </h1>
+    
 
-      <div className="mt-8 flex gap-2">
+      <div className="mt-2 flex gap-2">
         {STEPS.map((s, i) => (
           <div key={s.n} className="flex flex-1 flex-col gap-2">
             <div
