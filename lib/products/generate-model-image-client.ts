@@ -39,21 +39,32 @@ function fileToDataUrl(file: Blob): Promise<string> {
  * Indian model wearing it, and return the generated image as a data URL.
  */
 export async function generateModelImageClient(params: {
-  source: File;
+  /** A freshly-picked local file (compressed + sent as base64). */
+  source?: File;
+  /** URL of an already-uploaded photo; fetched & processed server-side. */
+  sourceUrl?: string;
   subject: ModelSubject;
   extra?: string;
   itemSelection?: string;
 }): Promise<GenerateModelImageOk | GenerateModelImageErr> {
-  let dataUrl: string;
-  try {
-    const compressed = await imageCompression(params.source, SOURCE_COMPRESSION);
-    dataUrl = await fileToDataUrl(compressed);
-  } catch {
-    return {
-      ok: false,
-      error: "read",
-      message: "Could not read that image. Try another photo.",
-    };
+  // For new local files, compress + base64 here. For existing (already-uploaded)
+  // photos we just forward the URL — the server downloads it (Firebase Storage
+  // URLs aren't readable via browser fetch() due to CORS).
+  let dataUrl: string | null = null;
+  if (!params.sourceUrl) {
+    if (!params.source) {
+      return { ok: false, error: "read", message: "No source image provided." };
+    }
+    try {
+      const compressed = await imageCompression(params.source, SOURCE_COMPRESSION);
+      dataUrl = await fileToDataUrl(compressed);
+    } catch {
+      return {
+        ok: false,
+        error: "read",
+        message: "Could not read that image. Try another photo.",
+      };
+    }
   }
 
   const headers: Record<string, string> = { "content-type": "application/json" };
@@ -80,13 +91,22 @@ export async function generateModelImageClient(params: {
     res = await fetch("/api/admin/products/generate-image", {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        image: dataUrl,
-        mimeType: "image/jpeg",
-        subject: params.subject,
-        extra: params.extra,
-        itemSelection: params.itemSelection,
-      }),
+      body: JSON.stringify(
+        params.sourceUrl
+          ? {
+              imageUrl: params.sourceUrl,
+              subject: params.subject,
+              extra: params.extra,
+              itemSelection: params.itemSelection,
+            }
+          : {
+              image: dataUrl,
+              mimeType: "image/jpeg",
+              subject: params.subject,
+              extra: params.extra,
+              itemSelection: params.itemSelection,
+            }
+      ),
     });
   } catch {
     return { ok: false, error: "network", message: "Network error. Try again." };

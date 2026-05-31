@@ -113,9 +113,16 @@ export function ColorVariantsEditor({
   itemSelection,
 }: EditorProps) {
   // The image currently being turned into an AI model photo (which draft + which
-  // image it should replace, plus the source File handed to the dialog).
+  // image it should replace). New photos pass a local File; already-uploaded
+  // photos pass their URL (the server downloads it — Firebase Storage URLs
+  // can't be read via browser fetch() due to CORS).
   const [aiTarget, setAiTarget] = useState<
-    { draftId: string; imageId: string; source: File } | null
+    {
+      draftId: string;
+      imageId: string;
+      file: File | null;
+      url: string | null;
+    } | null
   >(null);
   // Tracks the most-recently-added draft so we can scroll it into view (and
   // focus its name input) once React has had a chance to render the new card.
@@ -239,23 +246,13 @@ export function ColorVariantsEditor({
     );
   };
 
-  // Resolve the source File for an image, then open the AI dialog. Existing
-  // (already-uploaded) photos are fetched back into a File first.
-  const openAiFor = async (draftId: string, image: DraftImage) => {
-    try {
-      let source: File;
-      if (image.kind === "new") {
-        source = image.file;
-      } else {
-        const res = await fetch(image.url);
-        const blob = await res.blob();
-        source = new File([blob], "source.jpg", {
-          type: blob.type || "image/jpeg",
-        });
-      }
-      setAiTarget({ draftId, imageId: image.id, source });
-    } catch {
-      toast.error("Couldn't load that photo for AI. Try again.");
+  // Open the AI dialog for an image. New uploads pass the local File; existing
+  // photos pass their URL so the server can download them (avoids browser CORS).
+  const openAiFor = (draftId: string, image: DraftImage) => {
+    if (image.kind === "new") {
+      setAiTarget({ draftId, imageId: image.id, file: image.file, url: null });
+    } else {
+      setAiTarget({ draftId, imageId: image.id, file: null, url: image.url });
     }
   };
 
@@ -326,7 +323,8 @@ export function ColorVariantsEditor({
         onOpenChange={(o) => {
           if (!o) setAiTarget(null);
         }}
-        source={aiTarget?.source ?? null}
+        sourceFile={aiTarget?.file ?? null}
+        sourceUrl={aiTarget?.url ?? null}
         defaultSubject={defaultModelSubject}
         itemSelection={itemSelection}
         onApply={(file) => {

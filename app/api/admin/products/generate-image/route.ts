@@ -18,14 +18,28 @@ export const dynamic = "force-dynamic";
 // Image generation can take 10-30s; allow a generous server timeout.
 export const maxDuration = 60;
 
-const bodySchema = z.object({
-  // Base64 of the source garment image, with or without a data: URL prefix.
-  image: z.string().min(16).max(15_000_000),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/avif"]),
-  subject: z.enum(["man", "woman", "boy", "girl"]),
-  extra: z.string().max(400).optional(),
-  itemSelection: z.string().max(40).optional(),
-});
+const ALLOWED_MIME = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+] as const;
+
+const bodySchema = z
+  .object({
+    // Either send base64 (new local photos) ...
+    image: z.string().min(16).max(15_000_000).optional(),
+    mimeType: z.enum(ALLOWED_MIME).optional(),
+    // ... or a URL to an already-uploaded photo (fetched server-side to dodge
+    // browser CORS on Firebase Storage download URLs).
+    imageUrl: z.string().url().max(2000).optional(),
+    subject: z.enum(["man", "woman", "boy", "girl"]),
+    extra: z.string().max(400).optional(),
+    itemSelection: z.string().max(40).optional(),
+  })
+  .refine((v) => Boolean(v.imageUrl) || (Boolean(v.image) && Boolean(v.mimeType)), {
+    message: "Provide either imageUrl or image + mimeType.",
+  });
 
 function stripDataUrl(input: string): string {
   const comma = input.indexOf(",");
@@ -33,6 +47,37 @@ function stripDataUrl(input: string): string {
     return input.slice(comma + 1);
   }
   return input;
+}
+
+/** Only allow fetching from trusted image hosts (prevents SSRF). */
+function isAllowedImageHost(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return (
+      h === "firebasestorage.googleapis.com" ||
+      h.endsWith(".googleapis.com") ||
+      h.endsWith(".firebasestorage.app") ||
+      h.endsWith(".appspot.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Download a remote image into base64 + mime, server-side (no CORS). */
+async function fetchRemoteImage(
+  url: string
+): Promise<{ base64: string; mimeType: string }> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Could not download the source image (${res.status}).`);
+  }
+  const contentType = (res.headers.get("content-type") || "").split(";")[0]!.trim();
+  const mimeType = (ALLOWED_MIME as readonly string[]).includes(contentType)
+    ? contentType
+    : "image/jpeg";
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { base64: buf.toString("base64"), mimeType };
 }
 
 export async function POST(request: Request) {
@@ -107,10 +152,39 @@ export async function POST(request: Request) {
     );
   }
 
+  // Resolve the source image: a remote URL (fetched here) or inline base64.
+  let sourceBase64: string;
+  let sourceMimeType: string;
+  if (parsed.imageUrl) {
+    if (!isAllowedImageHost(parsed.imageUrl)) {
+      return NextResponse.json(
+        { error: "invalid_request", message: "Image host not allowed." },
+        { status: 400 }
+      );
+    }
+    try {
+      const fetched = await fetchRemoteImage(parsed.imageUrl);
+      sourceBase64 = fetched.base64;
+      sourceMimeType = fetched.mimeType;
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: "source_fetch_failed",
+          message:
+            e instanceof Error ? e.message : "Could not load the source photo.",
+        },
+        { status: 502 }
+      );
+    }
+  } else {
+    sourceBase64 = stripDataUrl(parsed.image!);
+    sourceMimeType = parsed.mimeType!;
+  }
+
   try {
     const result = await generateModelImage({
-      sourceBase64: stripDataUrl(parsed.image),
-      sourceMimeType: parsed.mimeType,
+      sourceBase64,
+      sourceMimeType,
       subject: parsed.subject,
       extra: parsed.extra,
       itemSelection: parsed.itemSelection,

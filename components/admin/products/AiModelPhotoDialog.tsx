@@ -30,8 +30,10 @@ const SUBJECTS: { id: ModelSubject; label: string; emoji: string }[] = [
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The plain garment photo to transform. */
-  source: File | null;
+  /** A freshly-picked local file to transform. */
+  sourceFile?: File | null;
+  /** URL of an already-uploaded photo to transform (server fetches it). */
+  sourceUrl?: string | null;
   /** Best guess for the default subject based on the product's audience. */
   defaultSubject?: ModelSubject;
   /** Item selection (Top/Bottom/Set/…) so the AI frames the shot correctly. */
@@ -43,7 +45,8 @@ type Props = {
 export function AiModelPhotoDialog({
   open,
   onOpenChange,
-  source,
+  sourceFile,
+  sourceUrl,
   defaultSubject = "man",
   itemSelection,
   onApply,
@@ -63,23 +66,24 @@ export function AiModelPhotoDialog({
     setBusy(false);
   }, [open, defaultSubject]);
 
-  // Build a preview URL for the source garment.
+  // Build a preview for the source garment: blob URL for local files, or the
+  // remote URL directly for already-uploaded photos.
   useEffect(() => {
-    if (!source) {
-      setSourcePreview(null);
-      return;
+    if (sourceFile) {
+      const url = URL.createObjectURL(sourceFile);
+      setSourcePreview(url);
+      return () => URL.revokeObjectURL(url);
     }
-    const url = URL.createObjectURL(source);
-    setSourcePreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [source]);
+    setSourcePreview(sourceUrl ?? null);
+  }, [sourceFile, sourceUrl]);
 
   const generate = async () => {
-    if (!source) return;
+    if (!sourceFile && !sourceUrl) return;
     setBusy(true);
     setResult(null);
     const res = await generateModelImageClient({
-      source,
+      source: sourceFile ?? undefined,
+      sourceUrl: sourceUrl ?? undefined,
       subject,
       extra,
       itemSelection,
@@ -201,7 +205,7 @@ export function AiModelPhotoDialog({
               type="button"
               variant="outline"
               onClick={generate}
-              disabled={busy || !source}
+              disabled={busy || (!sourceFile && !sourceUrl)}
               className="gap-2"
             >
               {busy ? (
