@@ -704,6 +704,7 @@ export function ProductFormDialog({
                   ? "boy"
                   : "man"
             }
+            itemSelection={itemSelection || undefined}
           />
 
           {submitError && (

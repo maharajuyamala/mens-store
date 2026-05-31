@@ -547,6 +547,7 @@ export default function AddProductPage() {
                 ? "boy"
                 : "man"
           }
+          itemSelection={itemSelection || undefined}
         />
 
         {/* ── Error ─────────────────────────────────────────────────── */}

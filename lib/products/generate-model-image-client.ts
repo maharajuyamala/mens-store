@@ -42,6 +42,7 @@ export async function generateModelImageClient(params: {
   source: File;
   subject: ModelSubject;
   extra?: string;
+  itemSelection?: string;
 }): Promise<GenerateModelImageOk | GenerateModelImageErr> {
   let dataUrl: string;
   try {
@@ -84,6 +85,7 @@ export async function generateModelImageClient(params: {
         mimeType: "image/jpeg",
         subject: params.subject,
         extra: params.extra,
+        itemSelection: params.itemSelection,
       }),
     });
   } catch {

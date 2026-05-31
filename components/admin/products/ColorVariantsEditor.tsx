@@ -99,6 +99,8 @@ type EditorProps = {
   disabled?: boolean;
   /** Pre-selects who wears the garment in the AI model-photo dialog. */
   defaultModelSubject?: ModelSubject;
+  /** Item selection (Top/Bottom/Set/…) so the AI frames the shot correctly. */
+  itemSelection?: string;
 };
 
 export function ColorVariantsEditor({
@@ -108,6 +110,7 @@ export function ColorVariantsEditor({
   sizeGroupLabel,
   disabled,
   defaultModelSubject = "man",
+  itemSelection,
 }: EditorProps) {
   // The image currently being turned into an AI model photo (which draft + which
   // image it should replace, plus the source File handed to the dialog).
@@ -325,6 +328,7 @@ export function ColorVariantsEditor({
         }}
         source={aiTarget?.source ?? null}
         defaultSubject={defaultModelSubject}
+        itemSelection={itemSelection}
         onApply={(file) => {
           if (aiTarget) replaceImage(aiTarget.draftId, aiTarget.imageId, file);
           setAiTarget(null);

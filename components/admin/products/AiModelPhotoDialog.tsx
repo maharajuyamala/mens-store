@@ -34,6 +34,8 @@ type Props = {
   source: File | null;
   /** Best guess for the default subject based on the product's audience. */
   defaultSubject?: ModelSubject;
+  /** Item selection (Top/Bottom/Set/…) so the AI frames the shot correctly. */
+  itemSelection?: string;
   /** Called with the generated photo when the admin accepts it. */
   onApply: (file: File) => void;
 };
@@ -43,6 +45,7 @@ export function AiModelPhotoDialog({
   onOpenChange,
   source,
   defaultSubject = "man",
+  itemSelection,
   onApply,
 }: Props) {
   const [subject, setSubject] = useState<ModelSubject>(defaultSubject);
@@ -75,7 +78,12 @@ export function AiModelPhotoDialog({
     if (!source) return;
     setBusy(true);
     setResult(null);
-    const res = await generateModelImageClient({ source, subject, extra });
+    const res = await generateModelImageClient({
+      source,
+      subject,
+      extra,
+      itemSelection,
+    });
     setBusy(false);
     if (!res.ok) {
       toast.error("Couldn't generate photo", { description: res.message });

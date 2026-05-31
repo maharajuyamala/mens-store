@@ -9,6 +9,7 @@ import { guardWriteRequest } from "@/lib/api/security";
 import { bootstrapSuperAdminEmails, roleGrantsAdminShell } from "@/lib/auth/roles";
 import {
   GeminiNotConfiguredError,
+  GeminiQuotaError,
   generateModelImage,
 } from "@/lib/server/gemini";
 
@@ -23,6 +24,7 @@ const bodySchema = z.object({
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/avif"]),
   subject: z.enum(["man", "woman", "boy", "girl"]),
   extra: z.string().max(400).optional(),
+  itemSelection: z.string().max(40).optional(),
 });
 
 function stripDataUrl(input: string): string {
@@ -111,6 +113,7 @@ export async function POST(request: Request) {
       sourceMimeType: parsed.mimeType,
       subject: parsed.subject,
       extra: parsed.extra,
+      itemSelection: parsed.itemSelection,
     });
     return NextResponse.json({
       ok: true,
@@ -122,6 +125,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "ai_not_configured", message: e.message },
         { status: 503 }
+      );
+    }
+    if (e instanceof GeminiQuotaError) {
+      return NextResponse.json(
+        { error: "quota_exceeded", message: e.message },
+        { status: 429 }
       );
     }
     return NextResponse.json(
