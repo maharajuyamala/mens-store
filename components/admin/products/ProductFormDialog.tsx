@@ -697,6 +697,13 @@ export function ProductFormDialog({
             sizeOptions={sizeOptions}
             sizeGroupLabel={sizeGroupLabel}
             disabled={submitting}
+            defaultModelSubject={
+              watchedAudience === "women"
+                ? "woman"
+                : watchedAudience === "kids"
+                  ? "boy"
+                  : "man"
+            }
           />
 
           {submitError && (

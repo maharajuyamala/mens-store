@@ -540,6 +540,13 @@ export default function AddProductPage() {
           sizeOptions={sizeOptions}
           sizeGroupLabel={sizeGroupLabel}
           disabled={isLoading}
+          defaultModelSubject={
+            selectedAudience === "women"
+              ? "woman"
+              : selectedAudience === "kids"
+                ? "boy"
+                : "man"
+          }
         />
 
         {/* ── Error ─────────────────────────────────────────────────── */}

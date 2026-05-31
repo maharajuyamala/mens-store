@@ -8,6 +8,7 @@ import {
   Palette,
   Plus,
   Ruler,
+  Sparkles,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -16,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ColorSwatchPicker } from "@/components/admin/products/ColorSwatchPicker";
+import { AiModelPhotoDialog } from "@/components/admin/products/AiModelPhotoDialog";
+import type { ModelSubject } from "@/lib/products/generate-model-image-client";
 import { validateImageFile } from "@/lib/uploads/validate-image";
 import { formatSizeLabel } from "@/lib/products/size-options";
 import { cn } from "@/lib/utils";
@@ -94,6 +97,8 @@ type EditorProps = {
   sizeGroupLabel?: string;
   /** Disable interactions during submit so the form can't be mutated mid-upload. */
   disabled?: boolean;
+  /** Pre-selects who wears the garment in the AI model-photo dialog. */
+  defaultModelSubject?: ModelSubject;
 };
 
 export function ColorVariantsEditor({
@@ -102,7 +107,13 @@ export function ColorVariantsEditor({
   sizeOptions,
   sizeGroupLabel,
   disabled,
+  defaultModelSubject = "man",
 }: EditorProps) {
+  // The image currently being turned into an AI model photo (which draft + which
+  // image it should replace, plus the source File handed to the dialog).
+  const [aiTarget, setAiTarget] = useState<
+    { draftId: string; imageId: string; source: File } | null
+  >(null);
   // Tracks the most-recently-added draft so we can scroll it into view (and
   // focus its name input) once React has had a chance to render the new card.
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
@@ -201,6 +212,50 @@ export function ColorVariantsEditor({
     );
   };
 
+  // Swap a draft image in-place with the AI-generated model photo, keeping its
+  // position (so the cover stays the cover). The replaced blob preview is
+  // revoked to avoid leaks.
+  const replaceImage = (draftId: string, imageId: string, file: File) => {
+    onChange(
+      drafts.map((d) => {
+        if (d.id !== draftId) return d;
+        return {
+          ...d,
+          images: d.images.map((img) => {
+            if (img.id !== imageId) return img;
+            if (img.kind === "new") URL.revokeObjectURL(img.preview);
+            return {
+              kind: "new",
+              id: img.id,
+              file,
+              preview: URL.createObjectURL(file),
+            } satisfies DraftImage;
+          }),
+        };
+      })
+    );
+  };
+
+  // Resolve the source File for an image, then open the AI dialog. Existing
+  // (already-uploaded) photos are fetched back into a File first.
+  const openAiFor = async (draftId: string, image: DraftImage) => {
+    try {
+      let source: File;
+      if (image.kind === "new") {
+        source = image.file;
+      } else {
+        const res = await fetch(image.url);
+        const blob = await res.blob();
+        source = new File([blob], "source.jpg", {
+          type: blob.type || "image/jpeg",
+        });
+      }
+      setAiTarget({ draftId, imageId: image.id, source });
+    } catch {
+      toast.error("Couldn't load that photo for AI. Try again.");
+    }
+  };
+
   const setSizeQty = (draftId: string, size: string, qty: number) => {
     onChange(
       drafts.map((d) => {
@@ -257,10 +312,24 @@ export function ColorVariantsEditor({
             onRemove={() => removeDraft(draft.id)}
             onAddImages={(files) => appendImages(draft.id, files)}
             onRemoveImage={(imageId) => removeImage(draft.id, imageId)}
+            onGenerateAi={(image) => void openAiFor(draft.id, image)}
             onSizeChange={(size, qty) => setSizeQty(draft.id, size, qty)}
           />
         ))}
       </div>
+
+      <AiModelPhotoDialog
+        open={aiTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setAiTarget(null);
+        }}
+        source={aiTarget?.source ?? null}
+        defaultSubject={defaultModelSubject}
+        onApply={(file) => {
+          if (aiTarget) replaceImage(aiTarget.draftId, aiTarget.imageId, file);
+          setAiTarget(null);
+        }}
+      />
 
       {/* Primary "add" affordance lives below the list so it's always within
           thumb reach after the cashier finishes wiring up the previous color. */}
@@ -289,6 +358,7 @@ function VariantDraftCard({
   onRemove,
   onAddImages,
   onRemoveImage,
+  onGenerateAi,
   onSizeChange,
 }: {
   index: number;
@@ -301,6 +371,7 @@ function VariantDraftCard({
   onRemove: () => void;
   onAddImages: (files: File[]) => void;
   onRemoveImage: (imageId: string) => void;
+  onGenerateAi: (image: DraftImage) => void;
   onSizeChange: (size: string, qty: number) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -446,6 +517,16 @@ function VariantDraftCard({
                   {img.kind === "new" && (
                     <div className="absolute left-1 bottom-1 h-2 w-2 rounded-full bg-orange-400 ring-1 ring-white/50" />
                   )}
+                  <button
+                    type="button"
+                    onClick={() => onGenerateAi(img)}
+                    disabled={disabled}
+                    aria-label="Generate AI model photo"
+                    title="Generate model photo with AI"
+                    className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shadow hover:bg-orange-600 disabled:opacity-40"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => onRemoveImage(img.id)}
