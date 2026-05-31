@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   CheckCircle2,
@@ -161,6 +161,11 @@ export default function AddProductPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Synchronous re-entry guard. `isLoading` is React state and updates async,
+  // so a fast double-submit (double-click / Enter+click) can slip a second
+  // call through before the button disables — that would create TWO product
+  // docs (each submit allocates a fresh random doc id). This ref blocks it.
+  const submittingRef = useRef(false);
 
   // Post-create state
   const [createdProduct, setCreatedProduct] = useState<CreatedProduct | null>(
@@ -249,6 +254,9 @@ export default function AddProductPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Block re-entrant submits before any async work begins.
+    if (submittingRef.current) return;
+
     const finalPrice = parseFloat(price);
 
     // A variant is usable when it has at least one image AND at least one
@@ -292,6 +300,7 @@ export default function AddProductPage() {
       return;
     }
 
+    submittingRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -364,7 +373,7 @@ export default function AddProductPage() {
       const totalStock = Object.values(unionSizes).reduce((a, b) => a + b, 0);
 
       const productData = {
-        id: `${Date.now()}`,
+        id: newProductId,
         name: productName,
         price: finalPrice,
         images: flatImages,
@@ -401,6 +410,7 @@ export default function AddProductPage() {
       toast.error("Could not add product");
     } finally {
       setIsLoading(false);
+      submittingRef.current = false;
     }
   };
 

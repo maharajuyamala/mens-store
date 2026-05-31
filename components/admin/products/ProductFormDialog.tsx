@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import imageCompression from "browser-image-compression";
@@ -263,6 +263,9 @@ export function ProductFormDialog({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Synchronous re-entry lock: blocks a second submit slipping through before
+  // `submitting` state propagates (a create then would write a second doc).
+  const submittingRef = useRef(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema) as Resolver<ProductFormValues>,
@@ -355,6 +358,8 @@ export function ProductFormDialog({
 
   // Submit
   const onSubmit = form.handleSubmit(async (values) => {
+    // Block re-entrant submits before any async work begins.
+    if (submittingRef.current) return;
     // A variant is usable when it has at least one photo AND at least one
     // size with stock > 0. Empty placeholders are ignored.
     const usableDrafts = colorDrafts.filter(
@@ -380,6 +385,7 @@ export function ProductFormDialog({
       return;
     }
     setSubmitError(null);
+    submittingRef.current = true;
     setSubmitting(true);
 
     try {
@@ -496,6 +502,7 @@ export function ProductFormDialog({
         err instanceof Error ? err.message : "Failed to save product."
       );
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   });

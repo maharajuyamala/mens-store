@@ -215,6 +215,8 @@ const CATEGORY_MAP: Record<AudienceId, Partial<Record<ItemSelection, string[]>>>
       "School Bottoms",
     ],
     Set: [
+      "Frock",
+      "Frock Set",
       "T-Shirt & Shorts Set",
       "Shirt & Pant Set",
       "Top & Legging Set",
