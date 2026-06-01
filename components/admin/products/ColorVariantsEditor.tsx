@@ -451,15 +451,27 @@ function VariantDraftCard({
             )}
           </Label>
           {draft.images.length > 0 && (
-            <button
-              type="button"
-              onClick={openPicker}
-              disabled={disabled}
-              className="flex items-center gap-1.5 rounded-lg border border-dashed border-orange-500/70 bg-orange-500/5 px-2.5 py-1 text-xs font-semibold text-orange-500 transition-colors hover:bg-orange-500/10 disabled:opacity-40"
-            >
-              <ImagePlus className="h-3.5 w-3.5" />
-              Add more
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onGenerateAi(draft.images[0]!)}
+                disabled={disabled}
+                className="flex items-center gap-1.5 rounded-lg border border-orange-500/70 bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 transition-colors hover:bg-orange-500/20 disabled:opacity-40"
+                title="Generate AI model photo from cover image"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                AI on cover
+              </button>
+              <button
+                type="button"
+                onClick={openPicker}
+                disabled={disabled}
+                className="flex items-center gap-1.5 rounded-lg border border-dashed border-orange-500/70 bg-orange-500/5 px-2.5 py-1 text-xs font-semibold text-orange-500 transition-colors hover:bg-orange-500/10 disabled:opacity-40"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                Add more
+              </button>
+            </div>
           )}
         </div>
 
@@ -525,7 +537,7 @@ function VariantDraftCard({
                     disabled={disabled}
                     aria-label="Generate AI model photo"
                     title="Generate model photo with AI"
-                    className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shadow hover:bg-orange-600 disabled:opacity-40"
+                    className="absolute left-1 top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shadow ring-1 ring-white/60 hover:bg-orange-600 disabled:opacity-40"
                   >
                     <Sparkles className="h-3 w-3" />
                   </button>
@@ -534,7 +546,7 @@ function VariantDraftCard({
                     onClick={() => onRemoveImage(img.id)}
                     disabled={disabled}
                     aria-label="Remove image"
-                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow hover:bg-red-600 disabled:opacity-40"
+                    className="absolute right-1 top-1 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white shadow ring-1 ring-white/40 hover:bg-red-600 disabled:opacity-40"
                   >
                     <X className="h-3 w-3" />
                   </button>
