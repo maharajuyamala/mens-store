@@ -55,57 +55,77 @@ function getClient(): GoogleGenAI {
 }
 
 const SUBJECT_PHRASE: Record<ModelSubject, string> = {
-  man: "a handsome young adult Indian man",
-  woman: "a beautiful young adult Indian woman",
-  boy: "a cute Indian boy (child model)",
-  girl: "a cute Indian girl (child model)",
+  man: "a handsome young adult Indian man with natural Indian features and fair, light (white) skin tone",
+  woman: "a beautiful young adult Indian woman with natural Indian features and fair, light (white) skin tone",
+  boy: "a cute Indian boy (child model) with natural Indian features and fair, light (white) skin tone",
+  girl: "a cute Indian girl (child model) with natural Indian features and fair, light (white) skin tone",
 };
+
+const REALISTIC_BACKGROUNDS = [
+  "a sunlit Indian city street with soft bokeh of shops and pedestrians in the distance",
+  "a rustic exposed-brick wall with warm afternoon sunlight and subtle shadows",
+  "a modern cafe interior with wooden tones, indoor plants and soft window light",
+  "a leafy outdoor garden path with dappled sunlight filtering through trees",
+  "a minimal urban rooftop at golden hour with a softly blurred skyline",
+  "a clean concrete wall in a stylish loft with large windows and natural daylight",
+  "a quiet heritage Indian courtyard with arched doorways and warm stone textures",
+  "a cosy boutique interior with wooden floor, soft lamps and tasteful decor",
+];
+
+function pickBackground(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return REALISTIC_BACKGROUNDS[hash % REALISTIC_BACKGROUNDS.length]!;
+}
 
 /**
  * How the shot is framed, driven by the product's item selection so the model
- * photo highlights the right part of the body:
- *  - Set / One Piece → full length, head to feet
- *  - Top → upper body (the top/shirt is the hero)
- *  - Bottom → lower body (the pants/skirt is the hero)
- *  - Footwear → feet/shoes close-up
- *  - else → balanced three-quarter shot
+ * photo highlights the right part of the body. In every case the *entire*
+ * garment must be visible — no cropping that cuts off the hem, sleeves, or
+ * waistband of the hero piece.
  */
 function framingInstruction(itemSelection?: string): string {
   switch ((itemSelection ?? "").trim().toLowerCase()) {
     case "set":
     case "one piece":
-      return "Frame a full-length shot showing the entire model from the top of the head down to the feet, so the complete outfit is visible.";
-    case "top":
-    case "innerwear":
-      return "Frame the upper body as the hero: crop roughly from the head to the hips/upper thigh so the top garment is large and clearly visible. Keep both arms and shoulders in frame.";
-    case "bottom":
-      return "Frame the lower body as the hero: crop roughly from the waist down to the feet so the bottom garment (pants/skirt) is large and clearly visible.";
+      return "Frame a full-length shot from the top of the head down to below the feet, with a small margin of background above the head and below the shoes, so the COMPLETE outfit (top, bottom, footwear) is entirely visible inside the frame with nothing cropped.";
+      case "top":
+      case "innerwear":
+        return "Frame the upper body so the ENTIRE top garment is visible: include the full collar/neckline, both full sleeves down to the cuffs, and the complete hem of the top (do not crop the bottom of the shirt). The crop should go from just above the head to slightly below the hem of the top garment. Both arms must be fully in frame.";
+      case "bottom":
+        return "Frame the lower body so the ENTIRE bottom garment is visible: include the full waistband at the top and the full hem/ankles down to and including the shoes at the bottom. Do not crop the waistband or the ankles. Show the bottom garment from waist to feet completely.";
     case "footwear":
-      return "Frame a close, lower-body shot from the knees to the feet so the footwear is the clear focus.";
+      return "Frame a close lower-body shot from mid-calf to just below the shoes so the entire footwear is fully visible (toe to heel) and is the clear focus.";
     case "accessories":
-      return "Frame the shot so the accessory is worn and prominently visible, close enough to show its detail.";
+      return "Frame the shot so the accessory is worn and entirely visible with all of its detail in frame, close enough to read its texture but not so close that any part is cropped.";
     default:
-      return "Frame a natural three-quarter shot from the head to mid-thigh.";
+      return "Frame a full-length shot from head to feet so the entire outfit is visible with nothing cropped.";
   }
 }
 
 /**
- * Build the editing prompt. Mirrors the admin's manual prompt: dress an Indian
- * model in the supplied garment, smiling, on a clean studio background, framed
- * as a square (1:1) product shot. Framing is tailored to the item selection.
+ * Build the editing prompt: dress an Indian model in the supplied garment on a
+ * varied, realistic lifestyle background, framed as a square (1:1) product
+ * shot with the full hero garment always visible.
  */
 export function buildModelPrompt(
   subject: ModelSubject,
   opts?: { extra?: string; itemSelection?: string }
 ): string {
   const person = SUBJECT_PHRASE[subject];
+  const background = pickBackground(
+    `${subject}|${opts?.itemSelection ?? ""}|${opts?.extra ?? ""}|${Date.now()}`
+  );
   const base = [
     `Take the clothing item shown in the provided image and show it being worn by ${person}.`,
-    "Keep the garment's exact colour, pattern, fabric texture, print and design unchanged — only place it on the model.",
-    "The model should be standing in a natural pose, smiling warmly and looking at the camera.",
+    "Keep the garment's exact colour, pattern, fabric texture, print, stitching and design unchanged — only place it on the model. Do not redesign, recolour or restyle the garment.",
+    "The model should be standing in a natural, relaxed pose, smiling warmly and looking at the camera. Skin, hair and proportions must look photo-realistic, like a real DSLR photograph (not illustrated, not AI-looking, no plastic skin).",
     framingInstruction(opts?.itemSelection),
-    "Use a clean, softly-lit studio background (light neutral/grey) with professional e-commerce fashion lighting.",
-    "Produce a sharp, high-resolution square (1:1) image suitable for an online clothing store product photo.",
+    `Set the scene against ${background}. The background must look like a real-world location photograph with realistic depth-of-field and natural lighting that matches the scene — NOT a plain studio backdrop.`,
+    "Use realistic natural or ambient lighting appropriate to the setting, with soft shadows on the body and ground for grounded realism.",
+    "Output a sharp, high-resolution SQUARE image with a strict 1:1 aspect ratio (equal width and height). The model and the full hero garment must fit comfortably inside this square frame with a little breathing room on all sides — do not crop the garment to fit.",
   ];
   if (opts?.extra && opts.extra.trim()) {
     base.push(`Additional instructions: ${opts.extra.trim()}.`);
