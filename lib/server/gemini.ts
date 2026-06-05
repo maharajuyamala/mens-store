@@ -34,6 +34,17 @@ export class GeminiQuotaError extends Error {
   }
 }
 
+/** Thrown when Google blocks the API key (e.g. unpaid billing / dunning). */
+export class GeminiBillingError extends Error {
+  constructor(message?: string) {
+    super(
+      message ??
+        "Google Cloud blocked this Gemini API key (403 PERMISSION_DENIED). Usually this means the linked billing account has an unpaid invoice or is suspended. Open https://console.cloud.google.com/billing, fix payment on the project that owns GEMINI_API_KEY, then try again."
+    );
+    this.name = "GeminiBillingError";
+  }
+}
+
 /** Detect Google's 429 / RESOURCE_EXHAUSTED quota errors from the SDK. */
 function isQuotaError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? "");
@@ -42,6 +53,17 @@ function isQuotaError(err: unknown): boolean {
     msg.includes("\"code\":429") ||
     msg.includes("exceeded your current quota") ||
     /\blimit:\s*0\b/.test(msg)
+  );
+}
+
+/** Detect Google's 403 PERMISSION_DENIED billing/dunning errors from the SDK. */
+function isBillingError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return (
+    msg.includes("PERMISSION_DENIED") &&
+    (msg.includes("dunning") ||
+      msg.includes("billing") ||
+      msg.includes("\"code\":403"))
   );
 }
 
@@ -180,6 +202,7 @@ export async function generateModelImage(params: {
     });
   } catch (err) {
     if (isQuotaError(err)) throw new GeminiQuotaError();
+    if (isBillingError(err)) throw new GeminiBillingError();
     throw err;
   }
 

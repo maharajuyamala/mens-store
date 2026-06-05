@@ -8,6 +8,7 @@ import {
 import { guardWriteRequest } from "@/lib/api/security";
 import { bootstrapSuperAdminEmails, roleGrantsAdminShell } from "@/lib/auth/roles";
 import {
+  GeminiBillingError,
   GeminiNotConfiguredError,
   GeminiQuotaError,
   generateModelImage,
@@ -205,6 +206,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "quota_exceeded", message: e.message },
         { status: 429 }
+      );
+    }
+    if (e instanceof GeminiBillingError) {
+      return NextResponse.json(
+        { error: "billing_blocked", message: e.message },
+        { status: 402 }
       );
     }
     return NextResponse.json(
