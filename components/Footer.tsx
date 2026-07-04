@@ -56,7 +56,7 @@ export const Footer = () => {
 
           {/* Bottom Bar */}
           <div className="mx-auto mt-12 flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-border pt-8 text-sm sm:flex-row sm:gap-0">
-              <p>&copy; {new Date().getFullYear()} SecondSkin. All Rights Reserved.</p>
+              <p>&copy; {new Date().getFullYear()} Second Skin Mens World. All Rights Reserved.</p>
               <div className="flex gap-4 mt-4 sm:mt-0">
                   <a href="#" className="transition-colors hover:text-foreground"><Instagram className="h-5 w-5" /></a>
                   <a href="#" className="transition-colors hover:text-foreground"><Twitter className="h-5 w-5" /></a>

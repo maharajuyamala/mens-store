@@ -83,23 +83,27 @@ const SUBJECT_PHRASE: Record<ModelSubject, string> = {
   girl: "a cute Indian girl (child model) with natural Indian features and fair, light (white) skin tone",
 };
 
-const REALISTIC_BACKGROUNDS = [
-  "a sunlit Indian city street with soft bokeh of shops and pedestrians in the distance",
-  "a rustic exposed-brick wall with warm afternoon sunlight and subtle shadows",
-  "a modern cafe interior with wooden tones, indoor plants and soft window light",
-  "a leafy outdoor garden path with dappled sunlight filtering through trees",
-  "a minimal urban rooftop at golden hour with a softly blurred skyline",
-  "a clean concrete wall in a stylish loft with large windows and natural daylight",
-  "a quiet heritage Indian courtyard with arched doorways and warm stone textures",
-  "a cosy boutique interior with wooden floor, soft lamps and tasteful decor",
+/**
+ * Boutique-scene archetypes that the model is placed inside. Every archetype is
+ * a warm, sunlit interior/courtyard with real props (potted plants, wooden or
+ * rattan furniture, heritage architecture) flanking the model symmetrically on
+ * the LEFT and RIGHT of the frame — this is the "side-center person" look
+ * from the admin's hand-picked reference shots. Gemini is asked to tint the
+ * palette so the setting harmonises with the garment.
+ */
+const BOUTIQUE_SCENES = [
+  "a warm cream-plastered boutique interior with tall potted snake plants in white ceramic planters on both sides of the model and soft window daylight — palette tuned to complement the garment's dominant colours",
+  "a warm off-white lifestyle-boutique room with a small wooden console table and a leafy potted plant on one side and a tall wicker/rattan planter with green foliage on the other side, framed symmetrically around the model, in soft mid-morning natural light",
+  "a heritage Indian courtyard with warm terracotta / sandstone walls, an arched niche or arched doorway behind, a clay/terracotta pot with green plant on one side and hanging planters with fresh greenery on the other side, in warm late-morning sunlight — palette tuned to complement the garment",
+  "a cosy artisanal boutique corner with a warm-toned lime-washed wall, a wooden stool or low console with a small potted fern on one side and a large monstera / snake plant in a stoneware pot on the other side, softly lit by daylight through an unseen window",
 ];
 
-function pickBackground(seed: string): string {
+function pickScene(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
-  return REALISTIC_BACKGROUNDS[hash % REALISTIC_BACKGROUNDS.length]!;
+  return BOUTIQUE_SCENES[hash % BOUTIQUE_SCENES.length]!;
 }
 
 /**
@@ -128,26 +132,30 @@ function framingInstruction(itemSelection?: string): string {
 }
 
 /**
- * Build the editing prompt: dress an Indian model in the supplied garment on a
- * varied, realistic lifestyle background, framed as a square (1:1) product
- * shot with the full hero garment always visible.
+ * Build the editing prompt: dress an Indian model in the supplied garment,
+ * placed in a warm boutique / heritage-courtyard scene whose palette
+ * harmonises with the garment, framed as a square (1:1) product shot with the
+ * full hero garment always visible. The composition mirrors the admin's
+ * hand-picked reference shots: model centered vertically, real props (plants,
+ * wooden furniture, heritage arches) flanking symmetrically left and right.
  */
 export function buildModelPrompt(
   subject: ModelSubject,
   opts?: { extra?: string; itemSelection?: string }
 ): string {
   const person = SUBJECT_PHRASE[subject];
-  const background = pickBackground(
+  const scene = pickScene(
     `${subject}|${opts?.itemSelection ?? ""}|${opts?.extra ?? ""}|${Date.now()}`
   );
   const base = [
     `Take the clothing item shown in the provided image and show it being worn by ${person}.`,
     "Keep the garment's exact colour, pattern, fabric texture, print, stitching and design unchanged — only place it on the model. Do not redesign, recolour or restyle the garment.",
-    "The model should be standing in a natural, relaxed pose, smiling warmly and looking at the camera. Skin, hair and proportions must look photo-realistic, like a real DSLR photograph (not illustrated, not AI-looking, no plastic skin).",
+    "POSE: the model stands centered in the frame in a natural, relaxed lifestyle pose — a slight three-quarter body angle to the camera, weight shifted onto one leg, with one hand casually placed near the hair, the neckline, or on the hip, wearing a warm confident smile and looking directly into the camera. It must feel like a candid boutique / Instagram lifestyle portrait — NOT a stiff studio catalog pose. Skin, hair and proportions must look photo-realistic, like a real DSLR photograph (not illustrated, not AI-looking, no plastic skin).",
     framingInstruction(opts?.itemSelection),
-    `Set the scene against ${background}. The background must look like a real-world location photograph with realistic depth-of-field and natural lighting that matches the scene — NOT a plain studio backdrop.`,
-    "Use realistic natural or ambient lighting appropriate to the setting, with soft shadows on the body and ground for grounded realism.",
-    "Output a sharp, high-resolution SQUARE image with a strict 1:1 aspect ratio (equal width and height). The model and the full hero garment must fit comfortably inside this square frame with a little breathing room on all sides — do not crop the garment to fit.",
+    `SCENE: place the model inside ${scene}. The scene MUST include real, tactile props — potted plants, wooden or rattan furniture, ceramic/terracotta planters, or heritage architectural details — arranged SYMMETRICALLY so that something visually anchors both the LEFT AND the RIGHT of the model (for example a plant on one side and a small console or a second planter on the other), framing the person like a curated boutique portrait. Absolutely no plain studio backdrop, no empty seamless wall, no random street.`,
+    "BACKGROUND PALETTE MUST HARMONISE WITH THE GARMENT: read the garment's dominant colours from the source image and tune the wall tone, plant pots, wood tones and any decor so the whole scene sits in the same warm tonal family as the outfit (e.g. terracotta / warm stone tones for red or ethnic-Indian garments, warm cream + fresh greenery for green or floral garments, warm off-white + wood + greenery for brown / earthy casuals, soft neutral cream for pastels). The background should feel intentionally styled around the outfit, not random.",
+    "LIGHTING: warm, soft, natural mid-morning daylight coming from one side, with gentle realistic shadows on the ground behind and beside the model. Slight, tasteful depth-of-field — the flanking props remain clearly readable, NOT heavily blurred.",
+    "Output a sharp, high-resolution SQUARE image with a strict 1:1 aspect ratio (equal width and height). The model is centered horizontally with a little breathing room on all sides, and the full hero garment must fit comfortably inside this square frame — do not crop the garment to fit.",
   ];
   if (opts?.extra && opts.extra.trim()) {
     base.push(`Additional instructions: ${opts.extra.trim()}.`);
