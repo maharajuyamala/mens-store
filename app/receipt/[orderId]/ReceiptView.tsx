@@ -59,7 +59,7 @@ function fmtDate(iso: string | null): string {
 function paymentLabel(method: string, channel: string | null): string {
   if (channel === "pos") return "Paid at store";
   if (method === "cod") return "Cash on delivery";
-  if (method === "online") return "Paid online (Razorpay)";
+  if (method === "online") return "Paid online (Cashfree)";
   return method;
 }
 

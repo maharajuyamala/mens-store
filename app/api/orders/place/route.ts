@@ -20,7 +20,7 @@ import {
 } from "@/lib/checkout/coupon";
 import {
   getPlatformFeeRupees,
-  isRouteConfigured,
+  isPlatformFeeEnabled,
 } from "@/lib/payments/platform-fee";
 import {
   decrementLegacyStock,
@@ -71,11 +71,11 @@ const bodySchema = z.object({
   couponCode: z.string().max(64).nullable().optional(),
   /** Optional client-computed discount; server caps it but does not trust the value blindly. */
   discount: z.number().nonnegative().max(1_000_000).optional(),
-  /** Optional Razorpay verified payment reference (for "online" only). */
+  /** Cashfree verified payment reference. Required for both online and cod. */
   payment: z
     .object({
-      razorpayOrderId: z.string(),
-      razorpayPaymentId: z.string(),
+      cfOrderId: z.string(),
+      cfPaymentId: z.string(),
       verifiedAt: z.string().optional(),
     })
     .optional(),
@@ -129,10 +129,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Both "online" (full) and "cod" (advance) require a verified Razorpay reference.
-  // (The /api/payments/razorpay/verify route writes the verification under
-  // razorpay_payments/{paymentId} so we can re-confirm it here.)
-  if (!parsed.payment?.razorpayPaymentId) {
+  // Both "online" (full) and "cod" (advance) require a verified Cashfree
+  // reference. (The /api/payments/cashfree/verify route writes the verification
+  // under cashfree_payments/{cfPaymentId} so we can re-confirm it here.)
+  if (!parsed.payment?.cfPaymentId) {
     return NextResponse.json(
       {
         error: "payment_required",
@@ -146,8 +146,8 @@ export async function POST(request: Request) {
   }
   try {
     const snap = await db
-      .collection("razorpay_payments")
-      .doc(parsed.payment.razorpayPaymentId)
+      .collection("cashfree_payments")
+      .doc(parsed.payment.cfPaymentId)
       .get();
     if (!snap.exists) {
       return NextResponse.json(
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     const data = snap.data();
     if (data?.status !== "verified") {
       return NextResponse.json(
-        { error: "payment_not_verified", message: "Payment signature was not verified." },
+        { error: "payment_not_verified", message: "Payment was not verified with Cashfree." },
         { status: 400 }
       );
     }
@@ -300,12 +300,12 @@ export async function POST(request: Request) {
     Math.round((pricing.total - advancePaid) * 100) / 100;
 
   // Platform fee comes out of the amount we actually collected online
-  // (full total for "online", advance for "cod"). Razorpay Route does
-  // the actual split at capture time — we just record it here for
-  // bookkeeping and the admin's "earnings" view.
+  // (full total for "online", advance for "cod"). Cashfree Split Settlement
+  // is not wired yet — this is bookkeeping only, used by the admin's
+  // "earnings" view. See lib/payments/platform-fee.ts.
   const onlineCharge =
     parsed.paymentMethod === "online" ? pricing.total : advancePaid;
-  const platformFeeRupees = isRouteConfigured()
+  const platformFeeRupees = isPlatformFeeEnabled()
     ? Math.min(getPlatformFeeRupees(), Math.max(0, onlineCharge - 0.01))
     : 0;
   const ownerNet = Math.max(
@@ -345,11 +345,11 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     },
   };
-  if (parsed.payment?.razorpayPaymentId) {
+  if (parsed.payment?.cfPaymentId) {
     orderDoc.payment = {
-      provider: "razorpay",
-      razorpayOrderId: parsed.payment.razorpayOrderId,
-      razorpayPaymentId: parsed.payment.razorpayPaymentId,
+      provider: "cashfree",
+      cfOrderId: parsed.payment.cfOrderId,
+      cfPaymentId: parsed.payment.cfPaymentId,
       verifiedAt: parsed.payment.verifiedAt ?? new Date().toISOString(),
     };
   }

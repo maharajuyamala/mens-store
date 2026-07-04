@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Order info:</strong> shipping address, phone, items, payment
-          method, payment reference (Razorpay), shipment tracking (Shiprocket).
+          method, payment reference (Cashfree), shipment tracking (Shiprocket).
         </li>
         <li>
           <strong>Browsing data:</strong> wishlist, recently viewed, cart
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
       <p>We share the minimum necessary data with the following processors:</p>
       <ul>
         <li>Firebase (Google) — authentication, database, file storage.</li>
-        <li>Razorpay — online payment processing.</li>
+        <li>Cashfree — online payment processing.</li>
         <li>Shiprocket — shipping label generation and tracking.</li>
         <li>Resend — transactional email delivery.</li>
       </ul>

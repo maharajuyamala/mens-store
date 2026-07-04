@@ -31,7 +31,7 @@ export type BuildPayloadInput = {
     discount: number;
     shipping: number;
     total: number;
-    /** Online advance already collected (Razorpay). Courier only collects total − advancePaid. */
+    /** Online advance already collected (Cashfree). Courier only collects total − advancePaid. */
     advancePaid?: number;
   };
 };

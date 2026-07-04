@@ -1,52 +1,32 @@
 import "server-only";
 
 /**
- * Razorpay Route integration for splitting platform fees between the store
- * owner and the developer.
+ * Per-order platform fee bookkeeping.
  *
- * Flow:
- *   - Store owner's Razorpay account is the primary merchant of record.
- *   - Developer is registered as a "Linked Account" in the owner's
- *     dashboard (Razorpay Route → Linked Accounts). Razorpay issues an
- *     account id like `acc_XXXXXXXXXXXXXX`; that goes in
- *     RAZORPAY_LINKED_ACCOUNT_DEVELOPER.
- *   - On every Razorpay order we create, we attach a `transfers` array
- *     telling Razorpay to send PLATFORM_FEE_INR to the developer's
- *     linked account when the payment is captured. The remainder stays
- *     with the owner and settles to their bank as usual.
+ * We used to hand the split to Razorpay Route (see git history for the old
+ * implementation). Cashfree has an equivalent — Split Settlement / Vendor
+ * Accounts — but wiring it requires the developer to be onboarded as a Cashfree
+ * vendor first. Until that happens we keep the bookkeeping fields on every
+ * order (`platformFee`, `ownerNet`) so the admin's earnings view works, but we
+ * do NOT ask Cashfree to split the payment. The developer collects fees out of
+ * band.
  *
- * Behavior when env vars are unset:
- *   - `isRouteConfigured()` returns false → orders are created without
- *     `transfers`. The site keeps working in single-account mode for
- *     local dev / sandboxes that don't have Route activated yet.
+ * How to enable the actual on-platform split later:
+ *   1. Onboard the developer as a Cashfree vendor in the owner's dashboard.
+ *   2. Add CASHFREE_VENDOR_ID_DEVELOPER=vendor_XXXXX to the server env.
+ *   3. In lib/payments/cashfree-server.ts → createCashfreeOrder, attach the
+ *      `order_splits` payload when the env var is set.
+ *   4. Remove this file's TODO and set `isPlatformFeeEnabled()` to also return
+ *      true when the vendor id is present.
  *
  * Refunds:
- *   - **The platform fee is non-refundable.** Whenever an order is
- *     refunded (manually in the Razorpay dashboard today, or via an
- *     automated route in future), the refund amount must be capped at
- *     `getRefundableAmount(order.pricing)` — i.e. total minus the
- *     platform fee already settled to the developer. The developer
- *     keeps their fee regardless of whether the order is cancelled.
- *   - For Razorpay Route specifically, this means refunds MUST NOT set
- *     `reverse_all: 1` (which would claw back the linked-account
- *     transfer). Use `reverse_all: 0` (the default) and pass the
- *     reduced amount.
+ *   The platform fee is non-refundable. Whenever an order is refunded, the
+ *   refund amount MUST be capped at `getRefundableAmount(order.pricing)` —
+ *   i.e. total minus the platform fee already collected. See
+ *   lib/payments/refund-policy.ts (pure math helper).
  */
 
 const DEFAULT_PLATFORM_FEE_INR = 20;
-
-export type PlatformTransfer = {
-  account: string;
-  amount: number; // in paise
-  currency: "INR";
-  notes?: Record<string, string>;
-  on_hold?: 0 | 1;
-};
-
-export function getDeveloperLinkedAccountId(): string | null {
-  const v = process.env.RAZORPAY_LINKED_ACCOUNT_DEVELOPER?.trim();
-  return v && v.startsWith("acc_") ? v : null;
-}
 
 /** Per-order platform fee in rupees. Falls back to ₹20 if env unset/bad. */
 export function getPlatformFeeRupees(): number {
@@ -57,51 +37,11 @@ export function getPlatformFeeRupees(): number {
   return Math.floor(n);
 }
 
-export function isRouteConfigured(): boolean {
-  return getDeveloperLinkedAccountId() !== null;
-}
-
 /**
- * Build the `transfers` payload for `razorpay.orders.create()`. Returns
- * null when Route is not configured (caller should omit the field
- * entirely in that case — Razorpay rejects an empty transfers array).
- *
- * The fee is clamped so we never try to send more than (chargedAmount -
- * 1 paise) to the linked account. That handles edge cases like a tiny
- * cart total or a coupon driving the charge under the fee value. When
- * the charge is so small the fee would round to zero, we skip the
- * transfer entirely.
+ * True when we should record a platform fee on the order doc. Today this is
+ * driven by the presence of PLATFORM_FEE_INR (non-zero). Once Cashfree Split
+ * Settlement is wired, additionally require CASHFREE_VENDOR_ID_DEVELOPER.
  */
-export function buildOrderTransfers(
-  chargedAmountInPaise: number,
-  notes?: Record<string, string>
-): { transfers: PlatformTransfer[]; feeInPaise: number } | null {
-  const account = getDeveloperLinkedAccountId();
-  if (!account) return null;
-  if (chargedAmountInPaise <= 0) return null;
-
-  const requestedFeeInPaise = getPlatformFeeRupees() * 100;
-  if (requestedFeeInPaise <= 0) return null;
-
-  // Leave at least 1 paise for the owner. In practice we don't allow
-  // sub-fee orders to happen, but be defensive.
-  const feeInPaise = Math.min(requestedFeeInPaise, chargedAmountInPaise - 1);
-  if (feeInPaise <= 0) return null;
-
-  return {
-    feeInPaise,
-    transfers: [
-      {
-        account,
-        amount: feeInPaise,
-        currency: "INR",
-        notes: { purpose: "platform_fee", ...notes },
-        on_hold: 0,
-      },
-    ],
-  };
+export function isPlatformFeeEnabled(): boolean {
+  return getPlatformFeeRupees() > 0;
 }
-
-// `getRefundableAmount` is the pure-math sibling — lives in a non-`server-only`
-// module so the admin UI (a client component) can use it too. See
-// lib/payments/refund-policy.ts.

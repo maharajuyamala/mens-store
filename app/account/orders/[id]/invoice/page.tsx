@@ -243,7 +243,7 @@ export default function InvoicePage() {
             <p className="mt-1 text-sm">
               {data.paymentMethod === "cod"
                 ? "Cash on delivery"
-                : "Paid online (Razorpay)"}
+                : "Paid online (Cashfree)"}
             </p>
             {data.paymentStatus ? (
               <p className="text-sm text-muted-foreground">

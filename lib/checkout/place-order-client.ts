@@ -46,8 +46,8 @@ export async function placeOrderViaServer(input: {
   couponCode: string | null;
   discount: number;
   payment?: {
-    razorpayOrderId: string;
-    razorpayPaymentId: string;
+    cfOrderId: string;
+    cfPaymentId: string;
   };
 }): Promise<PlaceOrderServerResponse> {
   // Best-effort auth token so guest checkout keeps working when signed out.
@@ -76,8 +76,8 @@ export async function placeOrderViaServer(input: {
     discount: input.discount,
     payment: input.payment
       ? {
-          razorpayOrderId: input.payment.razorpayOrderId,
-          razorpayPaymentId: input.payment.razorpayPaymentId,
+          cfOrderId: input.payment.cfOrderId,
+          cfPaymentId: input.payment.cfPaymentId,
         }
       : undefined,
   };

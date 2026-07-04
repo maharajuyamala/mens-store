@@ -300,7 +300,7 @@ function OrderConfirmationInner() {
             </div>
           ) : order.paymentMethod === "online" ? (
             <p className="mt-3 text-xs text-emerald-600">
-              Paid online via Razorpay.
+              Paid online via Cashfree.
             </p>
           ) : null}
         </div>

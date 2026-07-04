@@ -31,9 +31,9 @@ import { createShiprocketOrder } from "@/lib/shiprocket/clientFetch";
 import { checkPincodeServiceable } from "@/lib/shiprocket/clientServiceability";
 import { writeOrderConfirmation } from "@/lib/checkout/order-confirmation-cache";
 import {
-  runRazorpayCheckout,
-  RazorpayCheckoutError,
-} from "@/lib/payments/razorpay-client";
+  runCashfreeCheckout,
+  CashfreeCheckoutError,
+} from "@/lib/payments/cashfree-client";
 import type { OrderShippingRecord } from "@/lib/shiprocket/types";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
@@ -204,7 +204,7 @@ export default function CheckoutPage() {
 
       // 0) Re-check every line against current Firestore stock. Catches stale
       //    carts (item went OOS or quantity dropped since the user added it)
-      //    BEFORE charging Razorpay — much nicer than a 400 from the server.
+      //    BEFORE charging Cashfree — much nicer than a 400 from the server.
       try {
         const { changes, nextItems } = await revalidateCart(items);
         if (changes.length > 0) {
@@ -231,14 +231,14 @@ export default function CheckoutPage() {
         // Don't block placement on revalidation network issues — server will catch it.
       }
 
-      // 1) Run Razorpay first. For "online" we charge the full total; for
+      // 1) Run Cashfree first. For "online" we charge the full total; for
       //    "cod" we collect only a fixed advance (COD_ADVANCE_INR). The server
       //    re-prices the cart and decides the actual paise amount.
       let paymentRef:
-        | { razorpayOrderId: string; razorpayPaymentId: string }
+        | { cfOrderId: string; cfPaymentId: string }
         | undefined;
       try {
-        const result = await runRazorpayCheckout({
+        const result = await runCashfreeCheckout({
           items: items.map((i) => ({
             productId: i.productId,
             quantity: i.quantity,
@@ -254,11 +254,11 @@ export default function CheckoutPage() {
           mode: paymentMethod === "cod" ? "advance" : "full",
         });
         paymentRef = {
-          razorpayOrderId: result.razorpayOrderId,
-          razorpayPaymentId: result.razorpayPaymentId,
+          cfOrderId: result.cfOrderId,
+          cfPaymentId: result.cfPaymentId,
         };
       } catch (e) {
-        if (e instanceof RazorpayCheckoutError) {
+        if (e instanceof CashfreeCheckoutError) {
           if (e.code === "dismissed") {
             toast.message("Payment cancelled");
             return;
@@ -270,8 +270,8 @@ export default function CheckoutPage() {
       }
 
       // 2) Server-authoritative order placement. Server re-prices the cart from
-      //    product docs and rejects any tampering. Verifies Razorpay receipt
-      //    when paymentMethod is "online".
+      //    product docs and rejects any tampering. Verifies the Cashfree
+      //    payment reference exists in cashfree_payments/{cfPaymentId}.
       const placed = await placeOrderViaServer({
         items,
         shippingAddress,
@@ -688,7 +688,7 @@ export default function CheckoutPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Pay {inr.format(pricing.total)} now via Razorpay. Fastest dispatch.
+                  Pay {inr.format(pricing.total)} now via Cashfree. Fastest dispatch.
                 </p>
               </div>
             </button>

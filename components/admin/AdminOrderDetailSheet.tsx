@@ -227,12 +227,11 @@ export function AdminOrderDetailSheet({
                   ) : null}
 
                   {/*
-                    Platform fee + refundable amount. The fee is already
-                    settled to the developer's Razorpay linked account at
-                    capture time and is non-refundable, so the admin
-                    issuing a refund (manual in dashboard today) must cap
-                    the refund at "refundable amount" — shown here so
-                    nobody types the wrong number.
+                    Platform fee + refundable amount. The fee is bookkeeping
+                    only today (Cashfree Split Settlement isn't wired yet)
+                    but is still non-refundable — the developer collects it
+                    out of band. Admin issuing a refund (manual in Cashfree
+                    dashboard) must cap it at "refundable amount".
                   */}
                   {getPlatformFee(selected.pricing) > 0 ? (
                     <div className="mt-2 space-y-1 rounded-md border border-sky-500/30 bg-sky-500/5 p-2 text-xs">

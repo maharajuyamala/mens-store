@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  getRazorpay,
-  RazorpayNotConfiguredError,
-} from "@/lib/payments/razorpay-server";
+  CashfreeApiError,
+  CashfreeNotConfiguredError,
+  createCashfreeOrder,
+} from "@/lib/payments/cashfree-server";
 import {
   AdminNotConfiguredError,
   requireAdminFirestore,
@@ -14,7 +15,10 @@ import {
 } from "@/lib/server/recompute-pricing";
 import { guardWriteRequest } from "@/lib/api/security";
 import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
-import { buildOrderTransfers } from "@/lib/payments/platform-fee";
+import {
+  getPlatformFeeRupees,
+  isPlatformFeeEnabled,
+} from "@/lib/payments/platform-fee";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,21 +30,33 @@ const itemSchema = z.object({
   color: z.string().max(64).optional(),
 });
 
+const customerSchema = z.object({
+  name: z.string().min(1).max(120),
+  email: z.string().email(),
+  phone: z.string().regex(/^\d{10}$/),
+});
+
 const bodySchema = z.object({
   items: z.array(itemSchema).min(1).max(20),
   discount: z.number().nonnegative().max(1_000_000).optional(),
-  /** Short reference shown in Razorpay dashboard; arbitrary string from caller. */
-  receipt: z.string().min(1).max(40).optional(),
-  /**
-   * "full" — collect the full order total online (used for Pay Online).
-   * "advance" — collect the COD prepayment only; the rest is collected by courier.
-   */
   mode: z.enum(["full", "advance"]).optional(),
+  customer: customerSchema,
 });
+
+/** Cashfree order_id must be unique per merchant, 3-50 chars alphanumeric + _ / -. */
+function generateOrderId(): string {
+  const buf = new Uint8Array(9);
+  crypto.getRandomValues(buf);
+  const rand = Array.from(buf)
+    .map((b) => b.toString(36).padStart(2, "0"))
+    .join("")
+    .slice(0, 12);
+  return `sso_${Date.now().toString(36)}_${rand}`;
+}
 
 export async function POST(request: Request) {
   const blocked = guardWriteRequest(request, {
-    bucketName: "razorpay-create",
+    bucketName: "cashfree-create",
     limit: 10,
     windowMs: 60_000,
   });
@@ -90,55 +106,42 @@ export async function POST(request: Request) {
       ? Math.min(COD_ADVANCE_INR, pricing.total)
       : pricing.total;
 
-  // Razorpay amounts are in the smallest currency unit (paise for INR).
-  const amountInPaise = Math.round(chargeRupees * 100);
-  if (amountInPaise <= 0) {
+  if (chargeRupees <= 0) {
     return NextResponse.json(
       { error: "zero_amount", message: "Charge amount is zero — cannot create payment." },
       { status: 400 }
     );
   }
 
+  // Platform fee is bookkeeping-only for now (see lib/payments/platform-fee.ts —
+  // Cashfree Split Settlement isn't wired). We still surface the value so the
+  // client can display it and the admin earnings view works consistently.
+  const platformFeeRupees = isPlatformFeeEnabled()
+    ? Math.min(getPlatformFeeRupees(), Math.max(0, chargeRupees - 0.01))
+    : 0;
+
+  const orderId = generateOrderId();
+  const customerId = `phone_${parsed.customer.phone}`;
+
   try {
-    const razorpay = getRazorpay();
-
-    // Razorpay Route — split the captured payment so the developer's
-    // linked account receives PLATFORM_FEE_INR and the owner (primary
-    // merchant) keeps the rest. When Route isn't configured we skip the
-    // transfers field entirely so single-account setups still work.
-    const splitInfo = buildOrderTransfers(amountInPaise, {
-      mode,
+    const order = await createCashfreeOrder({
+      orderId,
+      amountRupees: chargeRupees,
+      customer: {
+        id: customerId,
+        name: parsed.customer.name,
+        email: parsed.customer.email,
+        phone: parsed.customer.phone,
+      },
+      note: `Second Skin — ${mode === "advance" ? "COD advance" : "full payment"}`,
     });
-
-    // The razorpay-node typings don't expose `transfers` on orders.create
-    // yet (Route was added after the type defs were last updated), so we
-    // build a loose payload object, attach `transfers` when configured,
-    // and cast at the call site.
-    const orderPayload: Record<string, unknown> = {
-      amount: amountInPaise,
-      currency: "INR",
-      receipt:
-        parsed.receipt ?? `r_${Date.now().toString(36)}`.slice(0, 40),
-      payment_capture: true,
-    };
-    if (splitInfo) {
-      orderPayload.transfers = splitInfo.transfers;
-    }
-
-    const rzpOrder = await razorpay.orders.create(
-      orderPayload as unknown as Parameters<typeof razorpay.orders.create>[0]
-    );
-
-    const platformFeeRupees = splitInfo
-      ? Math.round(splitInfo.feeInPaise) / 100
-      : 0;
 
     return NextResponse.json({
       ok: true,
-      razorpayOrderId: rzpOrder.id,
-      amount: amountInPaise,
-      currency: "INR",
-      keyId: process.env.RAZORPAY_KEY_ID,
+      cfOrderId: order.cfOrderId,
+      orderId: order.orderId,
+      paymentSessionId: order.paymentSessionId,
+      environment: order.mode,
       mode,
       pricing: {
         subtotal: pricing.subtotal,
@@ -154,15 +157,25 @@ export async function POST(request: Request) {
       },
     });
   } catch (e) {
-    if (e instanceof RazorpayNotConfiguredError) {
+    if (e instanceof CashfreeNotConfiguredError) {
       return NextResponse.json(
-        { error: "razorpay_not_configured", message: e.message },
+        { error: "cashfree_not_configured", message: e.message },
         { status: 503 }
       );
     }
-    console.error("[razorpay] create order failed", e);
+    if (e instanceof CashfreeApiError) {
+      console.error("[cashfree] create order failed", e);
+      return NextResponse.json(
+        { error: e.code || "cashfree_create_failed", message: e.message },
+        { status: e.status >= 500 ? 502 : 400 }
+      );
+    }
+    console.error("[cashfree] create order failed (unexpected)", e);
     return NextResponse.json(
-      { error: "razorpay_create_failed", message: "Payment provider rejected the order." },
+      {
+        error: "cashfree_create_failed",
+        message: "Payment provider rejected the order.",
+      },
       { status: 502 }
     );
   }

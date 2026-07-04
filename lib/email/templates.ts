@@ -15,7 +15,7 @@ export type EmailOrderSummary = {
   discount: number;
   shipping: number;
   total: number;
-  /** Amount already collected online (Razorpay). Defaults to `total` for online, 0 for COD. */
+  /** Amount already collected online (Cashfree). Defaults to `total` for online, 0 for COD. */
   advancePaid?: number;
   /** Remaining amount the courier collects on delivery (COD only). Defaults to 0. */
   balanceDue?: number;
