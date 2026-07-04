@@ -11,7 +11,7 @@
  *   3. When the modal closes (success, failure, or user dismissed) POST
  *      /api/payments/cashfree/verify — server calls Cashfree API to
  *      authoritatively confirm the SUCCESS payment, persists the reference,
- *      and returns { cfOrderId, cfPaymentId }.
+ *      and returns { orderId, cfPaymentId }.
  */
 
 import { load } from "@cashfreepayments/cashfree-js";
@@ -37,7 +37,9 @@ export type CashfreeCheckoutInput = {
 };
 
 export type CashfreeCheckoutResult = {
-  cfOrderId: string;
+  /** Merchant order_id we generated on the server (looks like `sso_...`). */
+  orderId: string;
+  /** Cashfree's payment_id for the successful attempt (used as Firestore doc id). */
   cfPaymentId: string;
 };
 
@@ -58,7 +60,7 @@ type CreateOrderOk = {
 
 type VerifyOk = {
   ok: true;
-  cfOrderId: string;
+  orderId: string;
   cfPaymentId: string;
 };
 
@@ -134,7 +136,7 @@ export async function runCashfreeCheckout(
   const verifyRes = await fetch("/api/payments/cashfree/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cfOrderId: createJson.cfOrderId }),
+    body: JSON.stringify({ orderId: createJson.orderId }),
   });
   const verifyJson = (await verifyRes.json().catch(() => null)) as
     | VerifyOk
@@ -156,7 +158,7 @@ export async function runCashfreeCheckout(
   }
 
   return {
-    cfOrderId: verifyJson.cfOrderId,
+    orderId: verifyJson.orderId,
     cfPaymentId: verifyJson.cfPaymentId,
   };
 }

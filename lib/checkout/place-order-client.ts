@@ -46,7 +46,7 @@ export async function placeOrderViaServer(input: {
   couponCode: string | null;
   discount: number;
   payment?: {
-    cfOrderId: string;
+    orderId: string;
     cfPaymentId: string;
   };
 }): Promise<PlaceOrderServerResponse> {
@@ -76,7 +76,7 @@ export async function placeOrderViaServer(input: {
     discount: input.discount,
     payment: input.payment
       ? {
-          cfOrderId: input.payment.cfOrderId,
+          orderId: input.payment.orderId,
           cfPaymentId: input.payment.cfPaymentId,
         }
       : undefined,

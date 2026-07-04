@@ -235,7 +235,7 @@ export default function CheckoutPage() {
       //    "cod" we collect only a fixed advance (COD_ADVANCE_INR). The server
       //    re-prices the cart and decides the actual paise amount.
       let paymentRef:
-        | { cfOrderId: string; cfPaymentId: string }
+        | { orderId: string; cfPaymentId: string }
         | undefined;
       try {
         const result = await runCashfreeCheckout({
@@ -254,7 +254,7 @@ export default function CheckoutPage() {
           mode: paymentMethod === "cod" ? "advance" : "full",
         });
         paymentRef = {
-          cfOrderId: result.cfOrderId,
+          orderId: result.orderId,
           cfPaymentId: result.cfPaymentId,
         };
       } catch (e) {

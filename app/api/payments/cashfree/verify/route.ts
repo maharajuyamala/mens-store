@@ -16,13 +16,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  cfOrderId: z.string().min(1).max(100),
+  /** Merchant order_id (the sso_... string we generate). Cashfree's
+   *  /pg/orders/{id}/payments endpoint keys on this, NOT on cf_order_id. */
+  orderId: z.string().min(1).max(100),
 });
 
 /**
- * The Drop-in modal calls us with the cf_order_id once it closes. We call
- * Cashfree's REST API (server-to-server, credentialed) to look up the SUCCESS
- * payment for that order. Only if one exists do we write
+ * The Drop-in modal calls us with the merchant order_id once it closes. We
+ * call Cashfree's REST API (server-to-server, credentialed) to look up the
+ * SUCCESS payment for that order. Only if one exists do we write
  * cashfree_payments/{cfPaymentId} and let /api/orders/place trust it.
  */
 export async function POST(request: Request) {
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
 
   let successPayment;
   try {
-    successPayment = await findSuccessfulPayment(parsed.cfOrderId);
+    successPayment = await findSuccessfulPayment(parsed.orderId);
   } catch (e) {
     if (e instanceof CashfreeNotConfiguredError) {
       return NextResponse.json(
@@ -95,7 +97,7 @@ export async function POST(request: Request) {
       .collection("cashfree_payments")
       .doc(successPayment.cfPaymentId)
       .set({
-        cfOrderId: parsed.cfOrderId,
+        orderId: parsed.orderId,
         cfPaymentId: successPayment.cfPaymentId,
         amount: successPayment.paymentAmount,
         currency: successPayment.paymentCurrency,
@@ -114,7 +116,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    cfOrderId: parsed.cfOrderId,
+    orderId: parsed.orderId,
     cfPaymentId: successPayment.cfPaymentId,
   });
 }

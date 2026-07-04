@@ -74,7 +74,7 @@ const bodySchema = z.object({
   /** Cashfree verified payment reference. Required for both online and cod. */
   payment: z
     .object({
-      cfOrderId: z.string(),
+      orderId: z.string(),
       cfPaymentId: z.string(),
       verifiedAt: z.string().optional(),
     })
@@ -348,7 +348,7 @@ export async function POST(request: Request) {
   if (parsed.payment?.cfPaymentId) {
     orderDoc.payment = {
       provider: "cashfree",
-      cfOrderId: parsed.payment.cfOrderId,
+      orderId: parsed.payment.orderId,
       cfPaymentId: parsed.payment.cfPaymentId,
       verifiedAt: parsed.payment.verifiedAt ?? new Date().toISOString(),
     };
