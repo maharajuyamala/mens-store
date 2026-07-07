@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Contact Us | Second Skin Mens World",
+  title: "Contact Us | Second Skin Mens Ware",
   description:
-    "Get in touch with Second Skin Mens World for order help, returns, or any other queries.",
+    "Get in touch with Second Skin Mens Ware for order help, returns, or any other queries.",
 };
 
 const SUPPORT_EMAIL = "support@secondskinmensworld.com";
@@ -82,7 +82,7 @@ export default function ContactPage() {
             <div>
               <div className="text-sm font-semibold">Store &amp; office</div>
               <address className="text-muted-foreground mt-1 text-sm leading-relaxed not-italic">
-                Second Skin Mens World
+                Second Skin Mens Ware
                 <br />
                 6-631/1, Ground Floor, Vimanapuri Colony
                 <br />

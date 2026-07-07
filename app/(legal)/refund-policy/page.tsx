@@ -14,9 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Refund, Returns & Cancellation Policy | Second Skin Mens World",
+  title: "Refund, Returns & Cancellation Policy | Second Skin Mens Ware",
   description:
-    "How cancellations, returns, exchanges, and refunds work at Second Skin Mens World.",
+    "How cancellations, returns, exchanges, and refunds work at Second Skin Mens Ware.",
 };
 
 const SUPPORT_EMAIL = "support@secondskinmensworld.com";
@@ -29,7 +29,7 @@ export default function RefundPolicyPage() {
       <p className="text-muted-foreground text-sm">Last updated: 4 July 2026</p>
 
       <p>
-        This policy applies to all purchases made on the Second Skin Mens World
+        This policy applies to all purchases made on the Second Skin Mens Ware
         website. We want you to be completely happy with your order — if
         something isn&apos;t right, we&apos;ll do our best to make it right.
       </p>

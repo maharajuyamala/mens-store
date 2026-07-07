@@ -3,9 +3,9 @@ import { Mail, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | Second Skin Mens World",
+  title: "Terms & Conditions | Second Skin Mens Ware",
   description:
-    "Terms and conditions governing use of the Second Skin Mens World website and purchases.",
+    "Terms and conditions governing use of the Second Skin Mens Ware website and purchases.",
 };
 
 const SUPPORT_EMAIL = "support@secondskinmensworld.com";
@@ -36,7 +36,7 @@ export default function TermsPage() {
 
       <p>
         This website is owned and operated by{" "}
-        <strong>Second Skin Mens World</strong>, 6-631/1, Ground Floor,
+        <strong>Second Skin Mens Ware</strong>, 6-631/1, Ground Floor,
         Vimanapuri Colony, Quthbullapur, Hyderabad – 500055, Telangana, India.
         By accessing or placing an order on this Site you agree to be bound by
         the following Terms &amp; Conditions.
