@@ -10,9 +10,18 @@ export type PricingBreakdown = {
   discount: number;
   discountedSubtotal: number;
   shipping: number;
+  /** True when the free-delivery threshold was met — display hint only. */
+  freeShippingApplied: boolean;
   gst: GstBreakdown;
   total: number;
 };
+
+export function qualifiesForFreeShipping(discountedSubtotal: number): boolean {
+  return (
+    FREE_SHIPPING_THRESHOLD_INR > 0 &&
+    discountedSubtotal >= FREE_SHIPPING_THRESHOLD_INR
+  );
+}
 
 export function cartSubtotal(items: CartItem[]): number {
   return items.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -41,10 +50,12 @@ export function computePricing(
   const subtotal = cartSubtotal(items);
   const discountClamped = Math.min(Math.max(0, discount), subtotal);
   const discountedSubtotal = subtotal - discountClamped;
-  const shippingResolved =
+  const rawShipping =
     typeof shipping === "number" && shipping >= 0
       ? shipping
       : computeFallbackShipping(discountedSubtotal);
+  const freeShippingApplied = qualifiesForFreeShipping(discountedSubtotal);
+  const shippingResolved = freeShippingApplied ? 0 : rawShipping;
   const total = Math.round((discountedSubtotal + shippingResolved) * 100) / 100;
 
   const gst = computeGstBreakdown(
@@ -58,6 +69,7 @@ export function computePricing(
     discount: discountClamped,
     discountedSubtotal,
     shipping: shippingResolved,
+    freeShippingApplied,
     gst,
     total,
   };

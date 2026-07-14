@@ -152,7 +152,7 @@ export function CartDrawer() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Taxes included · Shipping calculated at checkout
+                  Taxes and Shipping calculated at checkout
                 </p>
               </div>
               <Button

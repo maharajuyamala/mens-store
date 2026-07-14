@@ -1,6 +1,7 @@
 import { FieldPath, type Firestore } from "firebase-admin/firestore";
 import { getSizesMap, getStockForLine, totalUnits } from "@/lib/admin/inventory";
 import { parseColorVariants } from "@/lib/products/color-variants";
+import { FREE_SHIPPING_THRESHOLD_INR } from "@/lib/checkout/constants";
 import { computeGstBreakdown, type GstBreakdown } from "@/lib/checkout/gst";
 import { shiprocketGet, ShiprocketError } from "@/lib/shiprocket/client";
 
@@ -248,6 +249,13 @@ export async function recomputeOrderPricing(
   }
 
   const discount = Math.min(Math.max(0, options.discount ?? 0), subtotal);
+  const discountedSubtotal = Math.round((subtotal - discount) * 100) / 100;
+
+  // Free-delivery threshold short-circuits the courier lookup entirely — no
+  // point paying for a rate quote we're going to zero out.
+  const qualifiesForFreeShipping =
+    FREE_SHIPPING_THRESHOLD_INR > 0 &&
+    discountedSubtotal >= FREE_SHIPPING_THRESHOLD_INR;
 
   // Shipping: only quote when we have a delivery pincode + configured pickup.
   // Any failure (missing config, Shiprocket down, no priced couriers) falls
@@ -258,6 +266,7 @@ export async function recomputeOrderPricing(
   const deliveryPincode = options.shippingContext?.deliveryPincode?.trim() ?? "";
   let shipping = 0;
   if (
+    !qualifiesForFreeShipping &&
     pickupPincode &&
     /^\d{6}$/.test(pickupPincode) &&
     /^\d{6}$/.test(deliveryPincode) &&

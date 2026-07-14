@@ -21,7 +21,10 @@ import { validateCouponClient } from "@/lib/checkout/coupon-client";
 import { deliverySchema, type DeliveryFormValues } from "@/lib/checkout/deliverySchema";
 import { readSavedDelivery, writeSavedDelivery } from "@/lib/checkout/saved-delivery";
 import { cartSubtotal, computePricing } from "@/lib/checkout/pricing";
-import { COD_ADVANCE_INR } from "@/lib/checkout/constants";
+import {
+  COD_ADVANCE_INR,
+  FREE_SHIPPING_THRESHOLD_INR,
+} from "@/lib/checkout/constants";
 import { revalidateCart } from "@/lib/checkout/revalidate-cart";
 import {
   placeOrderViaServer,
@@ -464,6 +467,18 @@ export default function CheckoutPage() {
           })}
         >
           <h2 className="text-lg font-semibold">Contact & delivery</h2>
+          {FREE_SHIPPING_THRESHOLD_INR > 0 ? (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+              <span aria-hidden>🚚</span>
+              <span>
+                Free delivery on orders above{" "}
+                <span className="font-semibold">
+                  {inr.format(FREE_SHIPPING_THRESHOLD_INR)}
+                </span>
+                .
+              </span>
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2 space-y-2">
               <Label htmlFor="fullName">Full name</Label>
@@ -666,12 +681,34 @@ export default function CheckoutPage() {
             ) : null}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Delivery</span>
-              <span className="tabular-nums">
+              <span
+                className={
+                  pricing.shipping === 0
+                    ? "tabular-nums font-medium text-emerald-600"
+                    : "tabular-nums"
+                }
+              >
                 {pricing.shipping === 0
                   ? "Free"
                   : inr.format(pricing.shipping)}
               </span>
             </div>
+            {pricing.freeShippingApplied ? (
+              <p className="text-xs font-medium text-emerald-600">
+                🎉 You&apos;ve unlocked free delivery
+              </p>
+            ) : FREE_SHIPPING_THRESHOLD_INR > 0 &&
+              pricing.discountedSubtotal < FREE_SHIPPING_THRESHOLD_INR ? (
+              <p className="text-xs text-muted-foreground">
+                Add{" "}
+                <span className="font-medium text-foreground">
+                  {inr.format(
+                    FREE_SHIPPING_THRESHOLD_INR - pricing.discountedSubtotal
+                  )}
+                </span>{" "}
+                more to get free delivery
+              </p>
+            ) : null}
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Includes GST</span>
               <span className="tabular-nums">
