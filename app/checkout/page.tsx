@@ -69,9 +69,16 @@ type AppliedCouponState = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace(`/auth/sign-in?next=${encodeURIComponent("/checkout")}`);
+    }
+  }, [authLoading, user, router]);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [couponInput, setCouponInput] = useState("");
@@ -372,6 +379,16 @@ export default function CheckoutPage() {
     }
   };
 
+  // Auth still resolving OR user is signed out and we're about to redirect.
+  // Show a placeholder so the checkout form doesn't flash for logged-out users.
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4 py-28">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-lg px-4 py-28 text-center">
@@ -648,15 +665,7 @@ export default function CheckoutPage() {
               </div>
             ) : null}
             <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Delivery
-                {deliveryQuote?.courier ? (
-                  <span className="ml-1 text-xs text-muted-foreground/70">
-                    · {deliveryQuote.courier}
-                    {deliveryQuote.etd ? ` · ${deliveryQuote.etd}` : ""}
-                  </span>
-                ) : null}
-              </span>
+              <span className="text-muted-foreground">Delivery</span>
               <span className="tabular-nums">
                 {pricing.shipping === 0
                   ? "Free"

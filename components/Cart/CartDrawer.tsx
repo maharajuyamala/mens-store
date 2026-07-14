@@ -12,8 +12,6 @@ import {
 } from "@/components/ui/sheet";
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
-import { cn } from "@/lib/utils";
-import { computeFallbackShipping } from "@/lib/checkout/pricing";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -30,8 +28,6 @@ export function CartDrawer() {
   const getTotal = useCartStore((s) => s.getTotal);
 
   const subtotal = getTotal();
-  const shipping = items.length === 0 ? 0 : computeFallbackShipping(subtotal);
-  const total = subtotal + shipping;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -149,31 +145,15 @@ export function CartDrawer() {
 
             <div className="border-t border-border bg-muted/30 px-4 py-4">
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium tabular-nums">
+                <div className="flex justify-between text-base font-semibold">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums text-orange-600">
                     {inr.format(subtotal)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Estimated shipping
-                  </span>
-                  <span
-                    className={cn(
-                      "font-medium tabular-nums",
-                      shipping === 0 && "text-emerald-600 dark:text-emerald-400"
-                    )}
-                  >
-                    {shipping === 0 ? "Free" : inr.format(shipping)}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
-                  <span>Total</span>
-                  <span className="tabular-nums text-orange-600">
-                    {inr.format(total)}
-                  </span>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Taxes included · Shipping calculated at checkout
+                </p>
               </div>
               <Button
                 asChild
