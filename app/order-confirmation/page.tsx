@@ -23,6 +23,11 @@ type OrderPricing = {
   subtotal?: number;
   discount?: number;
   shipping?: number;
+  gst?: {
+    merchandiseGst?: number;
+    shippingGst?: number;
+    totalGst?: number;
+  };
   total?: number;
   advancePaid?: number;
   balanceDue?: number;
@@ -269,10 +274,16 @@ function OrderConfirmationInner() {
           ) : null}
           {typeof p.shipping === "number" ? (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Shipping</span>
+              <span className="text-muted-foreground">Delivery</span>
               <span className="tabular-nums">
                 {p.shipping === 0 ? "Free" : inr.format(p.shipping)}
               </span>
+            </div>
+          ) : null}
+          {typeof p.gst?.totalGst === "number" && p.gst.totalGst > 0 ? (
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Includes GST</span>
+              <span className="tabular-nums">{inr.format(p.gst.totalGst)}</span>
             </div>
           ) : null}
           {typeof p.total === "number" ? (

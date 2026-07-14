@@ -14,6 +14,8 @@ export type EmailOrderSummary = {
   subtotal: number;
   discount: number;
   shipping: number;
+  /** GST embedded in the tax-inclusive prices — displayed for transparency. */
+  gstTotal?: number;
   total: number;
   /** Amount already collected online (Cashfree). Defaults to `total` for online, 0 for COD. */
   advancePaid?: number;
@@ -99,7 +101,8 @@ function totalsBlock(o: EmailOrderSummary): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;margin-top:16px;">
     <tr><td style="color:#64748b;">Subtotal</td><td align="right">${escapeHtml(inr.format(o.subtotal))}</td></tr>
     ${o.discount > 0 ? `<tr><td style="color:#64748b;">Discount</td><td align="right" style="color:#059669;">−${escapeHtml(inr.format(o.discount))}</td></tr>` : ""}
-    <tr><td style="color:#64748b;">Shipping</td><td align="right">${o.shipping === 0 ? "Free" : escapeHtml(inr.format(o.shipping))}</td></tr>
+    <tr><td style="color:#64748b;">Delivery</td><td align="right">${o.shipping === 0 ? "Free" : escapeHtml(inr.format(o.shipping))}</td></tr>
+    ${typeof o.gstTotal === "number" && o.gstTotal > 0 ? `<tr><td style="color:#94a3b8;font-size:12px;">Includes GST</td><td align="right" style="color:#94a3b8;font-size:12px;">${escapeHtml(inr.format(o.gstTotal))}</td></tr>` : ""}
     <tr><td style="padding-top:8px;border-top:1px solid #e5e7eb;font-weight:600;">Total</td>
         <td align="right" style="padding-top:8px;border-top:1px solid #e5e7eb;font-weight:600;color:#ea580c;">${escapeHtml(inr.format(o.total))}</td></tr>
     ${splitRows}

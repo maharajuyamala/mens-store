@@ -1,6 +1,7 @@
 import { getFirebaseAuth } from "@/app/firebase";
 import type { CartItem } from "@/store/cartStore";
 import type { DeliveryFormValues } from "@/lib/checkout/deliverySchema";
+import type { GstBreakdown } from "@/lib/checkout/gst";
 
 export type PlaceOrderServerResponse = {
   ok: true;
@@ -10,6 +11,7 @@ export type PlaceOrderServerResponse = {
     subtotal: number;
     discount: number;
     shipping: number;
+    gst: GstBreakdown;
     total: number;
     advancePaid: number;
     balanceDue: number;

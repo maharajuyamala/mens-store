@@ -29,6 +29,8 @@ export type CashfreeCheckoutInput = {
     email: string;
     phone: string;
   };
+  /** Delivery pincode so the server can quote Shiprocket shipping before charging. */
+  deliveryPincode?: string;
   /**
    * "full" (default) — collect the full order total online.
    * "advance" — collect only the COD prepayment; the rest is collected by courier.
@@ -82,6 +84,7 @@ export async function runCashfreeCheckout(
       discount: input.discount,
       mode: input.mode ?? "full",
       customer: input.customer,
+      deliveryPincode: input.deliveryPincode,
     }),
   });
   const createJson = (await createRes.json().catch(() => null)) as

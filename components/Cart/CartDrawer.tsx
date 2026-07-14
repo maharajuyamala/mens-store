@@ -13,7 +13,7 @@ import {
 import { useCartDrawerStore } from "@/store/cartDrawerStore";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
-import { computeShipping } from "@/lib/checkout/pricing";
+import { computeFallbackShipping } from "@/lib/checkout/pricing";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -30,7 +30,7 @@ export function CartDrawer() {
   const getTotal = useCartStore((s) => s.getTotal);
 
   const subtotal = getTotal();
-  const shipping = items.length === 0 ? 0 : computeShipping(subtotal);
+  const shipping = items.length === 0 ? 0 : computeFallbackShipping(subtotal);
   const total = subtotal + shipping;
 
   return (

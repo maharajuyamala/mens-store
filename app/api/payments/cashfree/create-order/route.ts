@@ -41,6 +41,8 @@ const bodySchema = z.object({
   discount: z.number().nonnegative().max(1_000_000).optional(),
   mode: z.enum(["full", "advance"]).optional(),
   customer: customerSchema,
+  /** Delivery pincode so the server can quote Shiprocket shipping before charging. */
+  deliveryPincode: z.string().regex(/^\d{6}$/).optional(),
 });
 
 /** Cashfree order_id must be unique per merchant, 3-50 chars alphanumeric + _ / -. */
@@ -85,10 +87,15 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  const mode = parsed.mode ?? "full";
   let pricing;
   try {
     pricing = await recomputeOrderPricing(db, parsed.items, {
       discount: parsed.discount ?? 0,
+      shippingContext: {
+        deliveryPincode: parsed.deliveryPincode,
+        cod: mode === "advance",
+      },
     });
   } catch (e) {
     if (e instanceof OrderValidationError) {
@@ -100,7 +107,6 @@ export async function POST(request: Request) {
     throw e;
   }
 
-  const mode = parsed.mode ?? "full";
   const chargeRupees =
     mode === "advance"
       ? Math.min(COD_ADVANCE_INR, pricing.total)
@@ -147,6 +153,7 @@ export async function POST(request: Request) {
         subtotal: pricing.subtotal,
         discount: pricing.discount,
         shipping: pricing.shipping,
+        gst: pricing.gst,
         total: pricing.total,
         advancePaid: mode === "advance" ? chargeRupees : 0,
         balanceDue:

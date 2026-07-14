@@ -13,17 +13,28 @@ const querySchema = z.object({
   cod: z.boolean().default(true),
 });
 
+type ShiprocketCourier = {
+  courier_company_id?: number;
+  courier_name?: string;
+  etd?: string;
+  cod?: 0 | 1;
+  rate?: number | string;
+  freight_charge?: number | string;
+};
+
 type ShiprocketServiceabilityResponse = {
   status?: number;
   data?: {
-    available_courier_companies?: Array<{
-      courier_company_id?: number;
-      courier_name?: string;
-      etd?: string;
-      cod?: 0 | 1;
-    }>;
+    available_courier_companies?: ShiprocketCourier[];
   };
 };
+
+function readRate(c: ShiprocketCourier): number | null {
+  const raw = c.rate ?? c.freight_charge;
+  if (raw === undefined || raw === null) return null;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 export async function POST(request: Request) {
   const blocked = guardWriteRequest(request, {
@@ -79,10 +90,22 @@ export async function POST(request: Request) {
       });
     }
 
+    // Pick the cheapest quoted courier. Shiprocket sometimes returns entries
+    // without a rate (channel-specific rate cards) — those get skipped.
+    let cheapest: { name?: string; etd?: string; rate: number } | null = null;
+    for (const c of couriers) {
+      const rate = readRate(c);
+      if (rate === null) continue;
+      if (!cheapest || rate < cheapest.rate) {
+        cheapest = { name: c.courier_name, etd: c.etd, rate };
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       serviceable: true,
       courierCount: couriers.length,
+      cheapest,
       sample: couriers.slice(0, 1).map((c) => ({
         name: c.courier_name,
         etd: c.etd,

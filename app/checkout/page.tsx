@@ -85,6 +85,12 @@ export default function CheckoutPage() {
   const [pincodeError, setPincodeError] = useState<string | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("online");
+  const [deliveryQuote, setDeliveryQuote] = useState<{
+    pincode: string;
+    rate: number;
+    courier?: string;
+    etd?: string;
+  } | null>(null);
 
 
   const form = useForm<DeliveryFormValues>({
@@ -135,8 +141,8 @@ export default function CheckoutPage() {
   }, [appliedCoupon, subtotal]);
 
   const pricing = useMemo(
-    () => computePricing(items, discountAmount),
-    [items, discountAmount]
+    () => computePricing(items, discountAmount, deliveryQuote?.rate),
+    [items, discountAmount, deliveryQuote?.rate]
   );
 
   // If the cart drops below the minimum after applying, surface a hint so
@@ -251,6 +257,7 @@ export default function CheckoutPage() {
             email: shippingAddress.email,
             phone: shippingAddress.phone,
           },
+          deliveryPincode: shippingAddress.pincode,
           mode: paymentMethod === "cod" ? "advance" : "full",
         });
         paymentRef = {
@@ -296,6 +303,7 @@ export default function CheckoutPage() {
           subtotal: placed.pricing.subtotal,
           discount: placed.pricing.discount,
           shipping: placed.pricing.shipping,
+          gst: placed.pricing.gst,
           total: placed.pricing.total,
           advancePaid: placed.pricing.advancePaid,
           balanceDue: placed.pricing.balanceDue,
@@ -421,6 +429,16 @@ export default function CheckoutPage() {
                 );
                 return;
               }
+              // Cache the quoted rate so the review step can show the exact
+              // charge the server will bill. If Shiprocket didn't quote a
+              // rate (fail-open path), fall back to zero — the server will
+              // re-quote at charge time and the customer sees the update.
+              setDeliveryQuote({
+                pincode: data.pincode,
+                rate: sr.cheapest?.rate ?? 0,
+                courier: sr.cheapest?.name,
+                etd: sr.cheapest?.etd,
+              });
               writeSavedDelivery(data);
               setStep(2);
             } finally {
@@ -621,18 +639,34 @@ export default function CheckoutPage() {
               <span className="text-muted-foreground">Subtotal</span>
               <span className="tabular-nums">{inr.format(pricing.subtotal)}</span>
             </div>
+            {pricing.discount > 0 ? (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="tabular-nums text-emerald-600">
+                  −{inr.format(pricing.discount)}
+                </span>
+              </div>
+            ) : null}
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Discount</span>
-              <span className="tabular-nums text-emerald-600">
-                −{inr.format(pricing.discount)}
+              <span className="text-muted-foreground">
+                Delivery
+                {deliveryQuote?.courier ? (
+                  <span className="ml-1 text-xs text-muted-foreground/70">
+                    · {deliveryQuote.courier}
+                    {deliveryQuote.etd ? ` · ${deliveryQuote.etd}` : ""}
+                  </span>
+                ) : null}
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Shipping</span>
               <span className="tabular-nums">
                 {pricing.shipping === 0
                   ? "Free"
                   : inr.format(pricing.shipping)}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Includes GST</span>
+              <span className="tabular-nums">
+                {inr.format(pricing.gst.totalGst)}
               </span>
             </div>
             <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">

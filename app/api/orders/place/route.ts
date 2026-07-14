@@ -209,7 +209,13 @@ export async function POST(request: Request) {
     // the min-subtotal rule. Do a quick pricing pass with discount=0.
     let provisional;
     try {
-      provisional = await recomputeOrderPricing(db, parsed.items, { discount: 0 });
+      provisional = await recomputeOrderPricing(db, parsed.items, {
+        discount: 0,
+        shippingContext: {
+          deliveryPincode: parsed.shippingAddress.pincode,
+          cod: parsed.paymentMethod === "cod",
+        },
+      });
     } catch (e) {
       if (e instanceof OrderValidationError) {
         return NextResponse.json(
@@ -274,6 +280,10 @@ export async function POST(request: Request) {
   try {
     pricing = await recomputeOrderPricing(db, parsed.items, {
       discount: resolvedCoupon ? resolvedCoupon.discount : parsed.discount ?? 0,
+      shippingContext: {
+        deliveryPincode: parsed.shippingAddress.pincode,
+        cod: parsed.paymentMethod === "cod",
+      },
     });
   } catch (e) {
     if (e instanceof OrderValidationError) {
@@ -328,6 +338,7 @@ export async function POST(request: Request) {
       subtotal: pricing.subtotal,
       discount: pricing.discount,
       shipping: pricing.shipping,
+      gst: pricing.gst,
       total: pricing.total,
       advancePaid,
       balanceDue,
@@ -472,6 +483,7 @@ export async function POST(request: Request) {
       subtotal: pricing.subtotal,
       discount: pricing.discount,
       shipping: pricing.shipping,
+      gstTotal: pricing.gst.totalGst,
       total: pricing.total,
       advancePaid,
       balanceDue,
@@ -493,6 +505,7 @@ export async function POST(request: Request) {
       subtotal: pricing.subtotal,
       discount: pricing.discount,
       shipping: pricing.shipping,
+      gst: pricing.gst,
       total: pricing.total,
       advancePaid,
       balanceDue,

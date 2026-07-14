@@ -54,7 +54,7 @@ export async function placePosSale(
   return placeOrder({
     items,
     shippingAddress: address,
-    pricing: computePricing(items, 0),
+    pricing: computePricing(items, 0, 0),
     couponCode: null,
     paymentMethod: "cod",
     userId,

@@ -80,6 +80,16 @@ function toDate(v: unknown): Date | null {
   return null;
 }
 
+function readGstTotal(v: unknown): number | null {
+  if (!v || typeof v !== "object") return null;
+  const g = v as Record<string, unknown>;
+  const n =
+    typeof g.totalGst === "number"
+      ? g.totalGst
+      : Number(g.totalGst);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function normalizeReceipt(
   orderId: string,
   d: Record<string, unknown>,
@@ -128,6 +138,7 @@ function normalizeReceipt(
       subtotal: Number(p.subtotal) || 0,
       discount: Number(p.discount) || 0,
       shipping: Number(p.shipping) || 0,
+      gst: readGstTotal(p.gst),
       total: Number(p.total) || 0,
       advancePaid:
         p.advancePaid != null && !Number.isNaN(Number(p.advancePaid))

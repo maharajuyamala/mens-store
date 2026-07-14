@@ -1,3 +1,4 @@
+import type { GstBreakdown } from "@/lib/checkout/gst";
 import type { OrderShippingRecord } from "@/lib/shiprocket/types";
 
 const KEY = "mens-store-last-order";
@@ -11,6 +12,7 @@ export type CachedOrderConfirmation = {
     subtotal: number;
     discount: number;
     shipping: number;
+    gst?: GstBreakdown;
     total: number;
     advancePaid?: number;
     balanceDue?: number;

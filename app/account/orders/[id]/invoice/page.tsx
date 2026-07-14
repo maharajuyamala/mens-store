@@ -38,6 +38,7 @@ type InvoiceData = {
     subtotal: number;
     discount: number;
     shipping: number;
+    gst?: number;
     total: number;
     advancePaid?: number;
     balanceDue?: number;
@@ -127,6 +128,14 @@ export default function InvoicePage() {
             subtotal: Number(p.subtotal) || 0,
             discount: Number(p.discount) || 0,
             shipping: Number(p.shipping) || 0,
+            gst:
+              p.gst && typeof p.gst === "object" &&
+              "totalGst" in (p.gst as Record<string, unknown>) &&
+              Number.isFinite(
+                Number((p.gst as Record<string, unknown>).totalGst)
+              )
+                ? Number((p.gst as Record<string, unknown>).totalGst)
+                : undefined,
             total: Number(p.total) || 0,
             advancePaid:
               p.advancePaid != null && !Number.isNaN(Number(p.advancePaid))
@@ -301,13 +310,23 @@ export default function InvoicePage() {
                 </tr>
               ) : null}
               <tr>
-                <td className="py-1 text-muted-foreground">Shipping</td>
+                <td className="py-1 text-muted-foreground">Delivery</td>
                 <td className="py-1 text-right tabular-nums">
                   {data.pricing.shipping === 0
                     ? "Free"
                     : inr.format(data.pricing.shipping)}
                 </td>
               </tr>
+              {typeof data.pricing.gst === "number" && data.pricing.gst > 0 ? (
+                <tr>
+                  <td className="py-1 text-xs text-muted-foreground">
+                    Includes GST
+                  </td>
+                  <td className="py-1 text-right text-xs tabular-nums text-muted-foreground">
+                    {inr.format(data.pricing.gst)}
+                  </td>
+                </tr>
+              ) : null}
               <tr className="border-t border-border">
                 <td className="py-2 font-semibold">Total</td>
                 <td className="py-2 text-right text-lg font-semibold tabular-nums text-orange-600">

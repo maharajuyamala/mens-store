@@ -37,6 +37,7 @@ export type ReceiptData = {
     subtotal: number;
     discount: number;
     shipping: number;
+    gst: number | null;
     total: number;
     advancePaid: number | null;
     balanceDue: number | null;
@@ -205,11 +206,21 @@ export function ReceiptView({ data }: { data: ReceiptData }) {
                   </tr>
                 ) : null}
                 <tr>
-                  <td className="py-1 text-muted-foreground">Shipping</td>
+                  <td className="py-1 text-muted-foreground">Delivery</td>
                   <td className="py-1 text-right tabular-nums">
                     {pricing.shipping === 0 ? "Free" : inr.format(pricing.shipping)}
                   </td>
                 </tr>
+                {pricing.gst != null && pricing.gst > 0 ? (
+                  <tr>
+                    <td className="py-1 text-xs text-muted-foreground">
+                      Includes GST
+                    </td>
+                    <td className="py-1 text-right text-xs tabular-nums text-muted-foreground">
+                      {inr.format(pricing.gst)}
+                    </td>
+                  </tr>
+                ) : null}
                 <tr className="border-t border-border">
                   <td className="py-2 font-semibold">Total</td>
                   <td className="py-2 text-right text-lg font-semibold tabular-nums text-orange-600">

@@ -3,6 +3,12 @@ export type ServiceabilityResult = {
   /** Set when Shiprocket itself was unreachable — UI may choose to allow proceeding. */
   failOpen?: boolean;
   error?: string;
+  /** Cheapest quoted courier for this pincode, if Shiprocket returned any rates. */
+  cheapest?: {
+    name?: string;
+    etd?: string;
+    rate: number;
+  } | null;
 };
 
 /**
@@ -32,7 +38,13 @@ export async function checkPincodeServiceable(
       }),
     });
     const json = (await res.json().catch(() => null)) as
-      | { ok: boolean; serviceable: boolean; failOpen?: boolean; error?: string }
+      | {
+          ok: boolean;
+          serviceable: boolean;
+          failOpen?: boolean;
+          error?: string;
+          cheapest?: { name?: string; etd?: string; rate: number } | null;
+        }
       | null;
     if (!json) {
       return { serviceable: true, failOpen: true, error: "no response" };
@@ -41,6 +53,7 @@ export async function checkPincodeServiceable(
       serviceable: !!json.serviceable,
       failOpen: !!json.failOpen,
       error: json.error,
+      cheapest: json.cheapest ?? null,
     };
   } catch (e) {
     return {
