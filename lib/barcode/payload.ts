@@ -1,5 +1,5 @@
 /** Public site used in product QR deep links when no env is set (non-localhost). */
-export const DEFAULT_PRODUCT_QR_ORIGIN = "https://secondskinmensworld.com";
+export const DEFAULT_PRODUCT_QR_ORIGIN = "https://secondskinmensworld.in";
 
 /** Versioned JSON payload (legacy printed QRs only — never written to new QRs). */
 export type ProductBarcodePayloadV1 = {
@@ -102,7 +102,7 @@ export function parseScanPayload(raw: string): ScanPayload | null {
   const t = raw.trim();
   if (!t) return null;
 
-  // https://secondskinmensworld.com/admin/inventory/scan?product=…&color=…&size=…
+  // https://secondskinmensworld.in/admin/inventory/scan?product=…&color=…&size=…
   if (/^https?:\/\//i.test(t)) {
     try {
       const u = new URL(t);

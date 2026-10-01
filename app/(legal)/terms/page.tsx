@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Terms and conditions governing use of the Second Skin Mens Ware website and purchases.",
 };
 
-const SUPPORT_EMAIL = "support@secondskinmensworld.com";
+const SUPPORT_EMAIL = "support@secondskinmensworld.in";
 const SUPPORT_WHATSAPP_URL = "https://wa.me/917036830536";
 
 const SECTIONS = [

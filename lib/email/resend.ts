@@ -21,7 +21,7 @@ function getResend(): Resend | null {
 function senderAddress(): string {
   return (
     process.env.RESEND_FROM_ADDRESS?.trim() ||
-    "SecondSkin <orders@secondskinmensworld.com>"
+    "SecondSkin <orders@secondskinmensworld.in>"
   );
 }
 

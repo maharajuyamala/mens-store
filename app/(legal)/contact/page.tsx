@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "Get in touch with Second Skin Mens Ware for order help, returns, or any other queries.",
 };
 
-const SUPPORT_EMAIL = "support@secondskinmensworld.com";
+const SUPPORT_EMAIL = "support@secondskinmensworld.in";
 const SUPPORT_PHONE_DISPLAY = "+91 70368 30536";
 const SUPPORT_PHONE_TEL = "+917036830536";
 const SUPPORT_WHATSAPP_URL = "https://wa.me/917036830536";

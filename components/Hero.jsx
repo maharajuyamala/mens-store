@@ -47,7 +47,7 @@ export const Hero = () => {
           className="absolute left-1/2 top-0 z-0 max-w-none min-h-full min-w-full -translate-x-1/2 object-cover object-top opacity-35"
         >
           <source
-            src="https://www.secondskinmensworld.com/shirts.mov"
+            src="https://www.secondskinmensworld.in/shirts.mov"
             type="video/mp4"
           />
         </video>

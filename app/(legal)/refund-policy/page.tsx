@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "How cancellations, returns, exchanges, and refunds work at Second Skin Mens Ware.",
 };
 
-const SUPPORT_EMAIL = "support@secondskinmensworld.com";
+const SUPPORT_EMAIL = "support@secondskinmensworld.in";
 const SUPPORT_WHATSAPP_URL = "https://wa.me/917036830536";
 
 export default function RefundPolicyPage() {
