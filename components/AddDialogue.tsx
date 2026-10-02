@@ -8,7 +8,7 @@ import { ImagePlus, PlusCircle, UploadCloud, Loader2, Plus, Minus, X } from "luc
 import imageCompression from "browser-image-compression";
 import { getClientFirebase } from "@/app/firebase";
 import { collection, addDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToImageKit } from "@/lib/uploads/imagekit";
 import { toast } from "sonner";
 import { useAdminAddProductStore } from "@/store/adminAddProductStore";
 import { useProductBarcodeStore } from "@/store/productBarcodeStore";
@@ -240,13 +240,14 @@ export function AddItemDialog() {
       // Upload all images
       const imageUrls: string[] = [];
       for (const file of imageFiles) {
-        const imageRef = ref(
-          fb.storage,
-          `products/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`
-        );
         const compressedFile = await imageCompression(file, options);
-        await uploadBytes(imageRef, compressedFile);
-        imageUrls.push(await getDownloadURL(imageRef));
+        const uploaded = await uploadImageToImageKit(
+          new File([compressedFile], file.name, {
+            type: compressedFile.type || file.type,
+          }),
+          { folder: "products" }
+        );
+        imageUrls.push(uploaded.url);
       }
 
       const tagsForSearch = [selectedAudience, ...selectedStyles];

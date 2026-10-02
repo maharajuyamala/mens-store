@@ -17,10 +17,19 @@ export default function AdminMediaPage() {
           Media
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Product images live in Firebase Storage under{" "}
+          New product images are uploaded to ImageKit under the{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">
             products/
-          </code>
+          </code>{" "}
+          folder. Manage them from the{" "}
+          <a
+            href="https://imagekit.io/dashboard/media-library"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            ImageKit dashboard
+          </a>
           .
         </p>
       </div>
@@ -31,14 +40,16 @@ export default function AdminMediaPage() {
             <CardTitle className="text-lg">Image library</CardTitle>
           </div>
           <CardDescription>
-            List objects from the Storage bucket, replace assets, or wire a
-            picker for the product editor.
+            Uploads go direct from the browser to ImageKit via a short-lived
+            signed token minted by the admin-only{" "}
+            <code className="text-xs">/api/imagekit/auth</code> route.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Only admin users can upload or delete files in{" "}
-            <code className="text-xs">products/</code> per your storage rules.
+            Legacy product photos still served from Firebase Storage remain
+            readable (whitelisted in <code className="text-xs">next.config</code>);
+            re-uploading a product will replace its URLs with ImageKit ones.
           </p>
         </CardContent>
       </Card>

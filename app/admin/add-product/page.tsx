@@ -11,7 +11,7 @@ import {
 import imageCompression from "browser-image-compression";
 import { getClientFirebase } from "@/app/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToImageKit } from "@/lib/uploads/imagekit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,6 @@ import {
   getCategoriesFor,
   type ItemSelection,
 } from "@/lib/add-product/category-options";
-import { buildImageStoragePath } from "@/lib/uploads/validate-image";
 import {
   getSizeOptions,
   inferSizeGroup,
@@ -329,12 +328,11 @@ export default function AddProductPage() {
             continue;
           }
           const compressed = await imageCompression(img.file, options);
-          const imageRef = ref(
-            fb.storage,
-            buildImageStoragePath(img.file, "products")
+          const uploaded = await uploadImageToImageKit(
+            new File([compressed], img.file.name, { type: compressed.type || img.file.type }),
+            { folder: "products" }
           );
-          await uploadBytes(imageRef, compressed);
-          urls.push(await getDownloadURL(imageRef));
+          urls.push(uploaded.url);
         }
         const colorName = canonicalVariantName(draft);
         const friendlyLabel = draft.label.trim();

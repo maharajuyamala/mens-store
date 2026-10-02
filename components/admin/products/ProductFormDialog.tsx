@@ -10,14 +10,9 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import {
-  getDownloadURL,
-  ref,
-  uploadBytesResumable,
-} from "firebase/storage";
 import { Loader2 } from "lucide-react";
-import { getDb, getFirebaseStorage } from "@/app/firebase";
-import { buildImageStoragePath } from "@/lib/uploads/validate-image";
+import { getDb } from "@/app/firebase";
+import { uploadImageToImageKit } from "@/lib/uploads/imagekit";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -207,24 +202,16 @@ async function uploadCompressedWithProgress(
   onProgress: (id: string, pct: number) => void
 ): Promise<string> {
   const compressed = await imageCompression(file, COMPRESSION);
-  const storageRef = ref(getFirebaseStorage(), buildImageStoragePath(file, "products"));
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, compressed);
-    task.on(
-      "state_changed",
-      (snap) => {
-        const pct = snap.totalBytes
-          ? (snap.bytesTransferred / snap.totalBytes) * 100
-          : 0;
-        onProgress(itemId, pct);
-      },
-      reject,
-      async () => {
-        onProgress(itemId, 100);
-        resolve(await getDownloadURL(storageRef));
-      }
-    );
+  // Preserve the original filename so ImageKit's `useUniqueFileName` keeps a
+  // readable prefix; the browser-image-compression output is just a Blob.
+  const asFile = new File([compressed], file.name, {
+    type: compressed.type || file.type,
   });
+  const uploaded = await uploadImageToImageKit(asFile, {
+    folder: "products",
+    onProgress: (pct) => onProgress(itemId, pct),
+  });
+  return uploaded.url;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
