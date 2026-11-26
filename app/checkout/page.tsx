@@ -412,6 +412,7 @@ export default function CheckoutPage() {
 
     
 
+      <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
       <div className="mt-2 flex gap-2">
         {STEPS.map((s, i) => (
           <div key={s.n} className="flex flex-1 flex-col gap-2">

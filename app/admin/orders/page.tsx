@@ -45,6 +45,11 @@ import {
   fetchPendingCancellationRequests,
   type CancellationRequest,
 } from "@/lib/orders/cancellation";
+import {
+  hasVariantStock,
+  incrementVariantStock,
+  type DecrementLine,
+} from "@/lib/products/variant-stock-write";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -124,7 +129,7 @@ async function updateOrderStatusTx(
       data.inventoryRestored !== true
     ) {
       const items = Array.isArray(data.items) ? data.items : [];
-      const byProduct = new Map<string, Array<{ size?: string; qty: number }>>();
+      const byProduct = new Map<string, DecrementLine[]>();
       for (const raw of items) {
         if (!raw || typeof raw !== "object") continue;
         const r = raw as Record<string, unknown>;
@@ -134,8 +139,9 @@ async function updateOrderStatusTx(
         if (!pid || !Number.isFinite(qty) || qty <= 0) continue;
         const list = byProduct.get(pid) ?? [];
         list.push({
-          size: typeof r.size === "string" ? r.size : undefined,
-          qty: Math.floor(qty),
+          color: typeof r.color === "string" ? r.color : "",
+          size: typeof r.size === "string" ? r.size : "",
+          quantity: Math.floor(qty),
         });
         byProduct.set(pid, list);
       }
@@ -149,8 +155,18 @@ async function updateOrderStatusTx(
         if (!psnap.exists()) continue;
         const pdata = psnap.data();
         const lines = byProduct.get(psnap.id) ?? [];
-        const totalAdd = lines.reduce((n, l) => n + l.qty, 0);
 
+        // Variant-aware products: restore the exact (color, size) cells so
+        // "M in wine" goes back to wine — not smeared across the size union.
+        if (hasVariantStock(pdata)) {
+          restoreUpdates.push({
+            ref: psnap.ref,
+            patch: incrementVariantStock(pdata, lines),
+          });
+          continue;
+        }
+
+        const totalAdd = lines.reduce((n, l) => n + l.quantity, 0);
         const patch: Record<string, unknown> = {};
         const sizesRaw = pdata.sizes;
         if (sizesRaw && typeof sizesRaw === "object" && !Array.isArray(sizesRaw)) {
@@ -161,7 +177,7 @@ async function updateOrderStatusTx(
           }
           for (const line of lines) {
             if (!line.size || !(line.size in nextMap)) continue;
-            nextMap[line.size] = (nextMap[line.size] ?? 0) + line.qty;
+            nextMap[line.size] = (nextMap[line.size] ?? 0) + line.quantity;
           }
           patch.sizes = nextMap;
           const total = Object.values(nextMap).reduce((s, n) => s + n, 0);

@@ -114,15 +114,14 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.userId == request.auth.uid);
 
-      allow create: if request.resource.data.status == 'pending'
-        && request.resource.data.userId is string
-        && request.resource.data.orderNumber is string
-        && request.resource.data.orderNumber.matches('^[A-Z0-9]{8}$')
-        && request.resource.data.items is list
-        && request.resource.data.shippingAddress is map
-        && validPricing(request.resource.data.pricing)
-        && request.resource.data.paymentMethod in ['cod', 'online']
-        && (!('shipping' in request.resource.data.keys()) || request.resource.data.shipping is map);
+      // Customer orders are created server-side via the Admin SDK
+      // (/api/orders/place), which bypasses these rules and is the ONLY
+      // place cart pricing + payment are trusted. Direct client creation is
+      // limited to admins (in-store POS via lib/checkout/placeOrder.ts).
+      // This closes the prior hole where any client could create an
+      // arbitrarily-priced, self-"paid" order. validPricing() is retained
+      // below for reference but is no longer the security boundary.
+      allow create: if isAdmin();
 
       // Admin can change status / statusHistory / shipping / inventoryRestored. Status moves
       // must follow the allowed transition graph. Order owner can only update the shipping
@@ -250,8 +249,11 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || clientInventoryDecrement();
+      // All stock decrements for customer orders happen server-side inside the
+      // /api/orders/place transaction (Admin SDK). Admin/POS writes go through
+      // isAdmin(). Direct client stock mutation is no longer permitted — this
+      // closes the inventory-griefing hole (clientInventoryDecrement removed).
+      allow create, update, delete: if isAdmin();
     }
 
     match /{document=**} {

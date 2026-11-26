@@ -99,6 +99,9 @@ export async function generateMetadata({
   return {
     title,
     description: desc,
+    alternates: {
+      canonical: `${siteBaseUrl()}/product-details?id=${encodeURIComponent(id)}`,
+    },
     openGraph: {
       title: product.name,
       description: desc,

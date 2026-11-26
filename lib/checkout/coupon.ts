@@ -30,6 +30,8 @@ export type CouponDoc = {
   newCustomerOnly: boolean;
   oncePerCustomer: boolean;
   usageCount: number;
+  /** Optional global redemption cap. null = unlimited. Enforced server-side. */
+  usageLimit: number | null;
   createdAt: Date | null;
   createdBy: { uid: string; email: string | null } | null;
 };
@@ -126,6 +128,10 @@ export function parseCouponDoc(
     newCustomerOnly: data.newCustomerOnly === true,
     oncePerCustomer: data.oncePerCustomer === true,
     usageCount: Math.max(0, Math.floor(readNumber(data.usageCount, 0))),
+    usageLimit: (() => {
+      const n = readNumber(data.usageLimit, NaN);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    })(),
     createdAt: toDate(data.createdAt),
     createdBy,
   };
@@ -156,7 +162,8 @@ export type CouponIneligibility =
   | "min_subtotal"
   | "new_customer_only"
   | "already_redeemed"
-  | "guest_not_allowed";
+  | "guest_not_allowed"
+  | "exhausted";
 
 export type EligibilityContext = {
   /** Cart subtotal before discount, in INR. */
@@ -178,6 +185,13 @@ export function evaluateCouponEligibility(
   }
   if (coupon.expiresAt && coupon.expiresAt.getTime() < Date.now()) {
     return { ok: false, reason: "expired", message: "This coupon has expired." };
+  }
+  if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) {
+    return {
+      ok: false,
+      reason: "exhausted",
+      message: "This coupon is no longer available.",
+    };
   }
   if (coupon.minSubtotal > 0 && ctx.subtotal < coupon.minSubtotal) {
     return {
