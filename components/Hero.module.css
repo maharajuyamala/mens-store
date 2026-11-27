@@ -1,5 +1,4 @@
-/* Restore the original full-width, 90svh desktop hero and compact phone campaign.
-   Campaign overlays use the shared on-photo palette to remain readable in either theme. */
+/* Full-width desktop hero and compact phone campaign using shared theme colors. */
 .hero {
   position: relative;
   isolation: isolate;
@@ -7,34 +6,15 @@
   width: 100%;
   background: var(--campaign-background);
   color: var(--campaign-heading);
-  touch-action: pan-y;
 }
 .stage {
   position: relative;
-  display: grid;
-  min-height: 90vh;
-  min-height: 90svh;
-}
-.slide {
-  position: relative;
-  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
-  grid-area: 1 / 1;
-  min-width: 0;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 560ms ease, visibility 0s 560ms;
-  background: var(--campaign-background);
-}
-.slide[data-active="true"] {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  z-index: 1;
-  transition: opacity 560ms ease;
+  isolation: isolate;
+  min-height: 90vh;
+  min-height: 90svh;
 }
 .photo {
   position: absolute;
@@ -140,13 +120,11 @@
   text-transform: uppercase;
   pointer-events: none;
 }
-.hero:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 .cta:focus-visible { outline: 3px solid var(--on-photo-accent); outline-offset: 3px; }
 @media (min-width: 768px) { .title { font-size: 4.5rem; } }
 @media (min-width: 1024px) { .title { font-size: 6rem; } .description { font-size: 1.25rem; } }
 @media (max-width: 639.98px), (pointer: coarse) and (max-height: 540px) and (max-width: 960px) {
-  .stage { min-height: 0; }
-  .slide { align-items: flex-start; justify-content: flex-start; }
+  .stage { min-height: 0; align-items: flex-start; justify-content: flex-start; }
   .photo { inset: 4.5rem 0 0; }
   .photo .image { object-fit: contain; object-position: right top; }
   .photo::after { background: linear-gradient(90deg, var(--campaign-background) 2%, var(--campaign-scrim-strong) 34%, var(--campaign-scrim-soft) 86%); }
@@ -182,5 +160,5 @@
   .title { font-size: clamp(2.5rem, 7vw, 4rem); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .slide, .slide[data-active="true"], .video, .cta { transition: none; }
+  .video, .cta { transition: none; }
 }
