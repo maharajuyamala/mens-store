@@ -75,3 +75,18 @@
   .page [data-photo-grid] button[aria-label] svg { width: 16px; height: 16px; }
   .page button[aria-pressed] { min-height: 44px; }
 }
+
+.page :is(input, button, [tabindex="-1"]) { scroll-margin-block-start: 6rem; }
+.page textarea { line-height: 1.55; resize: vertical; }
+.page [role="alert"] { border-left: 3px solid #aa3333; background: #fff2ee; }
+.receipt { display: grid; gap: 1rem; min-width: 0; }
+.nextProduct { min-height: 46px; color: white; background: #294f3a; }
+.nextProduct:hover { background: #203e2e; }
+@media screen {
+  .confirmation { display: grid; justify-items: center; gap: .625rem; padding: 1.25rem; text-align: center; background: #fffefa; border: 1px solid var(--border); border-radius: 1rem; }
+  .confirmation h2 { font: 500 2rem/1.15 Georgia, serif; color: #223c30; }
+  .confirmation :is(p, span) { overflow-wrap: anywhere; }
+  .confirmation p[class*="text-orange"], .confirmation span[class*="text-orange"] { color: #47604c; }
+  .receipt button { min-height: 46px; }
+  .receipt :global(.variant-qr-label) { background: white; min-width: 0; }
+}
