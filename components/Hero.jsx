@@ -4,6 +4,14 @@ import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
+import { getImageProps } from "next/image";
+import styles from "./MobileHome.module.css";
+
+const phoneQuery = "(max-width: 639.98px), (pointer: coarse) and (max-height: 540px) and (max-width: 960px)";
+const { props: campaignPhoto } = getImageProps({
+  src: "/men-shirt.png", alt: "", width: 384, height: 512,
+});
+
 export const Hero = () => {
   const videoRef = useRef(null);
   // Skip video on slow connections / data saver so customers don't burn data
@@ -21,11 +29,20 @@ export const Hero = () => {
       conn?.effectiveType === "slow-2g" ||
       conn?.effectiveType === "2g" ||
       conn?.effectiveType === "3g";
-    setShouldPlayVideo(!slow);
+    const phone = window.matchMedia(phoneQuery);
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setShouldPlayVideo(!slow && !phone.matches && !motionPreference.matches);
+    update();
+    phone.addEventListener("change", update);
+    motionPreference.addEventListener("change", update);
+    return () => {
+      phone.removeEventListener("change", update);
+      motionPreference.removeEventListener("change", update);
+    };
   }, []);
 
   return (
-    <section className="relative flex min-h-[90svh] items-center justify-center overflow-hidden bg-zinc-950 text-center text-white">
+    <section style={{ "--campaign-photo": `url("${campaignPhoto.src}")` }} className={`${styles.hero} relative flex min-h-0 sm:min-h-[90svh] items-center justify-center overflow-hidden bg-zinc-950 text-center text-white`}>
       <div
         className="pointer-events-none absolute -left-1/4 top-0 h-[70%] w-[70%] rounded-full bg-orange-500/15 blur-[120px]"
         aria-hidden
@@ -60,28 +77,29 @@ export const Hero = () => {
         initial={{ opacity: 0, y: 28 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 mx-auto max-w-4xl px-5 pt-16 sm:px-8"
+        data-campaign-copy
+        className="relative z-10 mx-auto w-full max-w-4xl px-5 pb-7 pt-20 max-sm:!transform-none max-sm:!opacity-100 sm:w-auto sm:px-8 sm:pb-0 sm:pt-16"
       >
-        <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.4em] text-orange-400/90 sm:text-xs">
+        <p data-brand className="mb-3 text-[11px] sm:mb-5 font-semibold uppercase tracking-[0.4em] text-orange-400/90 sm:text-xs">
           SecondSkin · est. Hyderabad
         </p>
-        <h1 className="mb-6 bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-4xl font-light leading-[1.06] tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
-          Wear it like a{" "}
+        <h1 className="mb-5 sm:mb-6 bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-4xl font-light leading-[1.06] tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
+          Wear it like a{" "}<br data-break className="hidden" />
           <span className="bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-medium italic text-transparent">
             second skin
           </span>
           .
         </h1>
-        <p className="mx-auto mb-10 max-w-xl text-[15px] leading-relaxed text-zinc-400 sm:text-lg md:text-xl">
+        <p data-description className="hidden sm:block mx-auto mb-10 max-w-xl text-[15px] leading-relaxed text-zinc-400 sm:text-lg md:text-xl">
           Cloth chosen for the way it feels — quiet luxury for the way you
           actually live.
         </p>
-        <div className="flex flex-col items-center justify-center gap-5">
+        <div data-actions className="flex flex-col items-center justify-center gap-3 sm:gap-5">
           <Link href="/explore" className="inline-flex w-full sm:w-auto">
             <motion.span
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-orange-500/25 ring-1 ring-white/10 transition-shadow hover:shadow-orange-500/35 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3.5 text-base font-semibold text-zinc-950 sm:text-white shadow-lg shadow-orange-500/25 ring-1 ring-white/10 transition-shadow hover:shadow-orange-500/35 sm:w-auto"
             >
               Shop the collection
               <ArrowRight className="h-5 w-5" aria-hidden />
@@ -89,7 +107,7 @@ export const Hero = () => {
           </Link>
 
           <ul
-            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium tracking-wide text-zinc-500 sm:text-xs"
+            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium tracking-wide text-zinc-300 sm:text-zinc-500 sm:text-xs"
             aria-label="Shopping perks"
           >
             <li>Free shipping</li>
@@ -105,6 +123,7 @@ export const Hero = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.6 }}
+        data-scroll
         className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 sm:block"
         aria-hidden
       >
