@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { useScrollAnimation } from "./ShirtSection";
 
+import styles from "./MobileHome.module.css";
+
 const categories = [
   {
     index: "01",
@@ -21,8 +23,7 @@ const categories = [
     name: "Women",
     slug: "women",
     // Woman in a traditional Indian saree.
-    image:
-      "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?q=80&w=1200&auto=format&fit=crop",
+    image: "/women-edit.webp",
     blurb: "Sarees, lehengas & contemporary edits.",
     cta: "Explore Women",
   },
@@ -57,7 +58,7 @@ export const CategorySection = () => {
   return (
     <section
       ref={ref}
-      className="relative overflow-hidden bg-zinc-950 px-4 py-6 text-white sm:px-8 sm:py-24"
+      className={`${styles.categories} relative overflow-hidden bg-zinc-950 px-4 py-6 text-white sm:px-8 sm:py-24`}
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/35 to-transparent"
@@ -69,7 +70,7 @@ export const CategorySection = () => {
       />
 
       <div className="relative mx-auto max-w-7xl">
-        <div className="mx-auto max-w-2xl text-center">
+        <div data-intro className="mx-auto max-w-2xl text-center">
           <p className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.32em] text-orange-400/85 sm:text-[11px]">
             Shop by
           </p>
@@ -88,6 +89,7 @@ export const CategorySection = () => {
         </div>
 
         <motion.div
+          data-tiles
           className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-1 sm:mt-14 sm:gap-6 md:grid-cols-3"
           variants={containerVariants}
           initial="hidden"
@@ -105,7 +107,7 @@ export const CategorySection = () => {
                 className="relative block cursor-pointer overflow-hidden rounded-xl sm:rounded-3xl ring-1 ring-white/10 transition-[box-shadow,transform] duration-500 hover:ring-orange-500/35 hover:shadow-[0_24px_60px_-24px_rgba(249,115,22,0.45)]"
                 aria-label={`${category.cta} — ${category.blurb}`}
               >
-                <div className="relative aspect-[3/4] w-full overflow-hidden">
+                <div data-photo className="relative aspect-[3/4] w-full overflow-hidden">
                   <Image
                     src={category.image}
                     alt={category.name}
@@ -136,7 +138,7 @@ export const CategorySection = () => {
                   />
 
                   {/* Index chip — top-left */}
-                  <div className="pointer-events-none absolute left-5 top-5 hidden sm:flex items-center gap-2 sm:left-6 sm:top-6">
+                  <div data-decoration className="pointer-events-none absolute left-5 top-5 hidden sm:flex items-center gap-2 sm:left-6 sm:top-6">
                     <span className="rounded-full border border-white/20 bg-black/30 px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.18em] text-zinc-100 backdrop-blur-sm sm:text-[11px]">
                       {category.index}
                     </span>
@@ -146,7 +148,7 @@ export const CategorySection = () => {
                   </div>
 
                   {/* Always-visible CTA arrow — top-right */}
-                  <div className="pointer-events-none absolute right-5 top-5 hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-zinc-100 backdrop-blur-sm transition-all duration-300 group-hover:border-orange-400/60 group-hover:bg-orange-500/20 group-hover:text-white sm:right-6 sm:top-6">
+                  <div data-decoration className="pointer-events-none absolute right-5 top-5 hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-zinc-100 backdrop-blur-sm transition-all duration-300 group-hover:border-orange-400/60 group-hover:bg-orange-500/20 group-hover:text-white sm:right-6 sm:top-6">
                     <ArrowUpRight
                       className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                       strokeWidth={1.75}
@@ -155,7 +157,7 @@ export const CategorySection = () => {
                   </div>
 
                   {/* Bottom content block */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 p-2.5 sm:p-7">
+                  <div data-caption className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 p-2.5 sm:p-7">
                     <h3 className="text-base font-light leading-none tracking-tight text-white sm:text-4xl md:text-5xl">
                       <span className="font-medium italic">
                         {category.name}
