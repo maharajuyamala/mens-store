@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Reveal } from "@/components/motion/Reveal";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { getClientFirebase } from "@/app/firebase";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,7 @@ export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }
       aria-label="Newsletter"
     >
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-4 text-center sm:flex-row sm:justify-between sm:text-left">
-        <div className="space-y-2">
+        <Reveal className="space-y-2">
           <p
             className={cn(
               "text-xs font-semibold uppercase tracking-[0.2em]",
@@ -86,7 +87,7 @@ export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }
           >
             New drops and private sales — no spam.
           </p>
-        </div>
+        </Reveal>
         <form
           onSubmit={(e) => void submit(e)}
           className="flex w-full max-w-md flex-col gap-2 sm:flex-row sm:items-center"
@@ -105,6 +106,7 @@ export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }
             disabled={pending}
           />
           <Button
+            data-motion-tap
             type="submit"
             className="shrink-0 bg-primary text-primary-foreground hover:bg-primary-hover"
             disabled={pending}

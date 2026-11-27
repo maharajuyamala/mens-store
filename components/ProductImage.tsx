@@ -62,6 +62,7 @@ function ImageWithStatus({ src, compact, style, ...props }: Props) {
       {status !== "loaded" && <ProductImagePlaceholder loading compact={compact} />}
       <Image
         {...props}
+        data-motion-image
         src={src}
         style={{ ...style, opacity: status === "loaded" ? 1 : 0 }}
         onLoad={() => setStatus("loaded")}

@@ -1,0 +1,42 @@
+/* Shared storefront motion. No persistent animation or layout-driven effects. */
+:root {
+  --motion-ease: cubic-bezier(.22,1,.36,1);
+  --motion-duration: 480ms;
+  --motion-fast: 180ms;
+}
+@keyframes ss-reveal {
+  from { opacity: .72; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ss-enter {
+  from { opacity: .82; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ss-confirm {
+  0% { transform: scale(.85); opacity: .6; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ss-count {
+  from { opacity: .45; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion-reveal="visible"] {
+    animation: ss-reveal var(--motion-duration) var(--motion-ease) var(--motion-delay, 0ms) both;
+  }
+  [data-motion-enter] {
+    animation: ss-enter var(--motion-duration) var(--motion-ease) var(--motion-delay, 0ms) both;
+  }
+  [data-motion-confirm="true"] { animation: ss-confirm 280ms var(--motion-ease); }
+  [data-motion-count] { animation: ss-count 200ms var(--motion-ease); }
+  [data-motion-tap] { transition: transform var(--motion-fast) var(--motion-ease), background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast); }
+  [data-motion-tap]:active:not(:disabled) { transform: scale(.97); }
+  [data-motion-image] { transition: opacity 220ms ease-out; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-motion-reveal], [data-motion-enter], [data-motion-confirm], [data-motion-count], [data-motion-tap], [data-motion-image] {
+    animation: none !important;
+    transition: none !important;
+  }
+}

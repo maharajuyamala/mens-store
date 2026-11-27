@@ -3,9 +3,8 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { Reveal } from "@/components/motion/Reveal";
 import { ArrowUpRight } from "lucide-react";
-import { useScrollAnimation } from "./ShirtSection";
 
 import styles from "./MobileHome.module.css";
 
@@ -41,23 +40,8 @@ const categories = [
 ];
 
 export const CategorySection = () => {
-  const [ref, inView] = useScrollAnimation();
-  const containerVariants = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.14, delayChildren: 0.18 } },
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 32 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
-    },
-  };
-
   return (
     <section
-      ref={ref}
       className={`${styles.categories} relative overflow-hidden bg-background px-4 py-6 text-foreground sm:px-8 sm:py-24`}
     >
       <div
@@ -70,7 +54,7 @@ export const CategorySection = () => {
       />
 
       <div className="relative mx-auto max-w-7xl">
-        <div data-intro className="mx-auto max-w-2xl text-center">
+        <Reveal data-intro className="mx-auto max-w-2xl text-center">
           <p className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.32em] text-brand sm:text-[11px]">
             Shop by
           </p>
@@ -86,20 +70,17 @@ export const CategorySection = () => {
             Three edits — one promise. The same Second Skin standard, sized for
             everyone in the room.
           </p>
-        </div>
+        </Reveal>
 
-        <motion.div
+        <div
           data-tiles
           className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-1 sm:mt-14 sm:gap-6 md:grid-cols-3"
-          variants={containerVariants}
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
         >
-          {categories.map((category) => (
-            <motion.div
+          {categories.map((category, index) => (
+            <Reveal
               key={category.slug}
-              variants={itemVariants}
-              className="group relative max-sm:!transform-none max-sm:!opacity-100"
+              delay={index * 55}
+              className="group relative"
             >
               <Link
                 href={`/explore?audience=${category.slug}`}
@@ -112,7 +93,7 @@ export const CategorySection = () => {
                     src={category.image}
                     alt={category.name}
                     fill
-                    className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.06]"
+                    className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.035]"
                     style={{
                       objectPosition: category.objectPosition ?? "center",
                     }}
@@ -176,7 +157,7 @@ export const CategorySection = () => {
                   </div>
                 </div>
               </Link>
-            </motion.div>
+            </Reveal>
           ))}
         </motion.div>
       </div>

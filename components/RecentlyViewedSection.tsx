@@ -1,6 +1,7 @@
 "use client";
 
-import Image from "next/image";
+import { ProductImage, ProductImagePlaceholder } from "@/components/ProductImage";
+import { Reveal } from "@/components/motion/Reveal";
 import Link from "next/link";
 import { useLayoutEffect, useState } from "react";
 import { fetchListedProductsByIds } from "@/lib/client/fetch-products-by-ids";
@@ -51,7 +52,7 @@ export function RecentlyViewedSection({
   const isDark = variant === "dark";
 
   return (
-    <section
+    <Reveal as="section"
       className={cn(
         "border-t border-border/60 py-5 sm:py-6",
         isDark ? "bg-card/30" : "bg-muted/20"
@@ -81,6 +82,7 @@ export function RecentlyViewedSection({
           {products.map((p) => (
             <Link
               key={p.doc_id}
+              data-motion-tap
               href={`/product-details?id=${encodeURIComponent(p.doc_id)}`}
               className={cn(
                 "w-[5.5rem] shrink-0 overflow-hidden rounded-lg border transition-shadow hover:shadow-md sm:w-24",
@@ -89,17 +91,16 @@ export function RecentlyViewedSection({
             >
               <div className="relative aspect-[3/4] w-full bg-muted">
                 {p.image ? (
-                  <Image
+                  <ProductImage
                     src={p.image}
                     alt={p.name}
                     fill
                     className="object-cover"
                     sizes="96px"
+                    compact
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center px-1 text-center text-[9px] text-muted-foreground">
-                    No image
-                  </div>
+                  <ProductImagePlaceholder compact />
                 )}
               </div>
               <div className="space-y-0.5 p-1.5">
@@ -119,6 +120,6 @@ export function RecentlyViewedSection({
           ))}
         </div>
       </div>
-    </section>
+    </Reveal>
   );
 }

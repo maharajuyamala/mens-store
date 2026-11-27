@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
+import { Reveal } from "@/components/motion/Reveal";
 import { Gem, RefreshCcw, Truck } from "lucide-react";
-import { useScrollAnimation } from "./ShirtSection";
 
 const points = [
   {
@@ -24,24 +23,8 @@ const points = [
 ];
 
 export const WhyChooseUs = () => {
-  const [ref, inView] = useScrollAnimation();
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: (i) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.55,
-        delay: i * 0.08,
-        ease: [0.22, 1, 0.36, 1],
-      },
-    }),
-  };
-
   return (
     <section
-      ref={ref}
       className="relative border-y border-border bg-background px-4 py-16 text-foreground sm:px-8 sm:py-20"
     >
       <div
@@ -54,7 +37,7 @@ export const WhyChooseUs = () => {
       />
 
       <div className="relative mx-auto max-w-6xl">
-        <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mx-auto max-w-2xl text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-brand sm:text-[11px]">
             Made to live in
           </p>
@@ -68,19 +51,16 @@ export const WhyChooseUs = () => {
             Cloth chosen for the way it feels — and a promise we stand behind
             long after you take it home.
           </p>
-        </div>
+        </Reveal>
 
         <div
           className="relative mt-10 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:mt-14 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:pb-0"
           role="list"
         >
           {points.map(({ title, line, Icon }, i) => (
-            <motion.article
+            <Reveal as="article"
               key={title}
-              custom={i}
-              variants={cardVariants}
-              initial="hidden"
-              animate={inView ? "visible" : "hidden"}
+              delay={i * 60}
               role="listitem"
               className="group relative snap-start shrink-0 basis-[82%] overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-card/80 to-background/80 p-6 backdrop-blur-sm transition-colors duration-300 hover:border-orange-500/25 sm:basis-auto sm:p-7"
             >
@@ -94,7 +74,7 @@ export const WhyChooseUs = () => {
               />
 
               <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/[0.08] text-brand">
-                <Icon className="h-5 w-5" strokeWidth={1.4} aria-hidden />
+                <Icon className="h-5 w-5 motion-safe:transition-transform motion-safe:group-hover:scale-110" strokeWidth={1.4} aria-hidden />
               </div>
 
               <h3 className="relative mt-5 text-lg font-medium tracking-tight text-foreground sm:text-xl">
@@ -103,7 +83,7 @@ export const WhyChooseUs = () => {
               <p className="relative mt-2 text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
                 {line}
               </p>
-            </motion.article>
+            </Reveal>
           ))}
         </div>
 

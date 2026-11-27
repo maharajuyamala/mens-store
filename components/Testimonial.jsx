@@ -1,20 +1,17 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { Reveal } from "@/components/motion/Reveal";
 import { MapPin } from "lucide-react";
-import { useScrollAnimation } from "./ShirtSection";
 
 const locations = ["Alwal", "Balkampet", "Quthbullapur", "Manoharabad"];
 
 export const Testimonials = () => {
-  const [ref, inView] = useScrollAnimation();
 
   return (
     <section
-      ref={ref}
       className="border-t border-border bg-background px-4 py-16 text-foreground sm:px-8 sm:py-20"
     >
       <div className="mx-auto max-w-4xl">
-        <div className="text-center">
+        <Reveal className="text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">
             Community
           </p>
@@ -26,17 +23,15 @@ export const Testimonials = () => {
             quality, and service you can walk up to. Find us in four neighbourhoods
             across the city.
           </p>
-        </div>
+        </Reveal>
 
-        <motion.ul
-          initial={{ opacity: 0, y: 10 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        <ul
           className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 sm:grid-cols-4 sm:gap-4"
         >
-          {locations.map((name) => (
-            <li
+          {locations.map((name, index) => (
+            <Reveal as="li"
               key={name}
+              delay={index * 45}
               className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card/40 px-3 py-5 text-center transition-colors hover:border-orange-500/25 hover:bg-card/70 sm:py-6"
             >
               <MapPin
@@ -50,9 +45,9 @@ export const Testimonials = () => {
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Hyderabad
               </span>
-            </li>
+            </Reveal>
           ))}
-        </motion.ul>
+        </ul>
 
         <p className="mx-auto mt-10 max-w-md text-center text-xs leading-relaxed text-muted-foreground sm:mt-12 sm:text-sm">
           Same Second Skin standard — in store, across Alwal, Balkampet,

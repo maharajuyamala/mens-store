@@ -162,3 +162,26 @@
 @media (prefers-reduced-motion: reduce) {
   .video, .cta { transition: none; }
 }
+
+/* First paint is visible; the copy settles in without delaying the campaign. */
+@keyframes hero-settle {
+  from { opacity: .74; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes hero-photo-settle {
+  from { transform: scale(1.025); }
+  to { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .eyebrow { animation: hero-settle 400ms var(--motion-ease) both; }
+  .title { animation: hero-settle 600ms var(--motion-ease) 45ms both; }
+  .description { animation: hero-settle 500ms var(--motion-ease) 90ms both; }
+  .cta { animation: hero-settle 500ms var(--motion-ease) 135ms both; transition: background-color 180ms ease, transform 180ms var(--motion-ease); }
+  .cta:active { transform: scale(.97); }
+  .perks { animation: hero-settle 480ms var(--motion-ease) 170ms both; }
+  .scrollHint svg { animation: hero-settle 650ms var(--motion-ease) 220ms both; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .image { animation: hero-photo-settle 1100ms var(--motion-ease) both; }
+  .cta:hover { transform: translateY(-2px); }
+}

@@ -3,9 +3,8 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { Reveal } from "@/components/motion/Reveal";
 import { ArrowUpRight } from "lucide-react";
-import { useScrollAnimation } from "./ShirtSection";
 
 // Each tile routes to /explore?category=<encoded>. The explore filter matches
 // these names case-insensitively against the `categories` field on the product
@@ -77,24 +76,8 @@ const tiles = [
 ];
 
 export const CategoryGallery = () => {
-  const [ref, inView] = useScrollAnimation();
-
-  const gridVariants = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.06, delayChildren: 0.12 } },
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 18 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
-    },
-  };
-
   return (
     <section
-      ref={ref}
       className="relative overflow-hidden bg-background px-4 py-16 text-foreground sm:px-8 sm:py-24"
     >
       <div
@@ -107,7 +90,7 @@ export const CategoryGallery = () => {
       />
 
       <div className="relative mx-auto max-w-7xl">
-        <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mx-auto max-w-2xl text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-brand sm:text-[11px]">
             Shop by category
           </p>
@@ -120,20 +103,17 @@ export const CategoryGallery = () => {
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
             From quiet basics to occasion pieces — find your moment.
           </p>
-        </div>
+        </Reveal>
 
-        <motion.div
+        <div
           className="mt-10 grid grid-cols-2 gap-3 sm:mt-14 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
-          variants={gridVariants}
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
         >
-          {tiles.map((tile) => {
+          {tiles.map((tile, index) => {
             const href = tile.audience
               ? `/explore?category=${encodeURIComponent(tile.cat)}&audience=${tile.audience}`
               : `/explore?category=${encodeURIComponent(tile.cat)}`;
             return (
-              <motion.div key={`${tile.cat}-${tile.audience ?? "all"}`} variants={itemVariants}>
+              <Reveal key={`${tile.cat}-${tile.audience ?? "all"}`} delay={(index % 4) * 45}>
               <Link
                 href={href}
                 prefetch={false}
@@ -145,7 +125,7 @@ export const CategoryGallery = () => {
                     src={tile.image}
                     alt={tile.label}
                     fill
-                    className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.08]"
+                    className="object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.04]"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     unoptimized
                   />
@@ -182,7 +162,7 @@ export const CategoryGallery = () => {
                   </div>
                 </div>
               </Link>
-            </motion.div>
+            </Reveal>
             );
           })}
         </motion.div>
