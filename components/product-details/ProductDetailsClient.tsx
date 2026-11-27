@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentData } from "firebase/firestore";
+import styles from "../explore/MobileProduct.module.css";
 import Image from "next/image";
 import { imageKitLoaderFor } from "@/lib/uploads/imagekit-loader";
 import Link from "next/link";
@@ -312,7 +313,7 @@ function ProductDetailContent({
     : "/explore";
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
+    <div className={cn(styles.detail, "min-h-screen bg-background pt-24 pb-16")}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <nav
           className="mb-8 flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
@@ -334,10 +335,10 @@ function ProductDetailContent({
           </span>
         </nav>
 
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
+        <div data-detail-layout className="grid gap-10 lg:grid-cols-2 lg:gap-12">
           <div>
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
-              <AnimatePresence mode="wait">
+            <div data-main-photo className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+              <AnimatePresence initial={false} mode="wait">
                 {mainSrc ? (
                   <motion.div
                     key={mainSrc}
@@ -374,7 +375,7 @@ function ProductDetailContent({
               </AnimatePresence>
             </div>
             {displayImages.length > 1 ? (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              <div data-thumbnails className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {displayImages.map((src, i) => (
                   <button
                     key={`${src}-${i}`}
@@ -386,6 +387,7 @@ function ProductDetailContent({
                         ? "border-orange-500 ring-2 ring-orange-500/30"
                         : "border-transparent hover:border-border"
                     )}
+                    aria-pressed={i === mainIndex}
                     aria-label={`Show image ${i + 1}`}
                   >
                     <Image
@@ -403,7 +405,7 @@ function ProductDetailContent({
 
           <div className="space-y-6">
             <div>
-              <div className="flex items-start justify-between gap-3">
+              <div data-product-heading className="flex items-start justify-between gap-3">
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                   {product.name}
                 </h1>
@@ -439,7 +441,7 @@ function ProductDetailContent({
                 ) : null}
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <span className="text-2xl font-semibold text-orange-600">
+                <span data-price className="text-2xl font-semibold text-orange-600">
                   {currency.format(product.price)}
                 </span>
                 {isSale && product.compareAtPrice ? (
@@ -494,6 +496,8 @@ function ProductDetailContent({
                         key={s}
                         type="button"
                         disabled={disabled}
+                        data-size
+                        aria-pressed={selectedSize === s}
                         onClick={() => setSelectedSize(s)}
                         title={
                           disabled
@@ -642,6 +646,7 @@ function ProductDetailContent({
               <Button
                 type="button"
                 className="h-12 w-full rounded-lg bg-orange-600 px-8 text-base font-semibold text-white hover:bg-orange-500 sm:w-auto sm:min-w-[min(100%,16rem)]"
+                data-add-to-cart
                 disabled={!canAdd}
                 onClick={addToCart}
               >
@@ -702,9 +707,9 @@ function ProductDetailContent({
             <p className="mt-1 text-sm text-muted-foreground">
               More from {categoryLabel}
             </p>
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div data-related className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {related.map((p) => (
-                <ExploreProductCard key={p.doc_id} product={p} />
+                <ExploreProductCard className={styles.card} key={p.doc_id} product={p} />
               ))}
             </div>
           </section>

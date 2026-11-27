@@ -130,10 +130,10 @@ export function ExploreProductCard({
         "hover:-translate-y-0.5 hover:border-orange-500/25 hover:shadow-[0_16px_40px_-12px_rgba(249,115,22,0.22)]",
         className
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onPointerEnter={(event) => setIsHovered(event.pointerType === "mouse")}
+      onPointerLeave={() => setIsHovered(false)}
     >
-      <div className="pointer-events-none relative aspect-[3/4] w-full bg-zinc-950">
+      <div data-card-photo className="pointer-events-none relative aspect-[3/4] w-full bg-zinc-950">
         {/* Hit target + swipe — auto pointer-events above none parent */}
         <Link
           href={href}
@@ -195,7 +195,7 @@ export function ExploreProductCard({
         )}
 
         {/* Readability wash */}
-        <div
+        <div data-photo-wash
           className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black via-black/25 to-black/40 opacity-80 transition-opacity duration-300 group-hover/card:opacity-95"
           aria-hidden
         />
@@ -221,9 +221,21 @@ export function ExploreProductCard({
         </div>
 
         {hasMultiple && (
-          <div className="pointer-events-none absolute right-2.5 top-2.5 z-[15] rounded-md border border-white/15 bg-black/55 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white/90 backdrop-blur-md sm:right-3 sm:top-3">
+          <div data-image-count className="pointer-events-none absolute right-2.5 top-2.5 z-[15] rounded-md border border-white/15 bg-black/55 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white/90 backdrop-blur-md sm:right-3 sm:top-3">
             {activeIndex + 1}/{images.length}
           </div>
+        )}
+
+        {hasMultiple && (
+          <button
+            type="button"
+            data-next-photo
+            className="hidden"
+            aria-label={`Next photo of ${product.name}. Photo ${activeIndex + 1} of ${images.length}`}
+            onClick={() => setActiveIndex((index) => (index + 1) % images.length)}
+          >
+            <span>{activeIndex + 1} / {images.length}</span>
+          </button>
         )}
 
         <button
@@ -233,6 +245,7 @@ export function ExploreProductCard({
             e.stopPropagation();
             toggleWishlist(product.doc_id);
           }}
+          data-save
           aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
           aria-pressed={inWishlist}
           className={cn(
@@ -252,7 +265,7 @@ export function ExploreProductCard({
         </button>
 
         {hasMultiple && (
-          <div
+          <div data-slide-dots
             className={cn(
               "pointer-events-auto absolute bottom-[3.25rem] inset-x-0 z-[20] flex justify-center gap-1 sm:bottom-[3.5rem]",
               "opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100"
@@ -287,75 +300,74 @@ export function ExploreProductCard({
           </div>
         )}
 
-        {/* Title + price — tight to bottom edge, no extra strip below */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[10] bg-gradient-to-t from-black via-black/75 to-transparent px-2.5 pb-2 pt-10 sm:px-3 sm:pb-2.5 sm:pt-11">
-          <h3
-            className="truncate text-[13px] font-semibold leading-tight tracking-tight text-white drop-shadow-md sm:text-sm"
-            title={product.name}
-          >
-            {product.name}
-          </h3>
-          <div className="mt-0.5 flex flex-nowrap items-baseline gap-1.5">
-            <span className="shrink-0 text-[15px] font-bold tabular-nums tracking-tight text-orange-400 drop-shadow-sm sm:text-base">
-              {inr.format(product.price)}
+      </div>
+      <div data-card-caption className="pointer-events-none absolute inset-x-0 bottom-0 z-[10] bg-gradient-to-t from-black via-black/75 to-transparent px-2.5 pb-2 pt-10 sm:px-3 sm:pb-2.5 sm:pt-11">
+        <h3
+          className="truncate text-[13px] font-semibold leading-tight tracking-tight text-white drop-shadow-md sm:text-sm"
+          title={product.name}
+        >
+          <Link href={href} tabIndex={-1}>{product.name}</Link>
+        </h3>
+        <div data-card-price className="mt-0.5 flex flex-nowrap items-baseline gap-1.5">
+          <span className="shrink-0 text-[15px] font-bold tabular-nums tracking-tight text-orange-400 drop-shadow-sm sm:text-base">
+            {inr.format(product.price)}
+          </span>
+          {isSale && typeof product.compareAtPrice === "number" && (
+            <span className="min-w-0 truncate text-[11px] tabular-nums text-white/45 line-through">
+              {inr.format(product.compareAtPrice)}
             </span>
-            {isSale && typeof product.compareAtPrice === "number" && (
-              <span className="min-w-0 truncate text-[11px] tabular-nums text-white/45 line-through">
-                {inr.format(product.compareAtPrice)}
+          )}
+        </div>
+        {swatchColors.length > 0 && (
+          <div className="mt-1 flex items-center gap-1">
+            {swatchColors.map((c) => {
+              const variant = product.colorVariants.find((v) => v.color === c);
+              const fill = variant?.hex ?? swatchColor(c);
+              const showBorder = needsSwatchBorder(c, variant?.hex);
+              return (
+                <span
+                  key={c}
+                  title={c}
+                  aria-label={`Available in ${c}`}
+                  className={cn(
+                    "h-3 w-3 rounded-full ring-0",
+                    showBorder
+                      ? "border border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+                      : ""
+                  )}
+                  style={{ backgroundColor: fill }}
+                />
+              );
+            })}
+            {extraSwatchCount > 0 && (
+              <span className="rounded-full bg-white/15 px-1.5 py-px text-[9px] font-semibold leading-none text-white/90 backdrop-blur-sm">
+                +{extraSwatchCount}
               </span>
             )}
           </div>
-          {swatchColors.length > 0 && (
-            <div className="mt-1 flex items-center gap-1">
-              {swatchColors.map((c) => {
-                const variant = product.colorVariants.find((v) => v.color === c);
-                const fill = variant?.hex ?? swatchColor(c);
-                const showBorder = needsSwatchBorder(c, variant?.hex);
-                return (
-                  <span
-                    key={c}
-                    title={c}
-                    aria-label={`Available in ${c}`}
-                    className={cn(
-                      "h-3 w-3 rounded-full ring-0",
-                      showBorder
-                        ? "border border-white/60 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
-                        : ""
-                    )}
-                    style={{ backgroundColor: fill }}
-                  />
-                );
-              })}
-              {extraSwatchCount > 0 && (
-                <span className="rounded-full bg-white/15 px-1.5 py-px text-[9px] font-semibold leading-none text-white/90 backdrop-blur-sm">
-                  +{extraSwatchCount}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {onQuickAdd && (
-          <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-[20] translate-y-full p-2 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/card:translate-y-0">
-            <button
-              type="button"
-              onClick={onQuick}
-              disabled={isOut}
-              className={cn(
-                "flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold shadow-lg transition-all active:scale-[0.98] sm:gap-2 sm:py-2.5 sm:text-sm",
-                addedFlash
-                  ? "bg-emerald-600 text-white"
-                  : isOut
-                    ? "cursor-not-allowed border border-white/10 bg-zinc-800/95 text-zinc-500"
-                    : "bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-110"
-              )}
-            >
-              <ShoppingBag className="size-3.5 shrink-0 opacity-95 sm:size-4" />
-              {addedFlash ? "Added ✓" : isOut ? "Unavailable" : "Quick add"}
-            </button>
-          </div>
         )}
       </div>
+
+      {onQuickAdd && (
+        <div data-quick-add className="pointer-events-auto absolute inset-x-0 bottom-0 z-[20] translate-y-full p-2 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/card:translate-y-0">
+          <button
+            type="button"
+            onClick={onQuick}
+            disabled={isOut}
+            className={cn(
+              "flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold shadow-lg transition-all active:scale-[0.98] sm:gap-2 sm:py-2.5 sm:text-sm",
+              addedFlash
+                ? "bg-emerald-600 text-white"
+                : isOut
+                  ? "cursor-not-allowed border border-white/10 bg-zinc-800/95 text-zinc-500"
+                  : "bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-110"
+            )}
+          >
+            <ShoppingBag className="size-3.5 shrink-0 opacity-95 sm:size-4" />
+            {addedFlash ? "Added ✓" : isOut ? "Unavailable" : "Quick add"}
+          </button>
+        </div>
+      )}
     </article>
   );
 }
