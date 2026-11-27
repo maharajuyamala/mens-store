@@ -57,7 +57,7 @@ export const CategorySection = () => {
   return (
     <section
       ref={ref}
-      className="relative overflow-hidden bg-zinc-950 px-4 py-16 text-white sm:px-8 sm:py-24"
+      className="relative overflow-hidden bg-zinc-950 px-4 py-6 text-white sm:px-8 sm:py-24"
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/35 to-transparent"
@@ -70,24 +70,25 @@ export const CategorySection = () => {
 
       <div className="relative mx-auto max-w-7xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-orange-400/85 sm:text-[11px]">
+          <p className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.32em] text-orange-400/85 sm:text-[11px]">
             Shop by
           </p>
-          <h2 className="mt-3 text-3xl font-light tracking-tight text-white sm:text-4xl md:text-5xl">
+          <h2 className="text-left text-xl font-medium sm:hidden">Shop by category</h2>
+          <h2 className="hidden sm:block mt-3 text-3xl font-light tracking-tight text-white sm:text-4xl md:text-5xl">
             Who are you{" "}
             <span className="bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-medium italic text-transparent">
               shopping for
             </span>
             ?
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
+          <p className="hidden sm:block mx-auto mt-3 max-w-md text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
             Three edits — one promise. The same Second Skin standard, sized for
             everyone in the room.
           </p>
         </div>
 
         <motion.div
-          className="mt-10 grid grid-cols-1 gap-5 sm:mt-14 sm:gap-6 md:grid-cols-3"
+          className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-1 sm:mt-14 sm:gap-6 md:grid-cols-3"
           variants={containerVariants}
           initial="hidden"
           animate={inView ? "visible" : "hidden"}
@@ -96,12 +97,12 @@ export const CategorySection = () => {
             <motion.div
               key={category.slug}
               variants={itemVariants}
-              className="group relative"
+              className="group relative max-sm:!transform-none max-sm:!opacity-100"
             >
               <Link
                 href={`/explore?audience=${category.slug}`}
                 prefetch={false}
-                className="relative block cursor-pointer overflow-hidden rounded-3xl ring-1 ring-white/10 transition-[box-shadow,transform] duration-500 hover:ring-orange-500/35 hover:shadow-[0_24px_60px_-24px_rgba(249,115,22,0.45)]"
+                className="relative block cursor-pointer overflow-hidden rounded-xl sm:rounded-3xl ring-1 ring-white/10 transition-[box-shadow,transform] duration-500 hover:ring-orange-500/35 hover:shadow-[0_24px_60px_-24px_rgba(249,115,22,0.45)]"
                 aria-label={`${category.cta} — ${category.blurb}`}
               >
                 <div className="relative aspect-[3/4] w-full overflow-hidden">
@@ -113,7 +114,7 @@ export const CategorySection = () => {
                     style={{
                       objectPosition: category.objectPosition ?? "center",
                     }}
-                    sizes="(max-width: 768px) 100vw, 33vw"
+                    sizes="(max-width: 639px) 33vw, (max-width: 767px) 100vw, 33vw"
                     unoptimized
                   />
 
@@ -135,7 +136,7 @@ export const CategorySection = () => {
                   />
 
                   {/* Index chip — top-left */}
-                  <div className="pointer-events-none absolute left-5 top-5 flex items-center gap-2 sm:left-6 sm:top-6">
+                  <div className="pointer-events-none absolute left-5 top-5 hidden sm:flex items-center gap-2 sm:left-6 sm:top-6">
                     <span className="rounded-full border border-white/20 bg-black/30 px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.18em] text-zinc-100 backdrop-blur-sm sm:text-[11px]">
                       {category.index}
                     </span>
@@ -145,7 +146,7 @@ export const CategorySection = () => {
                   </div>
 
                   {/* Always-visible CTA arrow — top-right */}
-                  <div className="pointer-events-none absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-zinc-100 backdrop-blur-sm transition-all duration-300 group-hover:border-orange-400/60 group-hover:bg-orange-500/20 group-hover:text-white sm:right-6 sm:top-6">
+                  <div className="pointer-events-none absolute right-5 top-5 hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-zinc-100 backdrop-blur-sm transition-all duration-300 group-hover:border-orange-400/60 group-hover:bg-orange-500/20 group-hover:text-white sm:right-6 sm:top-6">
                     <ArrowUpRight
                       className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                       strokeWidth={1.75}
@@ -154,16 +155,16 @@ export const CategorySection = () => {
                   </div>
 
                   {/* Bottom content block */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 p-6 sm:p-7">
-                    <h3 className="text-3xl font-light leading-none tracking-tight text-white sm:text-4xl md:text-5xl">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 p-2.5 sm:p-7">
+                    <h3 className="text-base font-light leading-none tracking-tight text-white sm:text-4xl md:text-5xl">
                       <span className="font-medium italic">
                         {category.name}
                       </span>
                     </h3>
-                    <p className="max-w-[18rem] text-[13px] leading-relaxed text-zinc-300/90 sm:text-sm">
+                    <p className="hidden sm:block max-w-[18rem] text-[13px] leading-relaxed text-zinc-300/90 sm:text-sm">
                       {category.blurb}
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300/95 sm:text-xs">
+                    <div className="hidden sm:inline-flex mt-2 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300/95 sm:text-xs">
                       <span>{category.cta}</span>
                       <span
                         className="h-px w-6 bg-orange-300/70 transition-all duration-300 group-hover:w-10"
