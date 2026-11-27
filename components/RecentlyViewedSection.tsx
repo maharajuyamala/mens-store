@@ -11,7 +11,7 @@ import { cn, inr } from "@/lib/utils";
 type Variant = "dark" | "light";
 
 export function RecentlyViewedSection({
-  variant = "dark",
+  variant = "light",
 }: {
   variant?: Variant;
 }) {
@@ -62,7 +62,7 @@ export function RecentlyViewedSection({
         <h2
           className={cn(
             "mb-3 text-xs font-semibold uppercase tracking-wider",
-            isDark ? "text-zinc-500" : "text-muted-foreground"
+            "text-muted-foreground"
           )}
         >
           Recently viewed
@@ -71,7 +71,7 @@ export function RecentlyViewedSection({
           <p
             className={cn(
               "text-xs",
-              isDark ? "text-zinc-500" : "text-muted-foreground"
+              "text-muted-foreground"
             )}
           >
             Loading…
@@ -106,7 +106,7 @@ export function RecentlyViewedSection({
                 <p
                   className={cn(
                     "line-clamp-2 text-[10px] font-medium leading-tight sm:text-xs",
-                    isDark ? "text-zinc-200" : "text-foreground"
+                    "text-foreground"
                   )}
                 >
                   {p.name}

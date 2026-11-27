@@ -1,143 +1,144 @@
 "use client";
+
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
+import styles from "./HeroCarousel.module.css";
 
-import { getImageProps } from "next/image";
-import styles from "./MobileHome.module.css";
+const campaigns = [
+  { id: "men", label: "The menswear edit", title: "Wear it like a", accent: "second skin.", description: "Considered tailoring. Everyday comfort. A wardrobe made for you.", image: "/men-shirt.png", cta: "Explore men", href: "/explore?audience=men" },
+  { id: "women", label: "The womenswear edit", title: "Quiet elegance.", accent: "Your way.", description: "Discover contemporary pieces and timeless silhouettes.", image: "/women-edit.webp", cta: "Explore women", href: "/explore?audience=women" },
+  { id: "kids", label: "The kidswear edit", title: "Little moments.", accent: "Big style.", description: "Comfort-first looks for play, celebrations and everything in between.", image: "/kids-shirt.png", cta: "Explore kids", href: "/explore?audience=kids" },
+];
+const duration = 6500;
 
-const phoneQuery = "(max-width: 639.98px), (pointer: coarse) and (max-height: 540px) and (max-width: 960px)";
-const { props: campaignPhoto } = getImageProps({
-  src: "/men-shirt.png", alt: "", width: 384, height: 512,
-});
-
-export const Hero = () => {
-  const videoRef = useRef(null);
-  // Skip video on slow connections / data saver so customers don't burn data
-  // staring at a black hero. The text/banner still loads.
-  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
+export function Hero() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
+  const [reduced, setReduced] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const [desktopVideo, setDesktopVideo] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const touch = useRef(null);
+  const video = useRef(null);
 
   useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    const conn =
-      navigator.connection ||
-      navigator.mozConnection ||
-      navigator.webkitConnection;
-    const slow =
-      conn?.saveData ||
-      conn?.effectiveType === "slow-2g" ||
-      conn?.effectiveType === "2g" ||
-      conn?.effectiveType === "3g";
-    const phone = window.matchMedia(phoneQuery);
-    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setShouldPlayVideo(!slow && !phone.matches && !motionPreference.matches);
-    update();
-    phone.addEventListener("change", update);
-    motionPreference.addEventListener("change", update);
-    return () => {
-      phone.removeEventListener("change", update);
-      motionPreference.removeEventListener("change", update);
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const desktop = window.matchMedia("(min-width: 1024px) and (pointer: fine)");
+    const update = () => {
+      setReduced(motion.matches);
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      const slow = connection?.saveData || ["slow-2g", "2g", "3g"].includes(connection?.effectiveType);
+      setDesktopVideo(desktop.matches && !motion.matches && !slow);
     };
+    const visibility = () => setVisible(!document.hidden);
+    update(); visibility();
+    const listen = (media) => {
+      if (media.addEventListener) { media.addEventListener("change", update); return () => media.removeEventListener("change", update); }
+      media.addListener(update); return () => media.removeListener(update);
+    };
+    const offMotion = listen(motion);
+    const offDesktop = listen(desktop);
+    document.addEventListener("visibilitychange", visibility);
+    return () => { offMotion(); offDesktop(); document.removeEventListener("visibilitychange", visibility); };
   }, []);
 
+  const running = !paused && !hover && !focusWithin && !reduced && visible;
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setTimeout(() => setActive((i) => (i + 1) % campaigns.length), duration);
+    return () => window.clearTimeout(id);
+  }, [running, active]);
+
+  useEffect(() => {
+    const player = video.current;
+    if (!player) return;
+    if (desktopVideo && active === 0 && !paused && !reduced && visible) player.play().catch(() => {});
+    else player.pause();
+  }, [desktopVideo, active, paused, reduced, visible]);
+
+  const move = (delta) => setActive((i) => (i + delta + campaigns.length) % campaigns.length);
+  const select = (index) => setActive(index);
+  const onTouchStart = (event) => {
+    if (event.touches.length !== 1 || event.target.closest("button, a")) { touch.current = null; return; }
+    const point = event.touches[0];
+    touch.current = { x: point.clientX, y: point.clientY };
+  };
+  const onTouchEnd = (event) => {
+    const start = touch.current;
+    touch.current = null;
+    if (!start || !event.changedTouches.length) return;
+    const point = event.changedTouches[0];
+    const dx = point.clientX - start.x;
+    const dy = point.clientY - start.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.35) move(dx < 0 ? 1 : -1);
+  };
+
   return (
-    <section style={{ "--campaign-photo": `url("${campaignPhoto.src}")` }} className={`${styles.hero} relative flex min-h-0 sm:min-h-[90svh] items-center justify-center overflow-hidden bg-zinc-950 text-center text-white`}>
-      <div
-        className="pointer-events-none absolute -left-1/4 top-0 h-[70%] w-[70%] rounded-full bg-orange-500/15 blur-[120px]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-1/4 bottom-0 h-[50%] w-[50%] rounded-full bg-amber-400/10 blur-[100px]"
-        aria-hidden
-      />
-
-      {shouldPlayVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          poster="/hero-poster.jpg"
-          className="absolute left-1/2 top-0 z-0 max-w-none min-h-full min-w-full -translate-x-1/2 object-cover object-top opacity-35"
-        >
-          <source
-            src="https://www.secondskinmensworld.in/shirts.mov"
-            type="video/mp4"
-          />
-        </video>
-      ) : null}
-
-      <div className="absolute inset-0 z-[1] bg-gradient-to-b from-zinc-950/80 via-zinc-950/40 to-zinc-950" />
-      <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(249,115,22,0.12),transparent_55%)]" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 28 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-        data-campaign-copy
-        className="relative z-10 mx-auto w-full max-w-4xl px-5 pb-7 pt-20 max-sm:!transform-none max-sm:!opacity-100 sm:w-auto sm:px-8 sm:pb-0 sm:pt-16"
-      >
-        <p data-brand className="mb-3 text-[11px] sm:mb-5 font-semibold uppercase tracking-[0.4em] text-orange-400/90 sm:text-xs">
-          SecondSkin · est. Hyderabad
-        </p>
-        <h1 className="mb-5 sm:mb-6 bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-4xl font-light leading-[1.06] tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
-          Wear it like a{" "}<br data-break className="hidden" />
-          <span className="bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-medium italic text-transparent">
-            second skin
-          </span>
-          .
-        </h1>
-        <p data-description className="hidden sm:block mx-auto mb-10 max-w-xl text-[15px] leading-relaxed text-zinc-400 sm:text-lg md:text-xl">
-          Cloth chosen for the way it feels — quiet luxury for the way you
-          actually live.
-        </p>
-        <div data-actions className="flex flex-col items-center justify-center gap-3 sm:gap-5">
-          <Link href="/explore" className="inline-flex w-full sm:w-auto">
-            <motion.span
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3.5 text-base font-semibold text-zinc-950 sm:text-white shadow-lg shadow-orange-500/25 ring-1 ring-white/10 transition-shadow hover:shadow-orange-500/35 sm:w-auto"
-            >
-              Shop the collection
-              <ArrowRight className="h-5 w-5" aria-hidden />
-            </motion.span>
-          </Link>
-
-          <ul
-            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium tracking-wide text-zinc-300 sm:text-zinc-500 sm:text-xs"
-            aria-label="Shopping perks"
-          >
-            <li>Free shipping</li>
-            <li className="h-1 w-1 rounded-full bg-zinc-700" aria-hidden />
-            <li>7-day exchange</li>
-            <li className="h-1 w-1 rounded-full bg-zinc-700" aria-hidden />
-            <li>Cash on delivery</li>
-          </ul>
+    <section
+      className={styles.hero}
+      aria-label="SecondSkin featured collections"
+      aria-roledescription="carousel"
+      onPointerEnter={(event) => { if (event.pointerType === "mouse") setHover(true); }}
+      onPointerLeave={() => setHover(false)}
+      onFocusCapture={() => setFocusWithin(true)}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false); }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={() => { touch.current = null; }}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault(); move(event.key === "ArrowLeft" ? -1 : 1);
+        }
+      }}
+    >
+      <h1 className="sr-only">SecondSkin — curated fashion for men, women and kids</h1>
+      <div className={styles.stage}>
+        {campaigns.map((campaign, index) => {
+          const selected = index === active;
+          return (
+            <div key={campaign.id} className={styles.slide} data-active={selected} aria-hidden={!selected} inert={!selected}
+              role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${campaigns.length}: ${campaign.label}`}>
+              <div className={styles.photo}>
+                <Image src={campaign.image} alt="" fill sizes="(max-width: 640px) 56vw, (max-width: 1024px) 55vw, 50vw"
+                  priority={index === 0} loading={index === 0 ? undefined : "lazy"} className={styles.image} />
+                {index === 0 && desktopVideo && (
+                  <video ref={video} muted loop playsInline preload="metadata" aria-hidden="true"
+                    onCanPlay={() => setVideoReady(true)} onError={() => setVideoReady(false)}
+                    className={styles.video} data-ready={videoReady}>
+                    <source src="https://www.secondskinmensworld.in/shirts.mov" type="video/mp4" />
+                  </video>
+                )}
+              </div>
+              <div className={styles.copy}>
+                <p className={styles.eyebrow}>{campaign.label}</p>
+                <h2 className={styles.title}>{campaign.title}<br /><em>{campaign.accent}</em></h2>
+                <p className={styles.description}>{campaign.description}</p>
+                <Link href={campaign.href} className={styles.cta} prefetch={false}>
+                  {campaign.cta}<ArrowRight size={17} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className={styles.controls}>
+        <button type="button" className={styles.control} aria-label="Previous collection" onClick={() => move(-1)}><ChevronLeft size={20} /></button>
+        <div className={styles.dots} role="group" aria-label="Choose collection">
+          {campaigns.map((campaign, index) => (
+            <button type="button" className={styles.dot} key={campaign.id} aria-label={campaign.label}
+              aria-current={index === active ? "true" : undefined} onClick={() => select(index)}><span /></button>
+          ))}
         </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.6 }}
-        data-scroll
-        className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 sm:block"
-        aria-hidden
-      >
-        <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          className="flex flex-col items-center gap-1 text-zinc-500"
-        >
-          <span className="text-[10px] font-medium uppercase tracking-widest">
-            Scroll
-          </span>
-          <ChevronDown className="h-5 w-5 opacity-70" />
-        </motion.div>
-      </motion.div>
+        <button type="button" className={styles.control} aria-label="Next collection" onClick={() => move(1)}><ChevronRight size={20} /></button>
+        {!reduced && <button type="button" className={styles.control} aria-label={paused ? "Play carousel" : "Pause carousel"} onClick={() => setPaused((value) => !value)}>
+          {paused ? <Play size={16} /> : <Pause size={16} />}
+        </button>}
+      </div>
+      <span className="sr-only" aria-live={running ? "off" : "polite"}>{campaigns[active].label}</span>
     </section>
   );
-};
+}

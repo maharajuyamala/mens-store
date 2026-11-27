@@ -1,5 +1,7 @@
 "use client";
 
+import { ThemeControl } from "@/components/ThemeProvider";
+
 import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -167,6 +169,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="ml-auto flex items-center gap-1.5">
+            <ThemeControl compact />
             <Button
               asChild
               variant="ghost"

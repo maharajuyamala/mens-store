@@ -280,7 +280,7 @@ function ProductDetailContent({
         <p className="mt-2 text-muted-foreground">
           This link is missing a product id.
         </p>
-        <Button asChild className="mt-8 bg-orange-600 hover:bg-orange-500">
+        <Button asChild className="mt-8 bg-primary text-primary-foreground hover:bg-primary-hover">
           <Link href="/explore">Browse shop</Link>
         </Button>
       </div>
@@ -296,7 +296,7 @@ function ProductDetailContent({
           We couldn&apos;t load this product. It may have been removed or the
           link is incorrect.
         </p>
-        <Button asChild className="mt-8 bg-orange-600 hover:bg-orange-500">
+        <Button asChild className="mt-8 bg-primary text-primary-foreground hover:bg-primary-hover">
           <Link href="/explore">Back to shop</Link>
         </Button>
       </div>
@@ -641,7 +641,7 @@ function ProductDetailContent({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
               <Button
                 type="button"
-                className="h-12 w-full rounded-lg bg-orange-600 px-8 text-base font-semibold text-white hover:bg-orange-500 sm:w-auto sm:min-w-[min(100%,16rem)]"
+                className="h-12 w-full rounded-lg bg-primary px-8 text-base font-semibold text-primary-foreground hover:bg-primary-hover sm:w-auto sm:min-w-[min(100%,16rem)]"
                 data-add-to-cart
                 disabled={!canAdd}
                 onClick={addToCart}

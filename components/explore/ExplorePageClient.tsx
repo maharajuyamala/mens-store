@@ -127,23 +127,23 @@ function countActiveExploreFilters(
 
 export function ExploreShell() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-zinc-950 pb-24 pt-28 text-white">
+    <div className="relative min-h-screen overflow-hidden bg-background pb-24 pt-28 text-foreground">
       <div
         className="pointer-events-none absolute left-1/4 top-0 h-[40vh] w-[50vw] -translate-x-1/2 rounded-full bg-orange-500/8 blur-[100px]"
         aria-hidden
       />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mx-auto mb-8 max-w-xl space-y-3 text-center">
-          <Skeleton className="mx-auto h-3 w-24 rounded-full bg-zinc-800" />
-          <Skeleton className="mx-auto h-12 w-full max-w-md rounded-xl bg-zinc-800/90" />
-          <Skeleton className="mx-auto h-4 w-3/4 max-w-sm rounded-md bg-zinc-800/70" />
+          <Skeleton className="mx-auto h-3 w-24 rounded-full bg-muted" />
+          <Skeleton className="mx-auto h-12 w-full max-w-md rounded-xl bg-muted/90" />
+          <Skeleton className="mx-auto h-4 w-3/4 max-w-sm rounded-md bg-muted/70" />
         </div>
-        <Skeleton className="mx-auto mb-10 h-12 max-w-3xl rounded-2xl bg-zinc-800/60" />
+        <Skeleton className="mx-auto mb-10 h-12 max-w-3xl rounded-2xl bg-muted/60" />
         <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton
               key={i}
-              className="aspect-[3/4] rounded-2xl bg-zinc-800/80 ring-1 ring-white/5"
+              className="aspect-[3/4] rounded-2xl bg-muted/80 ring-1 ring-border"
             />
           ))}
         </div>
@@ -210,10 +210,10 @@ function FiltersBlock({
   };
 
   const sectionTitle =
-    "mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400";
+    "mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground";
 
   return (
-    <div className={cn("space-y-0 divide-y divide-zinc-800/70", className)}>
+    <div className={cn("space-y-0 divide-y divide-border", className)}>
       <div className="pb-6">
         <h3 className={sectionTitle}>
           <Filter className="h-3.5 w-3.5 text-orange-500" aria-hidden />
@@ -223,7 +223,7 @@ function FiltersBlock({
           {catOptions.map((c) => (
             <label
               key={c}
-              className="flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1.5 text-sm text-zinc-200 transition-colors hover:bg-white/5"
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1.5 text-sm text-foreground transition-colors hover:bg-muted/50"
             >
               <Checkbox
                 checked={categoriesSel.includes(c)}
@@ -243,7 +243,7 @@ function FiltersBlock({
           {EXPLORE_SIZES.map((s) => (
             <label
               key={s}
-              className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-zinc-200 transition-colors hover:bg-white/5"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-foreground transition-colors hover:bg-muted/50"
             >
               <Checkbox
                 checked={sizesSel.includes(s)}
@@ -259,7 +259,7 @@ function FiltersBlock({
 
       <div className="pb-6 pt-6">
         <h3 className={sectionTitle}>Price range</h3>
-        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-3 py-4">
+        <div className="rounded-xl border border-border bg-card/50 px-3 py-4">
           <Slider
             value={sliderValue}
             min={bounds[0]}
@@ -270,7 +270,7 @@ function FiltersBlock({
             onValueCommit={onPriceCommit}
             className="w-full"
           />
-          <div className="mt-3 flex justify-between font-medium tabular-nums text-xs text-zinc-400">
+          <div className="mt-3 flex justify-between font-medium tabular-nums text-xs text-muted-foreground">
             <span>{inr.format(sliderValue[0] ?? bounds[0])}</span>
             <span>{inr.format(sliderValue[1] ?? bounds[1])}</span>
           </div>
@@ -295,7 +295,7 @@ function FiltersBlock({
                     "size-10 rounded-full border-2 shadow-inner transition-transform hover:scale-105 active:scale-95",
                     on
                       ? "border-orange-500 ring-2 ring-orange-500/35"
-                      : "border-zinc-600 hover:border-zinc-500"
+                      : "border-border hover:border-border"
                   )}
                   style={{ backgroundColor: swatchColor(c) }}
                   aria-label={c}
@@ -308,10 +308,10 @@ function FiltersBlock({
       ) : null}
 
       <div className="pb-6 pt-6">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/90 bg-gradient-to-r from-zinc-900/80 to-zinc-900/40 px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-gradient-to-r from-card/80 to-card/40 px-4 py-3.5">
           <Label
             htmlFor="in-stock-only"
-            className="text-sm font-medium text-zinc-200"
+            className="text-sm font-medium text-foreground"
           >
             In stock only
           </Label>
@@ -332,7 +332,7 @@ function FiltersBlock({
         <Button
           type="button"
           variant="outline"
-          className="w-full border-zinc-700 bg-transparent text-zinc-200 hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-white"
+          className="w-full border-border bg-transparent text-foreground hover:border-orange-500/50 hover:bg-orange-500/10 hover:text-white"
           onClick={() =>
             replaceQuery((p) => {
               p.delete("category");
@@ -496,7 +496,7 @@ function ExploreCatalog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="relative min-h-screen overflow-x-hidden bg-zinc-950 pb-28 text-white"
+      className="relative min-h-screen overflow-x-hidden bg-background pb-28 text-foreground"
     >
       <div
         className="pointer-events-none absolute -left-32 top-24 h-72 w-72 rounded-full bg-orange-500/12 blur-[100px]"
@@ -518,14 +518,14 @@ function ExploreCatalog({
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="mb-10 text-center sm:mb-12"
         >
-          <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-orange-400/95">
+          <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-brand">
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             SecondSkin
           </p>
-          <h1 className="mx-auto max-w-4xl bg-gradient-to-b from-white via-white to-zinc-500 bg-clip-text text-3xl font-extrabold leading-[1.08] tracking-tight text-transparent md:text-5xl lg:text-6xl">
+          <h1 className="mx-auto max-w-4xl bg-gradient-to-b from-foreground via-foreground to-muted-foreground bg-clip-text text-3xl font-extrabold leading-[1.08] tracking-tight text-transparent md:text-5xl lg:text-6xl">
             Explore the collection
           </h1>
-          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-zinc-400 sm:text-base">
+          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
             Curated pieces — search, sort, and filter until something feels
             exactly right.
           </p>
@@ -538,11 +538,11 @@ function ExploreCatalog({
           transition={{ duration: 0.45, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
           className="mx-auto mb-6 w-full max-w-3xl sm:mb-12"
         >
-          <div className="rounded-2xl border border-white/10 bg-zinc-900/40 p-1.5 shadow-xl shadow-black/20 backdrop-blur-md sm:p-2">
+          <div className="rounded-2xl border border-border bg-card/40 p-1.5 shadow-xl shadow-black/20 backdrop-blur-md sm:p-2">
             <div className="flex flex-row items-stretch gap-2 sm:gap-3">
               <div className="relative min-w-0 flex-1">
                 <Search
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 sm:left-4"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground sm:left-4"
                   aria-hidden
                 />
                 <input
@@ -550,7 +550,7 @@ function ExploreCatalog({
                   placeholder="Search by name, style…"
                   value={searchDraft}
                   onChange={(e) => setSearchDraft(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-zinc-700/50 bg-zinc-950/80 py-2.5 pl-10 pr-3 text-base text-white shadow-inner placeholder:text-zinc-500 transition-all focus:border-orange-500/45 focus:outline-none focus:ring-2 focus:ring-orange-500/20 sm:pl-11 sm:pr-4 sm:text-sm"
+                  className="h-11 w-full rounded-xl border border-border bg-background/80 py-2.5 pl-10 pr-3 text-base text-foreground shadow-inner placeholder:text-muted-foreground transition-all focus:border-orange-500/45 focus:outline-none focus:ring-2 focus:ring-orange-500/20 sm:pl-11 sm:pr-4 sm:text-sm"
                   aria-label="Search products"
                 />
               </div>
@@ -561,15 +561,15 @@ function ExploreCatalog({
                     type="button"
                     variant="outline"
                     aria-label="Open filters"
-                    className="relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-0 rounded-xl border-orange-500/25 bg-gradient-to-b from-zinc-800/90 to-zinc-900/90 px-3 text-sm font-semibold text-zinc-100 shadow-sm transition-all hover:border-orange-500/45 hover:from-zinc-800 hover:to-zinc-900 hover:shadow-orange-500/10 sm:min-w-[120px] sm:justify-start sm:gap-2 sm:px-4"
+                    className="relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-0 rounded-xl border-orange-500/25 bg-gradient-to-b from-muted/90 to-card/90 px-3 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-orange-500/45 hover:from-muted hover:to-card hover:shadow-orange-500/10 sm:min-w-[120px] sm:justify-start sm:gap-2 sm:px-4"
                   >
                     <ListFilter
-                      className="h-4 w-4 shrink-0 text-orange-400"
+                      className="h-4 w-4 shrink-0 text-brand"
                       aria-hidden
                     />
                     <span className="hidden sm:inline">Filters</span>
                     {activeFilterCount > 0 ? (
-                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-orange-500/30 ring-2 ring-zinc-950">
+                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-orange-500/30 ring-2 ring-background">
                         {activeFilterCount > 9 ? "9+" : activeFilterCount}
                       </span>
                     ) : null}
@@ -577,13 +577,13 @@ function ExploreCatalog({
                 </SheetTrigger>
                 <SheetContent
                   side="right"
-                  className="flex h-full w-full max-w-[min(100vw,420px)] flex-col gap-0 border-l border-zinc-800/90 bg-zinc-950/98 p-0 text-white shadow-2xl shadow-black/60 backdrop-blur-xl sm:max-w-md"
+                  className="flex h-full w-full max-w-[min(100vw,420px)] flex-col gap-0 border-l border-border bg-background/98 p-0 text-foreground shadow-2xl shadow-black/60 backdrop-blur-xl sm:max-w-md"
                 >
-                  <SheetHeader className="shrink-0 space-y-1.5 border-b border-zinc-800/90 bg-zinc-950/50 px-6 pb-5 pt-7 pr-14 text-left">
-                    <SheetTitle className="text-xl font-semibold tracking-tight text-white">
+                  <SheetHeader className="shrink-0 space-y-1.5 border-b border-border bg-background/50 px-6 pb-5 pt-7 pr-14 text-left">
+                    <SheetTitle className="text-xl font-semibold tracking-tight text-foreground">
                       Filters
                     </SheetTitle>
-                    <SheetDescription className="text-left text-sm leading-relaxed text-zinc-500">
+                    <SheetDescription className="text-left text-sm leading-relaxed text-muted-foreground">
                       Refine by category, size, price, color, and availability.
                     </SheetDescription>
                   </SheetHeader>
@@ -604,7 +604,7 @@ function ExploreCatalog({
                         bounds={bounds}
                       />
                     ) : (
-                      <p className="text-sm text-zinc-500">No products yet.</p>
+                      <p className="text-sm text-muted-foreground">No products yet.</p>
                     )}
                   </div>
                 </SheetContent>
@@ -613,10 +613,10 @@ function ExploreCatalog({
           </div>
         </motion.div>
 
-        <div className="mb-6 flex flex-row items-center justify-between gap-3 border-b border-white/5 pb-6">
-          <p className="min-w-0 flex-1 text-xs leading-none tabular-nums text-zinc-500 sm:text-sm">
+        <div className="mb-6 flex flex-row items-center justify-between gap-3 border-b border-border pb-6">
+          <p className="min-w-0 flex-1 text-xs leading-none tabular-nums text-muted-foreground sm:text-sm">
             Showing{" "}
-            <span className="font-semibold text-zinc-200">
+            <span className="font-semibold text-foreground">
               {visible.length}
             </span>{" "}
             {visible.length === 1 ? "piece" : "pieces"}
@@ -634,11 +634,11 @@ function ExploreCatalog({
               <SelectTrigger
                 id="explore-audience"
                 size="sm"
-                className="h-7 w-[6.5rem] rounded-md border-zinc-700/80 bg-zinc-900/90 px-2 text-[11px] font-medium text-zinc-200 shadow-none backdrop-blur-sm transition-colors hover:border-zinc-600 sm:h-8 sm:w-[8rem] sm:px-2.5 sm:text-xs [&_svg]:size-3"
+                className="h-7 w-[6.5rem] rounded-md border-border bg-card/90 px-2 text-[11px] font-medium text-foreground shadow-none backdrop-blur-sm transition-colors hover:border-border sm:h-8 sm:w-[8rem] sm:px-2.5 sm:text-xs [&_svg]:size-3"
               >
                 <SelectValue placeholder="Department" />
               </SelectTrigger>
-              <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
+              <SelectContent className="border-border bg-card text-foreground">
                 <SelectItem value="all">All departments</SelectItem>
                 {PRODUCT_AUDIENCES.map((a) => (
                   <SelectItem key={a} value={a}>
@@ -660,11 +660,11 @@ function ExploreCatalog({
               <SelectTrigger
                 id="explore-sort"
                 size="sm"
-                className="h-7 w-[7.25rem] rounded-md border-zinc-700/80 bg-zinc-900/90 px-2 text-[11px] font-medium text-zinc-200 shadow-none backdrop-blur-sm transition-colors hover:border-zinc-600 sm:h-8 sm:w-[9.5rem] sm:px-2.5 sm:text-xs [&_svg]:size-3"
+                className="h-7 w-[7.25rem] rounded-md border-border bg-card/90 px-2 text-[11px] font-medium text-foreground shadow-none backdrop-blur-sm transition-colors hover:border-border sm:h-8 sm:w-[9.5rem] sm:px-2.5 sm:text-xs [&_svg]:size-3"
               >
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
-              <SelectContent className="border-zinc-700 bg-zinc-900 text-white">
+              <SelectContent className="border-border bg-card text-foreground">
                 <SelectItem value="newest">Newest</SelectItem>
                 <SelectItem value="price-asc">Price: low to high</SelectItem>
                 <SelectItem value="price-desc">Price: high to low</SelectItem>
@@ -679,7 +679,7 @@ function ExploreCatalog({
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="relative overflow-hidden rounded-2xl border border-dashed border-zinc-700/60 bg-gradient-to-b from-zinc-900/50 to-zinc-950/80 px-6 py-16 text-center sm:py-20"
+              className="relative overflow-hidden rounded-2xl border border-dashed border-border bg-gradient-to-b from-card/50 to-background/80 px-6 py-16 text-center sm:py-20"
             >
               <div
                 className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.06),transparent_65%)]"
@@ -687,12 +687,12 @@ function ExploreCatalog({
               />
               <div className="relative mx-auto max-w-md">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10">
-                  <Search className="h-6 w-6 text-orange-400/90" aria-hidden />
+                  <Search className="h-6 w-6 text-brand" aria-hidden />
                 </div>
-                <p className="text-xl font-semibold tracking-tight text-zinc-100 sm:text-2xl">
+                <p className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                   Nothing matches yet
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-500 sm:text-base">
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
                   Loosen a filter, widen the price range, or try another search.
                   Your choices stay in the URL so you can share or bookmark.
                 </p>
@@ -745,7 +745,7 @@ function ExploreCatalog({
           )}
         </div>
 
-        <div className="mt-16 border-t border-white/5 pt-10">
+        <div className="mt-16 border-t border-border pt-10">
           <RecentlyViewedSection variant="dark" />
         </div>
       </div>

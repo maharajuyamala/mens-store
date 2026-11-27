@@ -74,28 +74,28 @@ export default function SignUpPage() {
 
   if (loading || user) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 pt-24 pb-16">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-24 pb-16">
         <div className="w-full max-w-md space-y-4">
-          <Skeleton className="h-12 w-full rounded-xl bg-gray-800" />
-          <Skeleton className="h-56 w-full rounded-xl bg-gray-800" />
-          <Skeleton className="h-10 w-full rounded-lg bg-gray-800" />
+          <Skeleton className="h-12 w-full rounded-xl bg-muted" />
+          <Skeleton className="h-56 w-full rounded-xl bg-muted" />
+          <Skeleton className="h-10 w-full rounded-lg bg-muted" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 pt-24 pb-16">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-24 pb-16">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-md"
       >
-        <Card className="border-gray-800 bg-gray-900 text-white shadow-xl">
+        <Card className="border-border bg-card text-foreground shadow-xl">
           <CardHeader>
-            <CardTitle className="text-2xl text-white">Create account</CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardTitle className="text-2xl text-foreground">Create account</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Join SecondSkin with email or Google.
             </CardDescription>
           </CardHeader>
@@ -103,7 +103,7 @@ export default function SignUpPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full border-gray-600 bg-gray-950 text-white hover:bg-gray-800 hover:text-white"
+              className="w-full border-border bg-background text-foreground hover:bg-muted hover:text-foreground"
               onClick={handleGoogle}
               disabled={submitting || googleLoading}
             >
@@ -111,16 +111,16 @@ export default function SignUpPage() {
             </Button>
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-700" />
+                <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-gray-900 px-2 text-gray-500">Or</span>
+                <span className="bg-card px-2 text-muted-foreground">Or</span>
               </div>
             </div>
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-name" className="text-gray-300">
-                  Name <span className="text-gray-500">(optional)</span>
+                <Label htmlFor="signup-name" className="text-foreground">
+                  Name <span className="text-muted-foreground">(optional)</span>
                 </Label>
                 <Input
                   id="signup-name"
@@ -128,12 +128,12 @@ export default function SignUpPage() {
                   autoComplete="name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="border-gray-700 bg-gray-950 text-white placeholder:text-gray-500"
+                  className="border-border bg-background text-foreground placeholder:text-muted-foreground"
                   placeholder="Your name"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-email" className="text-gray-300">
+                <Label htmlFor="signup-email" className="text-foreground">
                   Email
                 </Label>
                 <Input
@@ -142,12 +142,12 @@ export default function SignUpPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="border-gray-700 bg-gray-950 text-white placeholder:text-gray-500"
+                  className="border-border bg-background text-foreground placeholder:text-muted-foreground"
                   placeholder="you@example.com"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-password" className="text-gray-300">
+                <Label htmlFor="signup-password" className="text-foreground">
                   Password
                 </Label>
                 <Input
@@ -156,7 +156,7 @@ export default function SignUpPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="border-gray-700 bg-gray-950 text-white placeholder:text-gray-500"
+                  className="border-border bg-background text-foreground placeholder:text-muted-foreground"
                   placeholder="At least 6 characters"
                 />
               </div>
@@ -168,7 +168,7 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 disabled={submitting || googleLoading}
-                className="w-full bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary-hover"
               >
                 {submitting ? (
                   "Creating account…"
@@ -180,19 +180,19 @@ export default function SignUpPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex flex-col gap-2 border-t border-gray-800 pt-6">
-            <p className="text-sm text-gray-400">
+          <CardFooter className="flex flex-col gap-2 border-t border-border pt-6">
+            <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link
                 href="/auth/sign-in"
-                className="font-medium text-orange-400 hover:underline"
+                className="font-medium text-brand hover:underline"
               >
                 Sign in
               </Link>
             </p>
             <Link
               href="/"
-              className="text-sm text-gray-500 hover:text-gray-300"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               ← Back to home
             </Link>

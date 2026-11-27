@@ -406,7 +406,7 @@ export default function CheckoutPage() {
           <span className="font-medium">{user.email}</span>.
         </p>
         <Button
-          className="mt-8 bg-orange-600 text-white hover:bg-orange-500"
+          className="mt-8 bg-primary text-primary-foreground hover:bg-primary-hover"
           onClick={() => {
             void resendVerificationEmail()
               .then(() => toast.success("Verification email sent"))
@@ -431,7 +431,7 @@ export default function CheckoutPage() {
         <p className="mt-2 text-muted-foreground">
           Your cart is empty. Add items before checking out.
         </p>
-        <Button asChild className="mt-8 bg-orange-600 text-white hover:bg-orange-500">
+        <Button asChild className="mt-8 bg-primary text-primary-foreground hover:bg-primary-hover">
           <Link href="/explore">Continue shopping</Link>
         </Button>
       </div>
@@ -605,7 +605,7 @@ export default function CheckoutPage() {
           ) : null}
           <Button
             type="submit"
-            className="bg-orange-600 text-white hover:bg-orange-500"
+            className="bg-primary text-primary-foreground hover:bg-primary-hover"
             disabled={isSubmitting || checkingPincode}
           >
             {checkingPincode ? (
@@ -762,7 +762,7 @@ export default function CheckoutPage() {
             </Button>
             <Button
               type="button"
-              className="bg-orange-600 text-white hover:bg-orange-500"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover"
               onClick={() => setStep(3)}
             >
               Continue to payment
@@ -863,7 +863,7 @@ export default function CheckoutPage() {
             </Button>
             <Button
               type="button"
-              className="bg-orange-600 text-white hover:bg-orange-500"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover"
               disabled={placing}
               onClick={() => void onPlaceOrder()}
             >
