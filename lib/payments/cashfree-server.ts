@@ -1,4 +1,5 @@
 import "server-only";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * Server-side wrapper around Cashfree PG (v3). We use the REST API directly via
@@ -209,4 +210,79 @@ export async function findSuccessfulPayment(
 ): Promise<CashfreePayment | null> {
   const payments = await listCashfreePayments(orderId);
   return payments.find((p) => p.paymentStatus === "SUCCESS") ?? null;
+}
+
+function getWebhookSecret(): string | null {
+  const s =
+    process.env.CASHFREE_WEBHOOK_SECRET?.trim() ||
+    process.env.CASHFREE_SECRET_KEY?.trim();
+  return s || null;
+}
+
+/**
+ * Verify a Cashfree PG webhook signature. Cashfree signs
+ * `base64(HMAC-SHA256(`${timestamp}${rawBody}`, secretKey))` and sends it in
+ * the `x-webhook-signature` header with `x-webhook-timestamp`.
+ *
+ * FAIL-CLOSED: returns false when no secret is configured or the signature /
+ * timestamp is missing or mismatched — so the webhook route rejects everything
+ * until CASHFREE_WEBHOOK_SECRET is set and verified against the sandbox.
+ */
+export function verifyCashfreeWebhookSignature(input: {
+  timestamp: string | null;
+  rawBody: string;
+  signature: string | null;
+}): boolean {
+  const secret = getWebhookSecret();
+  if (!secret || !input.signature || !input.timestamp) return false;
+  const payload = `${input.timestamp}${input.rawBody}`;
+  const expected = createHmac("sha256", secret)
+    .update(payload)
+    .digest("base64");
+  try {
+    const a = Buffer.from(expected);
+    const b = Buffer.from(input.signature);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+export type CashfreeRefundResult = {
+  refundId: string;
+  cfRefundId: string | number | null;
+  status: string;
+};
+
+/**
+ * POST /pg/orders/{order_id}/refunds — issue a (full or partial) refund.
+ * `orderId` is the MERCHANT order_id (sso_…). `refundId` must be unique and
+ * stable per refund so retries are idempotent on Cashfree's side.
+ */
+export async function refundCashfreePayment(input: {
+  orderId: string;
+  amountRupees: number;
+  refundId: string;
+  note?: string;
+}): Promise<CashfreeRefundResult> {
+  const data = await cashfreeFetch<Record<string, unknown>>(
+    `/orders/${encodeURIComponent(input.orderId)}/refunds`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        refund_amount: Number(input.amountRupees.toFixed(2)),
+        refund_id: input.refundId,
+        refund_note: input.note ?? "Refund",
+      }),
+    }
+  );
+  return {
+    refundId:
+      typeof data.refund_id === "string" ? data.refund_id : input.refundId,
+    cfRefundId:
+      (data.cf_refund_id as string | number | undefined) ?? null,
+    status:
+      typeof data.refund_status === "string" ? data.refund_status : "PENDING",
+  };
 }

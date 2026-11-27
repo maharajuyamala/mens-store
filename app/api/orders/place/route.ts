@@ -531,6 +531,21 @@ export async function POST(request: Request) {
     );
   }
 
+  // Mark the pending snapshot fulfilled so the reconciliation job treats this
+  // capture as resolved (prevents a false "orphaned payment" alert).
+  void db
+    .collection("pending_orders")
+    .doc(parsed.payment!.orderId)
+    .set(
+      {
+        status: "fulfilled",
+        fulfilledOrderId: orderRef.id,
+        fulfilledAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    )
+    .catch(() => {});
+
   // Fire-and-forget order confirmation email. No retry; if Resend errors, the
   // order itself still succeeded — admin can resend from the dashboard later.
   void (async () => {

@@ -72,7 +72,7 @@ type AppliedCouponState = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, resendVerificationEmail } = useAuth();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
 
@@ -269,6 +269,8 @@ export default function CheckoutPage() {
           },
           deliveryPincode: shippingAddress.pincode,
           mode: paymentMethod === "cod" ? "advance" : "full",
+          shippingAddress,
+          couponCode: appliedCoupon?.code ?? null,
         });
         paymentRef = {
           orderId: result.orderId,
@@ -388,6 +390,36 @@ export default function CheckoutPage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4 py-28">
         <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  // Require a verified email before taking payment. Google sign-ins are
+  // already verified; email/password accounts must confirm the link first.
+  if (user && !user.emailVerified) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-28 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Verify your email</h1>
+        <p className="mt-2 text-muted-foreground">
+          For your security, please verify your email before checking out. We
+          sent a verification link to{" "}
+          <span className="font-medium">{user.email}</span>.
+        </p>
+        <Button
+          className="mt-8 bg-orange-600 text-white hover:bg-orange-500"
+          onClick={() => {
+            void resendVerificationEmail()
+              .then(() => toast.success("Verification email sent"))
+              .catch(() =>
+                toast.error("Could not send verification email. Try again.")
+              );
+          }}
+        >
+          Resend verification email
+        </Button>
+        <p className="mt-4 text-sm text-muted-foreground">
+          After verifying, refresh this page to continue.
+        </p>
       </div>
     );
   }

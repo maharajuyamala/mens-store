@@ -75,10 +75,11 @@ service cloud.firestore {
 
     // Public newsletter signups (site banner)
     match /newsletter_subscribers/{docId} {
-      allow create: if request.resource.data.keys().hasAll(['email', 'createdAt'])
+      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt'])
         && request.resource.data.email is string
         && request.resource.data.email.size() >= 3
-        && request.resource.data.email.size() <= 320;
+        && request.resource.data.email.size() <= 320
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
       allow read, update, delete: if isAdmin();
     }
 
@@ -254,6 +255,14 @@ service cloud.firestore {
       // isAdmin(). Direct client stock mutation is no longer permitted — this
       // closes the inventory-griefing hole (clientInventoryDecrement removed).
       allow create, update, delete: if isAdmin();
+    }
+
+    // Pre-payment order snapshots, written server-side via the Admin SDK at
+    // /api/payments/cashfree/create-order. Admins read them to resolve orphaned
+    // captures (paid but no order). Clients have no access.
+    match /pending_orders/{orderId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /{document=**} {
