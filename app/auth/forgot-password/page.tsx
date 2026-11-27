@@ -100,7 +100,7 @@ export default function ForgotPasswordPage() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-orange-600 text-white hover:bg-orange-500"
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary-hover"
                 >
                   {submitting ? (
                     "Sending…"

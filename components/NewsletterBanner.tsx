@@ -106,7 +106,7 @@ export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }
           />
           <Button
             type="submit"
-            className="shrink-0 bg-orange-600 text-white hover:bg-orange-500"
+            className="shrink-0 bg-primary text-primary-foreground hover:bg-primary-hover"
             disabled={pending}
           >
             {pending ? "…" : "Subscribe"}

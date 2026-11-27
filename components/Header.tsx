@@ -146,7 +146,7 @@ export function Header() {
         </motion.nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
-          <ThemeControl className="hidden md:inline-flex" />
+          <ThemeControl compact className="hidden md:inline-flex" />
           <motion.button
             type="button"
             whileHover={{ scale: 1.1 }}
@@ -192,7 +192,7 @@ export function Header() {
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.5, opacity: 0 }}
                   transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                  className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold leading-none text-white shadow-md"
+                  className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground shadow-md"
                 >
                   {cartCount > 99 ? "99+" : cartCount}
                 </motion.span>
@@ -323,7 +323,7 @@ export function Header() {
                           className={cn(
                             "group flex items-center gap-3.5 rounded-xl border px-2.5 py-3 transition-all duration-200",
                             active
-                              ? "border-orange-500/35 bg-orange-500/[0.12] text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
+                              ? "border-orange-500/35 bg-primary/12 text-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
                               : "border-transparent bg-muted/50 text-foreground hover:border-border hover:bg-muted/50"
                           )}
                         >
@@ -411,7 +411,7 @@ export function Header() {
                               className={cn(
                                 "group flex items-center gap-3.5 rounded-xl border px-2.5 py-3 transition-all duration-200",
                                 active
-                                  ? "border-orange-500/35 bg-orange-500/[0.12] text-white"
+                                  ? "border-orange-500/35 bg-primary/12 text-foreground"
                                   : "border-transparent bg-muted/50 text-foreground hover:border-orange-500/20 hover:bg-orange-500/[0.07]"
                               )}
                             >
@@ -471,7 +471,7 @@ export function Header() {
                     </span>
                   </span>
                   {cartCount > 0 ? (
-                    <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 px-2 text-xs font-bold text-white shadow-lg shadow-orange-500/25">
+                    <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-primary-foreground shadow-lg shadow-orange-500/25">
                       {cartCount > 99 ? "99+" : cartCount}
                     </span>
                   ) : (

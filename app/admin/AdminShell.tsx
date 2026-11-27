@@ -169,7 +169,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="ml-auto flex items-center gap-1.5">
-            <ThemeControl />
+            <ThemeControl compact />
             <Button
               asChild
               variant="ghost"

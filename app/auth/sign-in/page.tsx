@@ -229,7 +229,7 @@ function SignInPageInner() {
               <Button
                 type="submit"
                 disabled={submitting || googleLoading}
-                className="h-11 w-full rounded-xl bg-orange-600 text-[15px] font-medium text-white shadow-md shadow-orange-900/30 transition-colors hover:bg-orange-500 disabled:opacity-70"
+                className="h-11 w-full rounded-xl bg-primary text-[15px] font-medium text-primary-foreground shadow-md shadow-orange-900/30 transition-colors hover:bg-primary-hover disabled:opacity-70"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

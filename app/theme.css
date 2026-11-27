@@ -90,12 +90,11 @@
   --info-surface: #20364b;
   --brand-300: #f3cca6;
   --brand-400: #efb87e;
-  --brand-500: #c9894e;
   --brand: var(--tertiary);
   --catalog-price: var(--tertiary);
   --catalog-action: var(--primary);
   --catalog-action-text: var(--primary-foreground);
-  /* Near-black zinc store + admin shell */
+  /* Warm charcoal store and admin surfaces. */
   --background: #171614;
   --foreground: #faf4e9;
   --card: #211f1b;

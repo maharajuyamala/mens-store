@@ -50,7 +50,7 @@ export function CartDrawer() {
                 Add something you love — we&apos;ll hold it here.
               </p>
             </div>
-            <Button asChild className="bg-orange-600 text-white hover:bg-orange-500">
+            <Button asChild className="bg-primary text-primary-foreground hover:bg-primary-hover">
               <Link href="/explore" onClick={() => onOpenChange(false)}>
                 Continue shopping
               </Link>
@@ -157,7 +157,7 @@ export function CartDrawer() {
               </div>
               <Button
                 asChild
-                className="mt-4 w-full bg-orange-600 text-white hover:bg-orange-500"
+                className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary-hover"
                 size="lg"
               >
                 <Link href="/checkout" onClick={() => onOpenChange(false)}>

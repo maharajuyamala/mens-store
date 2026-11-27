@@ -168,7 +168,7 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 disabled={submitting || googleLoading}
-                className="w-full bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary-hover"
               >
                 {submitting ? (
                   "Creating account…"

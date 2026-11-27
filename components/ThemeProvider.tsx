@@ -53,8 +53,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <Context.Provider value={{ preference, resolved, setPreference }}>{children}</Context.Provider>;
 }
 export const useTheme = () => useContext(Context);
-export function ThemeControl({ className }: { className?: string }) {
+export function ThemeControl({ className, compact = false }: { className?: string; compact?: boolean }) {
   const { preference, setPreference } = useTheme();
+  if (compact) {
+    const Icon = preference === "light" ? Sun : preference === "dark" ? Moon : Monitor;
+    return (
+      <div className={cn("relative inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-foreground focus-within:ring-2 focus-within:ring-ring", className)}>
+        <Icon className="size-4 pointer-events-none" aria-hidden="true" />
+        <select aria-label="Color theme" title="Color theme" value={preference}
+          onChange={(event) => setPreference(event.target.value as Preference)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+          <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
+        </select>
+      </div>
+    );
+  }
   return (
     <div role="group" aria-label="Color theme" className={cn("inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 p-0.5", className)}>
       {([{ value: "light", label: "Light", Icon: Sun }, { value: "dark", label: "Dark", Icon: Moon }, { value: "system", label: "System", Icon: Monitor }] as const).map(({ value, label, Icon }) => (
