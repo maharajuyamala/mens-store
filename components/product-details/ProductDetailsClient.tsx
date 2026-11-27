@@ -336,7 +336,7 @@ function ProductDetailContent({
 
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
           <div>
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-muted">
               <AnimatePresence mode="wait">
                 {mainSrc ? (
                   <motion.div

@@ -77,10 +77,10 @@ function getClient(): GoogleGenAI {
 }
 
 const SUBJECT_PHRASE: Record<ModelSubject, string> = {
-  man: "a handsome young adult Indian man with natural Indian features and fair, light (white) skin tone",
-  woman: "a beautiful young adult Indian woman with natural Indian features and fair, light (white) skin tone",
-  boy: "a cute Indian boy (child model) with natural Indian features and fair, light (white) skin tone",
-  girl: "a cute Indian girl (child model) with natural Indian features and fair, light (white) skin tone",
+  man: "a good-looking young adult Indian man with authentic Indian features and a slightly fair, light wheatish skin tone — a natural, realistic Indian complexion (not pale white, not dark)",
+  woman: "a good-looking young adult Indian woman with authentic Indian features and a slightly fair, light wheatish skin tone — a natural, realistic Indian complexion (not pale white, not dark)",
+  boy: "a cute Indian boy (child model) with authentic Indian features and a slightly fair, light wheatish skin tone — a natural, realistic Indian complexion",
+  girl: "a cute Indian girl (child model) with authentic Indian features and a slightly fair, light wheatish skin tone — a natural, realistic Indian complexion",
 };
 
 /**
@@ -134,8 +134,8 @@ function framingInstruction(itemSelection?: string): string {
 /**
  * Build the editing prompt: dress an Indian model in the supplied garment,
  * placed in a warm boutique / heritage-courtyard scene whose palette
- * harmonises with the garment, framed as a square (1:1) product shot with the
- * full hero garment always visible. The composition mirrors the admin's
+ * harmonises with the garment, framed as a consistent 3:4 portrait product
+ * shot with the full hero garment always visible. The composition mirrors the admin's
  * hand-picked reference shots: model centered vertically, real props (plants,
  * wooden furniture, heritage arches) flanking symmetrically left and right.
  */
@@ -155,7 +155,7 @@ export function buildModelPrompt(
     `SCENE: place the model inside ${scene}. The scene MUST include real, tactile props — potted plants, wooden or rattan furniture, ceramic/terracotta planters, or heritage architectural details — arranged SYMMETRICALLY so that something visually anchors both the LEFT AND the RIGHT of the model (for example a plant on one side and a small console or a second planter on the other), framing the person like a curated boutique portrait. Absolutely no plain studio backdrop, no empty seamless wall, no random street.`,
     "BACKGROUND PALETTE MUST HARMONISE WITH THE GARMENT: read the garment's dominant colours from the source image and tune the wall tone, plant pots, wood tones and any decor so the whole scene sits in the same warm tonal family as the outfit (e.g. terracotta / warm stone tones for red or ethnic-Indian garments, warm cream + fresh greenery for green or floral garments, warm off-white + wood + greenery for brown / earthy casuals, soft neutral cream for pastels). The background should feel intentionally styled around the outfit, not random.",
     "LIGHTING: warm, soft, natural mid-morning daylight coming from one side, with gentle realistic shadows on the ground behind and beside the model. Slight, tasteful depth-of-field — the flanking props remain clearly readable, NOT heavily blurred.",
-    "Output a sharp, high-resolution SQUARE image with a strict 1:1 aspect ratio (equal width and height). The model is centered horizontally with a little breathing room on all sides, and the full hero garment must fit comfortably inside this square frame — do not crop the garment to fit.",
+    "OUTPUT FORMAT — must be IDENTICAL for every product so the whole catalogue looks uniform: a sharp, photo-realistic VERTICAL PORTRAIT image with a strict 3:4 aspect ratio (width:height = 3 is to 4, clearly taller than it is wide). Use this exact 3:4 portrait framing every single time. The model is centred horizontally with a little headroom above the head and a little space below the lowest garment, and the COMPLETE hero garment fits comfortably inside the frame — never crop the garment to fit.",
   ];
   if (opts?.extra && opts.extra.trim()) {
     base.push(`Additional instructions: ${opts.extra.trim()}.`);
