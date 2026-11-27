@@ -27,7 +27,8 @@ export function ExploreProductCard({
   const [addedFlash, setAddedFlash] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hasHovered, setHasHovered] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
   const toggleWishlist = useWishlistStore((s) => s.toggle);
@@ -69,20 +70,15 @@ export function ExploreProductCard({
   };
 
   useEffect(() => {
-    if (!hasMultiple) return;
-    if (isHovered) {
-      intervalRef.current = setInterval(() => {
-        setActiveIndex((i) => (i + 1) % images.length);
-      }, 900);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      const t = setTimeout(() => setActiveIndex(0), 400);
-      return () => clearTimeout(t);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isHovered, hasMultiple, images.length]);
+    if (!hasMultiple || !isHovered || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Preview the next photo once, rather than running a carousel on every hovered card.
+    const timer = window.setTimeout(() => setActiveIndex(1), 220);
+    return () => window.clearTimeout(timer);
+  }, [isHovered, hasMultiple]);
+
+  useEffect(() => () => {
+    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+  }, []);
 
   const onQuick = useCallback(
     (e: React.MouseEvent) => {
@@ -91,7 +87,8 @@ export function ExploreProductCard({
       if (!onQuickAdd) return;
       onQuickAdd(product);
       setAddedFlash(true);
-      window.setTimeout(() => setAddedFlash(false), 1400);
+      if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+      flashTimeoutRef.current = setTimeout(() => setAddedFlash(false), 1400);
     },
     [onQuickAdd, product]
   );
@@ -126,8 +123,13 @@ export function ExploreProductCard({
         "hover:-translate-y-0.5 hover:border-orange-500/25 hover:shadow-[0_16px_40px_-12px_rgba(249,115,22,0.22)]",
         className
       )}
-      onPointerEnter={(event) => setIsHovered(event.pointerType === "mouse")}
-      onPointerLeave={() => setIsHovered(false)}
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") { setHasHovered(true); setIsHovered(true); }
+      }}
+      onPointerLeave={() => {
+        if (isHovered) setActiveIndex(0);
+        setIsHovered(false);
+      }}
     >
       <div data-card-photo className="pointer-events-none relative aspect-[3/4] w-full bg-zinc-950">
         {/* Hit target + swipe — auto pointer-events above none parent */}
@@ -151,14 +153,15 @@ export function ExploreProductCard({
               const prevIdx = (activeIndex - 1 + images.length) % images.length;
               const shouldRender =
                 i === activeIndex ||
+                (hasHovered && i < 2) ||
                 (isHovered && (i === nextIdx || i === prevIdx));
               if (!shouldRender) return null;
               return (
                 <div
                   key={`${src}-${i}`}
                   className={cn(
-                    "absolute inset-0 transition-opacity duration-500 ease-out",
-                    i === activeIndex ? "z-0 opacity-100" : "z-0 opacity-0"
+                    "absolute inset-0 motion-safe:transition-opacity motion-safe:duration-300 ease-out",
+                    i === activeIndex ? "z-[1] opacity-100" : "z-0 opacity-0"
                   )}
                 >
                   <ProductImage
@@ -171,8 +174,7 @@ export function ExploreProductCard({
                     }
                     fill
                     className={cn(
-                      "object-cover object-top transition-transform duration-700 ease-out will-change-transform",
-                      isHovered && i === activeIndex && "scale-[1.03]"
+                      "object-cover object-top"
                     )}
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     priority={imagePriority && i === 0}
@@ -196,7 +198,7 @@ export function ExploreProductCard({
         {/* Added feedback — no extra footer space */}
         {addedFlash ? (
           <div className="pointer-events-none absolute left-1/2 top-12 z-[25] -translate-x-1/2 rounded-full border border-emerald-500/40 bg-emerald-600/95 px-3 py-1 text-[11px] font-semibold text-white shadow-lg backdrop-blur-sm">
-            Added to bag
+            <span data-motion-confirm="true" className="inline-block">Added to bag</span>
           </div>
         ) : null}
 
@@ -239,6 +241,7 @@ export function ExploreProductCard({
             toggleWishlist(product.doc_id);
           }}
           data-save
+          data-motion-tap
           aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
           aria-pressed={inWishlist}
           className={cn(
@@ -250,6 +253,7 @@ export function ExploreProductCard({
           )}
         >
           <Heart
+            data-motion-confirm={inWishlist}
             className={cn(
               "size-3.5 transition-transform active:scale-90 sm:size-4",
               inWishlist && "fill-orange-400 text-orange-300"
@@ -272,14 +276,7 @@ export function ExploreProductCard({
                   e.preventDefault();
                   e.stopPropagation();
                   setActiveIndex(i);
-                  if (intervalRef.current) clearInterval(intervalRef.current);
-                  if (isHovered) {
-                    intervalRef.current = setInterval(
-                      () =>
-                        setActiveIndex((idx) => (idx + 1) % images.length),
-                      900
-                    );
-                  }
+
                 }}
                 aria-label={`View image ${i + 1}`}
                 className={cn(
@@ -346,6 +343,7 @@ export function ExploreProductCard({
           <button
             type="button"
             onClick={onQuick}
+            data-motion-tap
             disabled={isOut}
             className={cn(
               "flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold shadow-lg transition-all active:scale-[0.98] sm:gap-2 sm:py-2.5 sm:text-sm",
@@ -356,7 +354,7 @@ export function ExploreProductCard({
                   : "bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-110"
             )}
           >
-            <ShoppingBag className="size-3.5 shrink-0 opacity-95 sm:size-4" />
+            <ShoppingBag data-motion-confirm={addedFlash} className="size-3.5 shrink-0 opacity-95 sm:size-4" />
             {addedFlash ? "Added ✓" : isOut ? "Unavailable" : "Quick add"}
           </button>
         </div>

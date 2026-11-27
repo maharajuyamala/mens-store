@@ -7,9 +7,11 @@ import { ProductImage, ProductImagePlaceholder } from "@/components/ProductImage
 import { imageKitLoaderFor } from "@/lib/uploads/imagekit-loader";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Reveal } from "@/components/motion/Reveal";
 import {
   Check,
+  ChevronDown,
   ChevronRight,
   Copy,
   Heart,
@@ -93,6 +95,7 @@ function ProductDetailContent({
   initialRelated,
 }: ProductDetailsClientProps) {
   const searchParams = useSearchParams();
+  const reducedMotion = useReducedMotion();
   const product = useMemo(() => {
     if (!productId || !initialProductData) return null;
     return parseProductDetail(productId, initialProductData as DocumentData);
@@ -311,7 +314,7 @@ function ProductDetailContent({
   return (
     <div className={cn(styles.detail, "min-h-screen bg-background pt-24 pb-16")}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <nav
+        <nav data-motion-enter
           className="mb-8 flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
           aria-label="Breadcrumb"
         >
@@ -332,9 +335,9 @@ function ProductDetailContent({
         </nav>
 
         <div data-detail-layout className="grid gap-10 lg:grid-cols-2 lg:gap-12">
-          <div>
+          <div data-motion-enter>
             <div data-main-photo className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
-              <AnimatePresence initial={false} mode="wait">
+              <AnimatePresence initial={false} mode="sync">
                 {mainSrc ? (
                   <motion.div
                     key={mainSrc}
@@ -342,7 +345,7 @@ function ProductDetailContent({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    transition={{ duration: reducedMotion ? 0 : 0.24, ease: "easeOut" }}
                   >
                     <ProductImage
                       src={mainSrc}
@@ -362,7 +365,7 @@ function ProductDetailContent({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: reducedMotion ? 0 : 0.18 }}
                   >
                     <ProductImagePlaceholder />
                   </motion.div>
@@ -376,6 +379,7 @@ function ProductDetailContent({
                     key={`${src}-${i}`}
                     type="button"
                     onClick={() => setMainIndex(i)}
+                    data-motion-tap
                     className={cn(
                       "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors",
                       i === mainIndex
@@ -400,7 +404,7 @@ function ProductDetailContent({
           </div>
 
           <div className="space-y-6">
-            <div>
+            <div data-motion-enter style={{ "--motion-delay": "45ms" } as React.CSSProperties}>
               <div data-product-heading className="flex items-start justify-between gap-3">
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                   {product.name}
@@ -428,7 +432,7 @@ function ProductDetailContent({
                     aria-label={`Variant code ${activeCode} — tap to copy`}
                   >
                     {codeCopied ? (
-                      <Check className="h-3.5 w-3.5" />
+                      <Check data-motion-confirm="true" className="h-3.5 w-3.5" />
                     ) : (
                       <Copy className="h-3.5 w-3.5 opacity-70" />
                     )}
@@ -455,7 +459,7 @@ function ProductDetailContent({
               </div>
             </div>
 
-            <div
+            <div data-motion-enter
               className={cn(
                 "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium",
                 product.stockStatus === "out_of_stock" &&
@@ -471,7 +475,7 @@ function ProductDetailContent({
             </div>
 
             {product.sizes.length > 0 ? (
-              <div>
+              <div data-motion-enter>
                 <div className="mb-2 flex items-baseline gap-2">
                   <p className="text-sm font-medium">Size</p>
                   {product.colorVariants.length > 0 && selectedColor ? (
@@ -493,6 +497,7 @@ function ProductDetailContent({
                         type="button"
                         disabled={disabled}
                         data-size
+                        data-motion-tap
                         aria-pressed={selectedSize === s}
                         onClick={() => setSelectedSize(s)}
                         title={
@@ -508,7 +513,7 @@ function ProductDetailContent({
                             "cursor-not-allowed opacity-40 line-through",
                           !disabled &&
                             selectedSize === s &&
-                            "border-orange-500 bg-orange-500 text-white",
+                            "border-primary bg-primary text-primary-foreground",
                           !disabled &&
                             selectedSize !== s &&
                             "border-border hover:border-orange-500/50"
@@ -523,7 +528,7 @@ function ProductDetailContent({
             ) : null}
 
             {product.colors.length > 0 ? (
-              <div>
+              <div data-motion-enter>
                 <div className="mb-2 flex items-baseline gap-2">
                   <p className="text-sm font-medium">Color</p>
                   {selectedColor ? (
@@ -561,6 +566,8 @@ function ProductDetailContent({
                         key={c}
                         type="button"
                         onClick={() => setSelectedColor(c)}
+                        data-color-option
+                        data-motion-tap
                         className={cn(
                           "relative h-10 w-10 rounded-full border transition-colors",
                           // Neutral border for every state — no orange highlight.
@@ -578,7 +585,7 @@ function ProductDetailContent({
                             aria-hidden
                             className="pointer-events-none absolute inset-0 flex items-center justify-center"
                           >
-                            <Check
+                            <Check data-motion-confirm="true"
                               className={cn(
                                 "h-5 w-5",
                                 light ? "text-zinc-900" : "text-white",
@@ -607,13 +614,14 @@ function ProductDetailContent({
               </div>
             ) : null}
 
-            <div>
+            <div data-motion-enter>
               <p className="mb-2 text-sm font-medium">Quantity</p>
               <div className="flex w-fit items-center gap-3 rounded-full border border-border px-2 py-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
+                  data-motion-tap
                   className="h-9 w-9 rounded-full"
                   disabled={qty <= 1 || maxQty <= 0}
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -621,13 +629,14 @@ function ProductDetailContent({
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span className="min-w-[2ch] text-center text-lg font-semibold tabular-nums">
-                  {qty}
+                <span aria-live="polite" className="min-w-[2ch] text-center text-lg font-semibold tabular-nums">
+                  <span key={qty} data-motion-count className="inline-block">{qty}</span>
                 </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
+                  data-motion-tap
                   className="h-9 w-9 rounded-full"
                   disabled={qty >= maxQty || maxQty <= 0}
                   onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
@@ -638,11 +647,12 @@ function ProductDetailContent({
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+            <div data-motion-enter className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
               <Button
                 type="button"
                 className="h-12 w-full rounded-lg bg-primary px-8 text-base font-semibold text-primary-foreground hover:bg-primary-hover sm:w-auto sm:min-w-[min(100%,16rem)]"
                 data-add-to-cart
+                data-motion-tap
                 disabled={!canAdd}
                 onClick={addToCart}
               >
@@ -658,12 +668,13 @@ function ProductDetailContent({
                     "border-orange-500 bg-orange-500/10 text-orange-600"
                 )}
                 onClick={toggleWishlist}
+                data-motion-tap
                 aria-pressed={inWishlist}
                 aria-label={
                   inWishlist ? "Remove from wishlist" : "Add to wishlist"
                 }
               >
-                <Heart
+                <Heart data-motion-confirm={inWishlist}
                   className={cn(
                     "mr-2 h-5 w-5",
                     inWishlist && "fill-current"
@@ -672,9 +683,10 @@ function ProductDetailContent({
                 Wishlist
               </Button>
             </div>
-            <div className="border-t border-border pt-6">
+            <Reveal className="border-t border-border pt-6">
               <h2 className="text-lg font-semibold">Description</h2>
-              <div
+              <div key={String(descOpen)} data-motion-description
+                id="product-description"
                 className={cn(
                   "mt-2 text-muted-foreground leading-relaxed whitespace-pre-wrap",
                   !descOpen && descLong && "line-clamp-4"
@@ -686,26 +698,33 @@ function ProductDetailContent({
                 <button
                   type="button"
                   onClick={() => setDescOpen((o) => !o)}
-                  className="mt-2 text-sm font-semibold text-orange-600 hover:text-orange-500 dark:text-orange-400"
+                  aria-expanded={descOpen}
+                  aria-controls="product-description"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand"
                 >
                   {descOpen ? "Show less" : "Read more"}
+                  <ChevronDown data-description-chevron size={15} aria-hidden="true" />
                 </button>
               ) : null}
-            </div>
+            </Reveal>
           </div>
         </div>
 
         {related.length > 0 ? (
           <section className="mt-16 border-t border-border pt-12">
+            <Reveal>
             <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
               You may also like
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               More from {categoryLabel}
             </p>
+            </Reveal>
             <div data-related className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {related.map((p) => (
-                <ExploreProductCard className={styles.card} key={p.doc_id} product={p} />
+              {related.map((p, i) => (
+                <Reveal key={p.doc_id} delay={(i % 4) * 45} className="min-w-0 h-full">
+                  <ExploreProductCard className={styles.card} product={p} />
+                </Reveal>
               ))}
             </div>
           </section>

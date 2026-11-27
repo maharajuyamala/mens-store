@@ -116,3 +116,21 @@
 .card [data-card-price] > :not(:first-child) { color: var(--muted-foreground); }
 .card [data-card-caption] span[title] { outline: 1px solid var(--border); }
 .card [data-card-caption] span:not([title]):not([class*="tabular-nums"]) { color: var(--muted-foreground); }
+
+/* Short interactions; no photo scaling or crop changes. */
+@media (prefers-reduced-motion: no-preference) {
+  .card [data-save], .card [data-quick-add] button { transition: transform 180ms var(--motion-ease), color 180ms ease, background-color 180ms ease, border-color 180ms ease; }
+  .card [data-save]:active, .card [data-quick-add] button:not(:disabled):active { transform: scale(.96); }
+  .detail [data-thumbnails] button, .detail [data-size], .detail [data-color-option] { transition: transform 180ms var(--motion-ease), border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease; }
+  .detail [data-color-option][aria-pressed="true"] { box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring); }
+  .detail [data-description-chevron] { transition: transform 200ms var(--motion-ease); }
+  .detail [aria-expanded="true"] [data-description-chevron] { transform: rotate(180deg); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .card [data-card-caption] h3 a { transition: color 180ms ease; }
+  .card:hover [data-card-caption] h3 a { color: var(--tertiary); }
+  .detail [data-thumbnails] button:hover, .detail [data-size]:not(:disabled):hover { transform: translateY(-1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card [data-card-photo] *, .detail [data-thumbnails] button, .detail [data-size], .detail [data-color-option] { transition: none !important; }
+}

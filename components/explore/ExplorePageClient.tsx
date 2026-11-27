@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, ListFilter, Search, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { Reveal } from "@/components/motion/Reveal";
 import styles from "./MobileProduct.module.css";
 import { ExploreProductCard } from "@/components/explore/ExploreProductCard";
 import { Button } from "@/components/ui/button";
@@ -492,10 +492,7 @@ function ExploreCatalog({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+    <div
       className="relative min-h-screen overflow-x-hidden bg-background pb-28 text-foreground"
     >
       <div
@@ -512,10 +509,7 @@ function ExploreCatalog({
       />
 
       <div className="relative mx-auto max-w-7xl px-4 pt-28 sm:px-6">
-        <motion.header
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        <header data-motion-enter
           className="mb-10 text-center sm:mb-12"
         >
           <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-brand">
@@ -530,12 +524,9 @@ function ExploreCatalog({
             exactly right.
           </p>
           <div className="mx-auto mt-3 h-px w-16 bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
-        </motion.header>
+        </header>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+        <div data-motion-enter style={{ "--motion-delay": "60ms" } as React.CSSProperties}
           className="mx-auto mb-6 w-full max-w-3xl sm:mb-12"
         >
           <div className="rounded-2xl border border-border bg-card/40 p-1.5 shadow-xl shadow-black/20 backdrop-blur-md sm:p-2">
@@ -560,6 +551,7 @@ function ExploreCatalog({
                   <Button
                     type="button"
                     variant="outline"
+                    data-motion-tap
                     aria-label="Open filters"
                     className="relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-0 rounded-xl border-orange-500/25 bg-gradient-to-b from-muted/90 to-card/90 px-3 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-orange-500/45 hover:from-muted hover:to-card hover:shadow-orange-500/10 sm:min-w-[120px] sm:justify-start sm:gap-2 sm:px-4"
                   >
@@ -611,12 +603,12 @@ function ExploreCatalog({
               </Sheet>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <div className="mb-6 flex flex-row items-center justify-between gap-3 border-b border-border pb-6">
+        <div data-motion-enter className="mb-6 flex flex-row items-center justify-between gap-3 border-b border-border pb-6">
           <p className="min-w-0 flex-1 text-xs leading-none tabular-nums text-muted-foreground sm:text-sm">
             Showing{" "}
-            <span className="font-semibold text-foreground">
+            <span key={visible.length} data-motion-count className="inline-block font-semibold text-foreground">
               {visible.length}
             </span>{" "}
             {visible.length === 1 ? "piece" : "pieces"}
@@ -676,9 +668,7 @@ function ExploreCatalog({
 
         <div className="min-w-0">
           {visible.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
+            <div data-motion-enter
               className="relative overflow-hidden rounded-2xl border border-dashed border-border bg-gradient-to-b from-card/50 to-background/80 px-6 py-16 text-center sm:py-20"
             >
               <div
@@ -698,7 +688,7 @@ function ExploreCatalog({
                 </p>
                 <Button
                   type="button"
-                  className="mt-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 font-semibold text-white shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-amber-400"
+                  data-motion-tap className="mt-8 rounded-full bg-primary px-8 font-semibold text-primary-foreground hover:bg-primary-hover"
                   onClick={() =>
                     replaceQuery((p) => {
                       p.delete("category");
@@ -715,22 +705,15 @@ function ExploreCatalog({
                   Reset everything
                 </Button>
               </div>
-            </motion.div>
+            </div>
           ) : (
-            <motion.div
-              layout
+            <div
               className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3 lg:gap-6"
             >
               {visible.map((p, i) => (
-                <motion.div
+                <Reveal
                   key={p.doc_id}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.4,
-                    delay: Math.min(i * 0.04, 0.4),
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
+                  delay={(i % 3) * 45}
                   className="min-h-0 h-full"
                 >
                   <ExploreProductCard
@@ -739,9 +722,9 @@ function ExploreCatalog({
                     onQuickAdd={onQuickAdd}
                     imagePriority={i < 6}
                   />
-                </motion.div>
+                </Reveal>
               ))}
-            </motion.div>
+            </div>
           )}
         </div>
 
@@ -749,7 +732,7 @@ function ExploreCatalog({
           <RecentlyViewedSection variant="dark" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

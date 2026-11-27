@@ -23,19 +23,20 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   [data-motion-reveal="visible"] {
-    animation: ss-reveal var(--motion-duration) var(--motion-ease) var(--motion-delay, 0ms) both;
+    animation: ss-reveal var(--motion-duration) var(--motion-ease) var(--motion-delay, 0ms) backwards;
   }
   [data-motion-enter] {
-    animation: ss-enter var(--motion-duration) var(--motion-ease) var(--motion-delay, 0ms) both;
+    animation: ss-enter var(--motion-duration) var(--motion-ease) var(--motion-delay, 0ms) backwards;
   }
   [data-motion-confirm="true"] { animation: ss-confirm 280ms var(--motion-ease); }
   [data-motion-count] { animation: ss-count 200ms var(--motion-ease); }
   [data-motion-tap] { transition: transform var(--motion-fast) var(--motion-ease), background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast); }
   [data-motion-tap]:active:not(:disabled) { transform: scale(.97); }
   [data-motion-image] { transition: opacity 220ms ease-out; }
+  [data-motion-description] { animation: ss-enter 220ms var(--motion-ease); }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-motion-reveal], [data-motion-enter], [data-motion-confirm], [data-motion-count], [data-motion-tap], [data-motion-image] {
+  [data-motion-reveal], [data-motion-enter], [data-motion-confirm], [data-motion-count], [data-motion-tap], [data-motion-image], [data-motion-description] {
     animation: none !important;
     transition: none !important;
   }

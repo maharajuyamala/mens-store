@@ -131,7 +131,7 @@ export const CategorySection = () => {
                   {/* Always-visible CTA arrow — top-right */}
                   <div data-decoration className="pointer-events-none absolute right-5 top-5 hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-zinc-100 backdrop-blur-sm transition-all duration-300 group-hover:border-orange-400/60 group-hover:bg-orange-500/20 group-hover:text-white sm:right-6 sm:top-6">
                     <ArrowUpRight
-                      className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                      className="h-4 w-4 transition-transform duration-300 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:translate-x-0.5"
                       strokeWidth={1.75}
                       aria-hidden
                     />
@@ -159,7 +159,7 @@ export const CategorySection = () => {
               </Link>
             </Reveal>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );
