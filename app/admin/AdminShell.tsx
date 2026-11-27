@@ -15,6 +15,7 @@ import {
   Package,
   PlusCircle,
   ScanBarcode,
+  ScanLine,
   Sparkles,
   ShoppingBag,
   Ticket,
@@ -61,6 +62,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Operations",
     items: [
+      { href: "/admin/pos", label: "Sell (POS)", icon: ScanLine },
       { href: "/admin/inventory/scan", label: "Scan & stock", icon: ScanBarcode },
       { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
       { href: "/admin/coupons", label: "Coupons", icon: Ticket },
