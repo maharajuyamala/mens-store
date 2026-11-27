@@ -32,7 +32,7 @@ export default function HomePageClient({
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-zinc-950"
+            className="fixed inset-0 z-[100] hidden flex-col sm:flex items-center justify-center gap-6 bg-zinc-950"
           >
             <div
               className="pointer-events-none absolute h-72 w-72 rounded-full bg-orange-500/20 blur-[100px]"
@@ -94,17 +94,15 @@ export default function HomePageClient({
         )}
       </AnimatePresence>
 
-      {!loading && (
-        <main className="bg-zinc-950 text-white antialiased">
-          <Hero />
-          <CategorySection />
-          <CategoryGallery />
-          <ShirtSection products={signatureProducts} />
-          <RecentlyViewedSection variant="dark" />
-          <WhyChooseUs />
-          <Testimonials />
-        </main>
-      )}
+      <main className={`bg-zinc-950 text-white antialiased ${loading ? "sm:hidden" : ""}`}>
+        <Hero />
+        <CategorySection />
+        <CategoryGallery />
+        <ShirtSection products={signatureProducts} />
+        <RecentlyViewedSection variant="dark" />
+        <WhyChooseUs />
+        <Testimonials />
+      </main>
     </>
   );
 }
