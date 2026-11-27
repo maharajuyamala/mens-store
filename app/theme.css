@@ -23,6 +23,11 @@
   --on-photo: #ffffff;
   --on-photo-accent: #f0d6b0;
   --campaign-scrim: rgba(21,19,16,.68);
+  --campaign-background: #211e1b;
+  --campaign-heading: #fffbf4;
+  --campaign-muted: #e2d9cb;
+  --campaign-scrim-strong: rgba(21,19,16,.91);
+  --campaign-scrim-soft: rgba(21,19,16,.16);
   --print-paper: #ffffff;
   --print-ink: #171614;
   /* Legacy brand utilities: centralized until callers migrate to semantic roles.
