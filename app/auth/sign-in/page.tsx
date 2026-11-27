@@ -99,7 +99,7 @@ function SignInPageInner() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-950 px-4 py-16 text-white">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-16 text-foreground">
       {/* Soft ambient glow */}
       <div
         aria-hidden
@@ -116,7 +116,7 @@ function SignInPageInner() {
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="relative w-full max-w-sm"
       >
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+        <div className="rounded-3xl border border-border bg-muted/50 p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.6)] backdrop-blur-xl">
           <div className="flex flex-col items-center text-center">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-orange-700 text-lg font-bold tracking-tight text-white shadow-lg shadow-orange-900/40">
               S
@@ -124,7 +124,7 @@ function SignInPageInner() {
             <h1 className="mt-5 text-2xl font-semibold tracking-tight">
               Welcome back
             </h1>
-            <p className="mt-1.5 text-sm text-neutral-400">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               Sign in to continue to Second Skin
             </p>
           </div>
@@ -137,7 +137,7 @@ function SignInPageInner() {
               className="group relative flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-white text-[15px] font-medium text-neutral-900 shadow-sm transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {googleLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin text-neutral-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
                 <GoogleGlyph />
               )}
@@ -151,7 +151,7 @@ function SignInPageInner() {
                 type="button"
                 onClick={() => setShowEmailForm(true)}
                 disabled={submitting || googleLoading}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] text-sm font-medium text-neutral-300 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Mail className="h-4 w-4" />
                 Continue with email
@@ -167,16 +167,16 @@ function SignInPageInner() {
               onSubmit={handleEmailSignIn}
               className="mt-6 space-y-4"
             >
-              <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em] text-neutral-500">
-                <span className="h-px flex-1 bg-white/10" />
+              <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="h-px flex-1 bg-muted/50" />
                 <span>or with email</span>
-                <span className="h-px flex-1 bg-white/10" />
+                <span className="h-px flex-1 bg-muted/50" />
               </div>
 
               <div className="space-y-1.5">
                 <Label
                   htmlFor="signin-email"
-                  className="text-xs font-medium text-neutral-400"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Email
                 </Label>
@@ -186,7 +186,7 @@ function SignInPageInner() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-neutral-500 focus-visible:ring-orange-500/40"
+                  className="h-11 rounded-xl border-border bg-muted/50 text-foreground placeholder:text-muted-foreground focus-visible:ring-orange-500/40"
                   placeholder="you@example.com"
                 />
               </div>
@@ -195,13 +195,13 @@ function SignInPageInner() {
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="signin-password"
-                    className="text-xs font-medium text-neutral-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     Password
                   </Label>
                   <Link
                     href="/auth/forgot-password"
-                    className="text-xs text-neutral-400 transition-colors hover:text-orange-400"
+                    className="text-xs text-muted-foreground transition-colors hover:text-brand"
                   >
                     Forgot?
                   </Link>
@@ -212,7 +212,7 @@ function SignInPageInner() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-neutral-500 focus-visible:ring-orange-500/40"
+                  className="h-11 rounded-xl border-border bg-muted/50 text-foreground placeholder:text-muted-foreground focus-visible:ring-orange-500/40"
                   placeholder="••••••••"
                 />
               </div>
@@ -247,24 +247,24 @@ function SignInPageInner() {
             </p>
           ) : null}
 
-          <p className="mt-8 text-center text-sm text-neutral-400">
+          <p className="mt-8 text-center text-sm text-muted-foreground">
             New to Second Skin?{" "}
             <Link
               href="/auth/sign-up"
-              className="font-medium text-orange-400 transition-colors hover:text-orange-300"
+              className="font-medium text-brand transition-colors hover:text-brand"
             >
               Create an account
             </Link>
           </p>
         </div>
 
-        <p className="mt-6 text-center text-xs text-neutral-500">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           By continuing, you agree to our{" "}
-          <Link href="/terms" className="underline underline-offset-2 hover:text-neutral-300">
+          <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
             Terms
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" className="underline underline-offset-2 hover:text-neutral-300">
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
             Privacy Policy
           </Link>
           .
@@ -276,7 +276,7 @@ function SignInPageInner() {
 
 function SignInFallback() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-950 px-4 py-16 text-white">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-16 text-foreground">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-orange-500/20 blur-[140px]"

@@ -34,7 +34,7 @@ export default function HomePageClient({
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className={`${styles.splash} fixed inset-0 z-[100] hidden flex-col sm:flex items-center justify-center gap-6 bg-zinc-950`}
+            className={`${styles.splash} fixed inset-0 z-[100] hidden flex-col sm:flex items-center justify-center gap-6 bg-background`}
           >
             <div
               className="pointer-events-none absolute h-72 w-72 rounded-full bg-orange-500/20 blur-[100px]"
@@ -88,7 +88,7 @@ export default function HomePageClient({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.55, duration: 0.45 }}
-              className="relative text-sm font-semibold uppercase tracking-[0.35em] text-zinc-300"
+              className="relative text-sm font-semibold uppercase tracking-[0.35em] text-foreground"
             >
               SecondSkin
             </motion.p>
@@ -96,12 +96,12 @@ export default function HomePageClient({
         )}
       </AnimatePresence>
 
-      <main className={`${styles.page} bg-zinc-950 text-white antialiased ${loading ? "sm:hidden" : ""}`}>
+      <main className={`${styles.page} bg-background text-foreground antialiased ${loading ? "sm:hidden" : ""}`}>
         <Hero />
         <CategorySection />
         <CategoryGallery />
         <ShirtSection products={signatureProducts} />
-        <RecentlyViewedSection variant="dark" />
+        <RecentlyViewedSection />
         <WhyChooseUs />
         <Testimonials />
       </main>

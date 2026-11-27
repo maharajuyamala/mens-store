@@ -42,7 +42,7 @@ export const WhyChooseUs = () => {
   return (
     <section
       ref={ref}
-      className="relative border-y border-white/[0.06] bg-zinc-950 px-4 py-16 text-white sm:px-8 sm:py-20"
+      className="relative border-y border-border bg-background px-4 py-16 text-foreground sm:px-8 sm:py-20"
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/35 to-transparent"
@@ -55,16 +55,16 @@ export const WhyChooseUs = () => {
 
       <div className="relative mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-orange-400/85 sm:text-[11px]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-brand sm:text-[11px]">
             Made to live in
           </p>
-          <h2 className="mt-3 text-2xl font-light tracking-tight text-white sm:text-3xl md:text-4xl">
+          <h2 className="mt-3 text-2xl font-light tracking-tight text-foreground sm:text-3xl md:text-4xl">
             Comfort you can{" "}
-            <span className="bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-medium italic text-transparent">
+            <span className="bg-gradient-to-r from-brand to-brand bg-clip-text font-medium italic text-transparent">
               keep
             </span>
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
             Cloth chosen for the way it feels — and a promise we stand behind
             long after you take it home.
           </p>
@@ -82,7 +82,7 @@ export const WhyChooseUs = () => {
               initial="hidden"
               animate={inView ? "visible" : "hidden"}
               role="listitem"
-              className="group relative snap-start shrink-0 basis-[82%] overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 p-6 backdrop-blur-sm transition-colors duration-300 hover:border-orange-500/25 sm:basis-auto sm:p-7"
+              className="group relative snap-start shrink-0 basis-[82%] overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-card/80 to-background/80 p-6 backdrop-blur-sm transition-colors duration-300 hover:border-orange-500/25 sm:basis-auto sm:p-7"
             >
               <div
                 className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-orange-500/[0.08] blur-2xl transition-opacity duration-500 group-hover:bg-orange-500/[0.16]"
@@ -93,14 +93,14 @@ export const WhyChooseUs = () => {
                 aria-hidden
               />
 
-              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/[0.08] text-orange-300">
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-orange-500/25 bg-orange-500/[0.08] text-brand">
                 <Icon className="h-5 w-5" strokeWidth={1.4} aria-hidden />
               </div>
 
-              <h3 className="relative mt-5 text-lg font-medium tracking-tight text-white sm:text-xl">
+              <h3 className="relative mt-5 text-lg font-medium tracking-tight text-foreground sm:text-xl">
                 {title}
               </h3>
-              <p className="relative mt-2 text-[13px] leading-relaxed text-zinc-400 sm:text-sm">
+              <p className="relative mt-2 text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
                 {line}
               </p>
             </motion.article>

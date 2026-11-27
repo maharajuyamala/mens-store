@@ -213,16 +213,16 @@ export function ShirtSection({ products }: { products: ExploreProduct[] }) {
     return (
       <section
         ref={sectionRef}
-        className="relative overflow-hidden bg-zinc-950 py-16 text-white sm:py-20"
+        className="relative overflow-hidden bg-background py-16 text-foreground sm:py-20"
       >
         <div className="mx-auto max-w-2xl px-4 text-center">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-orange-400/90">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-brand">
             Signature
           </p>
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
             Our signature collection
           </h2>
-          <p className="mt-4 text-sm text-zinc-400 sm:text-base">
+          <p className="mt-4 text-sm text-muted-foreground sm:text-base">
             Listed pieces will appear here. Browse the shop to explore everything
             in stock.
           </p>
@@ -240,7 +240,7 @@ export function ShirtSection({ products }: { products: ExploreProduct[] }) {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-zinc-950 py-20 text-white sm:py-28"
+      className="relative overflow-hidden bg-background py-20 text-foreground sm:py-28"
     >
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent"
@@ -252,10 +252,10 @@ export function ShirtSection({ products }: { products: ExploreProduct[] }) {
         variants={titleVariants}
         className="relative mb-3 px-4 text-center"
       >
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-orange-400/90">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-brand">
           Signature
         </p>
-        <h2 className="text-4xl font-bold tracking-tight text-white md:text-5xl">
+        <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
           Our signature collection
         </h2>
       </motion.div>
@@ -263,7 +263,7 @@ export function ShirtSection({ products }: { products: ExploreProduct[] }) {
         initial="hidden"
         animate={inView ? "visible" : "hidden"}
         variants={textVariants}
-        className="relative mx-auto mb-12 max-w-lg px-4 text-center text-sm text-zinc-400 sm:text-base"
+        className="relative mx-auto mb-12 max-w-lg px-4 text-center text-sm text-muted-foreground sm:text-base"
       >
         Live from the catalog — newest listed first. Hover to pause. Drag to
         scroll.
@@ -274,8 +274,8 @@ export function ShirtSection({ products }: { products: ExploreProduct[] }) {
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
-        <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-20 bg-gradient-to-r from-zinc-950 to-transparent sm:w-28" />
-        <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-20 bg-gradient-to-l from-zinc-950 to-transparent sm:w-28" />
+        <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-20 bg-gradient-to-r from-background to-transparent sm:w-28" />
+        <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-20 bg-gradient-to-l from-background to-transparent sm:w-28" />
 
         <motion.div
           ref={scrollContainerRef}

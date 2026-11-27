@@ -65,7 +65,7 @@ export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }
           <p
             className={cn(
               "text-xs font-semibold uppercase tracking-[0.2em]",
-              isDark ? "text-orange-400/90" : "text-orange-600"
+              isDark ? "text-orange-400/90" : "text-brand"
             )}
           >
             Stay ahead
@@ -106,7 +106,7 @@ export function NewsletterBanner({ tone = "default" }: { tone?: NewsletterTone }
           />
           <Button
             type="submit"
-            className="shrink-0 bg-orange-600 hover:bg-orange-500"
+            className="shrink-0 bg-orange-600 text-white hover:bg-orange-500"
             disabled={pending}
           >
             {pending ? "…" : "Subscribe"}

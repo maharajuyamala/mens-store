@@ -44,31 +44,31 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 pt-24 pb-16">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-24 pb-16">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-md"
       >
-        <Card className="border-gray-800 bg-gray-900 text-white shadow-xl">
+        <Card className="border-border bg-card text-foreground shadow-xl">
           <CardHeader>
-            <CardTitle className="text-2xl text-white">
+            <CardTitle className="text-2xl text-foreground">
               Reset password
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Enter the email you used to sign up. We&apos;ll send you a link to
               set a new password.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {sent ? (
-              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-100">
                 <div className="flex items-start gap-3">
-                  <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+                  <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-300" />
                   <div>
                     <p className="font-medium">Check your inbox.</p>
-                    <p className="mt-1 text-emerald-200/80">
+                    <p className="mt-1 text-emerald-800 dark:text-emerald-200/80">
                       If <span className="font-mono">{email}</span> matches an
                       account, you&apos;ll receive a reset link shortly. Check
                       spam if you don&apos;t see it.
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="forgot-email" className="text-gray-300">
+                  <Label htmlFor="forgot-email" className="text-foreground">
                     Email
                   </Label>
                   <Input
@@ -88,12 +88,12 @@ export default function ForgotPasswordPage() {
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="border-gray-700 bg-gray-950 text-white placeholder:text-gray-500"
+                    className="border-border bg-background text-foreground placeholder:text-muted-foreground"
                     placeholder="you@example.com"
                   />
                 </div>
                 {error ? (
-                  <p className="text-sm text-red-400" role="alert">
+                  <p className="text-sm text-red-700 dark:text-red-400" role="alert">
                     {error}
                   </p>
                 ) : null}
@@ -113,19 +113,19 @@ export default function ForgotPasswordPage() {
               </form>
             )}
           </CardContent>
-          <CardFooter className="flex flex-col gap-2 border-t border-gray-800 pt-6">
-            <p className="text-sm text-gray-400">
+          <CardFooter className="flex flex-col gap-2 border-t border-border pt-6">
+            <p className="text-sm text-muted-foreground">
               Remembered it?{" "}
               <Link
                 href="/auth/sign-in"
-                className="font-medium text-orange-400 hover:underline"
+                className="font-medium text-brand hover:underline"
               >
                 Sign in
               </Link>
             </p>
             <Link
               href="/"
-              className="text-sm text-gray-500 hover:text-gray-300"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               ← Back to home
             </Link>

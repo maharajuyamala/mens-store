@@ -58,7 +58,7 @@ export const CategorySection = () => {
   return (
     <section
       ref={ref}
-      className={`${styles.categories} relative overflow-hidden bg-zinc-950 px-4 py-6 text-white sm:px-8 sm:py-24`}
+      className={`${styles.categories} relative overflow-hidden bg-background px-4 py-6 text-foreground sm:px-8 sm:py-24`}
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/35 to-transparent"
@@ -71,18 +71,18 @@ export const CategorySection = () => {
 
       <div className="relative mx-auto max-w-7xl">
         <div data-intro className="mx-auto max-w-2xl text-center">
-          <p className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.32em] text-orange-400/85 sm:text-[11px]">
+          <p className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.32em] text-brand sm:text-[11px]">
             Shop by
           </p>
           <h2 className="text-left text-xl font-medium sm:hidden">Shop by category</h2>
-          <h2 className="hidden sm:block mt-3 text-3xl font-light tracking-tight text-white sm:text-4xl md:text-5xl">
+          <h2 className="hidden sm:block mt-3 text-3xl font-light tracking-tight text-foreground sm:text-4xl md:text-5xl">
             Who are you{" "}
-            <span className="bg-gradient-to-r from-orange-300 to-amber-200 bg-clip-text font-medium italic text-transparent">
+            <span className="bg-gradient-to-r from-brand to-brand bg-clip-text font-medium italic text-transparent">
               shopping for
             </span>
             ?
           </h2>
-          <p className="hidden sm:block mx-auto mt-3 max-w-md text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
+          <p className="hidden sm:block mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
             Three edits — one promise. The same Second Skin standard, sized for
             everyone in the room.
           </p>
