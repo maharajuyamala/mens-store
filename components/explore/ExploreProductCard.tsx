@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { imageKitLoaderFor } from "@/lib/uploads/imagekit-loader";
 import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
 import type { ExploreProduct } from "@/lib/explore/types";
@@ -166,6 +167,7 @@ export function ExploreProductCard({
                 >
                   <Image
                     src={src}
+                    loader={imageKitLoaderFor(src)}
                     alt={
                       i === 0
                         ? product.name

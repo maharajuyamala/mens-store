@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentData } from "firebase/firestore";
 import Image from "next/image";
+import { imageKitLoaderFor } from "@/lib/uploads/imagekit-loader";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -348,6 +349,7 @@ function ProductDetailContent({
                   >
                     <Image
                       src={mainSrc}
+                      loader={imageKitLoaderFor(mainSrc)}
                       alt={product.name}
                       fill
                       className="object-cover object-top"

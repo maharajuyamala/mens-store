@@ -50,13 +50,17 @@ function stripDataUrl(input: string): string {
   return input;
 }
 
-/** Only allow fetching from trusted image hosts (prevents SSRF). */
+/** Only allow fetching from trusted image hosts (prevents SSRF). Narrowed to
+ *  the specific storage/CDN hosts this app uses — not all of *.googleapis.com. */
 function isAllowedImageHost(url: string): boolean {
   try {
-    const h = new URL(url).hostname.toLowerCase();
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    const h = u.hostname.toLowerCase();
     return (
       h === "firebasestorage.googleapis.com" ||
-      h.endsWith(".googleapis.com") ||
+      h === "storage.googleapis.com" ||
+      h === "ik.imagekit.io" ||
       h.endsWith(".firebasestorage.app") ||
       h.endsWith(".appspot.com")
     );

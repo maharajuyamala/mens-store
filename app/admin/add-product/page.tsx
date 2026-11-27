@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -152,6 +153,7 @@ export default function AddProductPage() {
   // Form state
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
   const [colorDrafts, setColorDrafts] = useState<VariantDraft[]>(() => [
     makeEmptyVariantDraft(),
   ]);
@@ -174,6 +176,7 @@ export default function AddProductPage() {
   const resetForm = useCallback(() => {
     setProductName("");
     setPrice("");
+    setDescription("");
     setSelectedAudience("");
     setItemSelection("");
     setSelectedCategories([]);
@@ -321,19 +324,21 @@ export default function AddProductPage() {
 
       const colorVariants: ColorVariant[] = [];
       for (const draft of usableDrafts) {
-        const urls: string[] = [];
-        for (const img of draft.images) {
-          if (img.kind === "existing") {
-            urls.push(img.url);
-            continue;
-          }
-          const compressed = await imageCompression(img.file, options);
-          const uploaded = await uploadImageToImageKit(
-            new File([compressed], img.file.name, { type: compressed.type || img.file.type }),
-            { folder: "products" }
-          );
-          urls.push(uploaded.url);
-        }
+        // Upload this color's photos concurrently (Promise.all preserves order),
+        // so a multi-photo product saves much faster than the old serial loop.
+        const urls = await Promise.all(
+          draft.images.map(async (img) => {
+            if (img.kind === "existing") return img.url;
+            const compressed = await imageCompression(img.file, options);
+            const uploaded = await uploadImageToImageKit(
+              new File([compressed], img.file.name, {
+                type: compressed.type || img.file.type,
+              }),
+              { folder: "products" }
+            );
+            return uploaded.url;
+          })
+        );
         const colorName = canonicalVariantName(draft);
         const friendlyLabel = draft.label.trim();
         // Strip empty / zero entries so the doc stays clean.
@@ -451,6 +456,19 @@ export default function AddProductPage() {
               className="border-border bg-background"
             />
           </div>
+        </div>
+
+        {/* ── Description ───────────────────────────────────────────── */}
+        <div className="space-y-2">
+          <Label htmlFor="ap-description">Description</Label>
+          <Textarea
+            id="ap-description"
+            placeholder="Fabric, fit, styling notes… shown on the product page and used for SEO."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            className="border-border bg-background"
+          />
         </div>
 
         {/* ── Department ────────────────────────────────────────────── */}
