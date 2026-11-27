@@ -8,6 +8,7 @@ import {
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import { renderOrderStatusEmail } from "@/lib/email/templates";
 import { guardWriteRequest } from "@/lib/api/security";
+import { roleGrantsAdminShell } from "@/lib/auth/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,9 +73,14 @@ export async function POST(request: Request) {
     );
   }
 
-  // Verify admin role from users/{uid}.role (matches firestore.rules logic).
+  // Verify admin role from users/{uid}.role (matches firestore.rules isAdmin()
+  // — both `admin` and `super_admin` are accepted).
   const userSnap = await db.collection("users").doc(uid).get();
-  if (userSnap.data()?.role !== "admin") {
+  const callerRole =
+    typeof userSnap.data()?.role === "string"
+      ? (userSnap.data()!.role as string)
+      : null;
+  if (!roleGrantsAdminShell(callerRole)) {
     return NextResponse.json(
       { error: "forbidden", message: "Admin role required." },
       { status: 403 }

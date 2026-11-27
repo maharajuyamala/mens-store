@@ -5,6 +5,7 @@ import {
   CashfreeNotConfiguredError,
   createCashfreeOrder,
 } from "@/lib/payments/cashfree-server";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   AdminNotConfiguredError,
   requireAdminFirestore,
@@ -43,6 +44,23 @@ const bodySchema = z.object({
   customer: customerSchema,
   /** Delivery pincode so the server can quote Shiprocket shipping before charging. */
   deliveryPincode: z.string().regex(/^\d{6}$/).optional(),
+  /** Full delivery address + coupon, captured before payment so an orphaned
+   *  capture (browser closed before /orders/place) can be reconciled or the
+   *  order recreated by an admin from the pending snapshot. All optional for
+   *  backward compatibility. */
+  shippingAddress: z
+    .object({
+      fullName: z.string().max(120).optional(),
+      email: z.string().max(200).optional(),
+      phone: z.string().max(20).optional(),
+      line1: z.string().max(200).optional(),
+      line2: z.string().max(200).optional(),
+      city: z.string().max(80).optional(),
+      state: z.string().max(80).optional(),
+      pincode: z.string().max(10).optional(),
+    })
+    .optional(),
+  couponCode: z.string().max(64).nullable().optional(),
 });
 
 /** Cashfree order_id must be unique per merchant, 3-50 chars alphanumeric + _ / -. */
@@ -141,6 +159,29 @@ export async function POST(request: Request) {
       },
       note: `Second Skin — ${mode === "advance" ? "COD advance" : "full payment"}`,
     });
+
+    // Persist a pending-order snapshot keyed by the merchant order_id. If the
+    // customer pays but never reaches /orders/place (browser closed, crash),
+    // the reconciliation job + admin dashboard can detect the orphaned capture
+    // and refund/recreate from this snapshot. Best-effort: never block payment.
+    try {
+      await db.collection("pending_orders").doc(order.orderId).set({
+        cfOrderId: order.cfOrderId,
+        orderId: order.orderId,
+        mode,
+        expectedAmount: chargeRupees,
+        items: parsed.items,
+        customer: parsed.customer,
+        shippingAddress: parsed.shippingAddress ?? null,
+        couponCode: parsed.couponCode ?? null,
+        deliveryPincode: parsed.deliveryPincode ?? null,
+        status: "pending",
+        paymentCaptured: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn("[cashfree] pending_orders snapshot failed", e);
+    }
 
     return NextResponse.json({
       ok: true,

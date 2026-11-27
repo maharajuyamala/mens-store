@@ -105,6 +105,47 @@ export function decrementVariantStock(
 }
 
 /**
+ * Restore (re-add) stock to a variant-aware product by a list of
+ * (color, size, qty) lines — the inverse of `decrementVariantStock`. Used
+ * when an order is cancelled/returned. Tolerant by design: a line whose
+ * color no longer exists is skipped (we can't safely recreate a variant),
+ * and a size that was dropped is re-created on its variant. Returns the
+ * Firestore patch (colorVariants + sizes mirror + stock + status).
+ */
+export function incrementVariantStock(
+  data: Record<string, unknown>,
+  lines: readonly DecrementLine[]
+): Patch {
+  const variants = parseColorVariants(data);
+  const next: ColorVariant[] = variants.map((v) => ({
+    ...v,
+    sizes: { ...v.sizes },
+  }));
+
+  for (const line of lines) {
+    if (line.quantity <= 0) continue;
+    const target = next.find(
+      (v) => v.color.toLowerCase() === line.color.toLowerCase()
+    );
+    if (!target) continue; // color removed since purchase — cannot restore safely
+    const key = line.size || "";
+    const cur = target.sizes[key] ?? 0;
+    target.sizes[key] = cur + line.quantity;
+  }
+
+  const sanitized = next.map(sanitizeVariantForWrite);
+  const union = unionVariantSizes(sanitized);
+  const stockTotal = totalStockFromVariants(sanitized);
+
+  return {
+    colorVariants: sanitized,
+    sizes: union,
+    stock: stockTotal,
+    status: computeProductStatus(stockTotal),
+  };
+}
+
+/**
  * Apply a positive or negative delta to a single (color, size) cell. Used by
  * the Scan & stock restock flow. For legacy products without variants, this
  * is a no-op (caller falls back to the legacy `applyStockDelta`).

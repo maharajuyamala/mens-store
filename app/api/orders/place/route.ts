@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { FieldValue, Timestamp, type UpdateData } from "firebase-admin/firestore";
+import { FieldValue, type UpdateData } from "firebase-admin/firestore";
 import {
   AdminNotConfiguredError,
   requireAdminAuth,
@@ -144,10 +144,12 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  const cfPaymentId = parsed.payment!.cfPaymentId;
+
   try {
     const snap = await db
       .collection("cashfree_payments")
-      .doc(parsed.payment.cfPaymentId)
+      .doc(cfPaymentId)
       .get();
     if (!snap.exists) {
       return NextResponse.json(
@@ -373,6 +375,59 @@ export async function POST(request: Request) {
       );
       const snaps = await Promise.all(productRefs.map((r) => tx.get(r)));
 
+      // Read the payment ref + coupon doc inside the SAME transaction so that
+      // amount-binding, single-use consumption, and the coupon cap are atomic
+      // with the order write (no TOCTOU / replay window). All reads must happen
+      // before any write in a Firestore transaction.
+      const payRef = db.collection("cashfree_payments").doc(cfPaymentId);
+      const paySnap = await tx.get(payRef);
+      const couponRefTx = resolvedCoupon
+        ? db.collection("coupons").doc(resolvedCoupon.code)
+        : null;
+      const couponSnapTx = couponRefTx ? await tx.get(couponRefTx) : null;
+
+      // --- Payment binding: reject replay + underpayment ---
+      const payData = paySnap.exists ? paySnap.data() : null;
+      if (!payData || payData.status !== "verified") {
+        throw new OrderValidationError(
+          "PAYMENT_NOT_VERIFIED",
+          "Payment was not verified."
+        );
+      }
+      if (payData.consumed === true) {
+        throw new OrderValidationError(
+          "PAYMENT_ALREADY_USED",
+          "This payment has already been used for another order."
+        );
+      }
+      const paidAmount = Number(payData.amount) || 0;
+      const requiredAmount =
+        parsed.paymentMethod === "online" ? pricing.total : advancePaid;
+      // +0.01 tolerance for paise rounding.
+      if (paidAmount + 0.01 < requiredAmount) {
+        throw new OrderValidationError(
+          "PAYMENT_AMOUNT_MISMATCH",
+          "Paid amount is less than the amount due for this order."
+        );
+      }
+
+      // --- Coupon global cap, re-checked atomically against the live doc ---
+      if (resolvedCoupon && couponSnapTx) {
+        const cData = couponSnapTx.exists ? couponSnapTx.data() : null;
+        const limitRaw = cData ? Number(cData.usageLimit) : NaN;
+        const limit =
+          Number.isFinite(limitRaw) && limitRaw > 0
+            ? Math.floor(limitRaw)
+            : null;
+        const used = cData ? Number(cData.usageCount) || 0 : 0;
+        if (limit != null && used >= limit) {
+          throw new OrderValidationError(
+            "COUPON_EXHAUSTED",
+            "This coupon has reached its usage limit."
+          );
+        }
+      }
+
       // Group lines so we apply one patch per product, with each (color,size,qty)
       // available individually for the variant-aware decrement path.
       const linesByProduct = new Map<
@@ -420,6 +475,14 @@ export async function POST(request: Request) {
       }
 
       tx.set(orderRef, orderDoc);
+
+      // Consume the payment reference so it cannot back a second order.
+      tx.update(payRef, {
+        consumed: true,
+        consumedBy: orderRef.id,
+        consumedAt: FieldValue.serverTimestamp(),
+      });
+
       if (uid) {
         const userOrderRef = db
           .collection("users")
@@ -467,6 +530,21 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+
+  // Mark the pending snapshot fulfilled so the reconciliation job treats this
+  // capture as resolved (prevents a false "orphaned payment" alert).
+  void db
+    .collection("pending_orders")
+    .doc(parsed.payment!.orderId)
+    .set(
+      {
+        status: "fulfilled",
+        fulfilledOrderId: orderRef.id,
+        fulfilledAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    )
+    .catch(() => {});
 
   // Fire-and-forget order confirmation email. No retry; if Resend errors, the
   // order itself still succeeded — admin can resend from the dashboard later.
@@ -518,6 +596,3 @@ export async function POST(request: Request) {
     items: pricing.lines,
   });
 }
-
-// Silence unused import warning for Timestamp — kept available for future status history fields.
-void Timestamp;

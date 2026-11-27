@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import {
   buildShiprocketPayload,
   type BuildPayloadInput,
@@ -7,72 +6,141 @@ import {
 import { createAdhocOrder, ShiprocketError } from "@/lib/shiprocket/client";
 import type { OrderShippingRecord } from "@/lib/shiprocket/types";
 import { guardWriteRequest } from "@/lib/api/security";
+import {
+  AdminNotConfiguredError,
+  requireAdminFirestore,
+} from "@/lib/server/firebase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const itemSchema = z.object({
-  productId: z.string().optional(),
-  name: z.string().min(1),
-  price: z.number().nonnegative(),
-  quantity: z.number().int().positive(),
-  size: z.string().optional(),
-  color: z.string().optional(),
-});
+/**
+ * Book a Shiprocket shipment for an EXISTING order.
+ *
+ * Security: this route no longer trusts client-supplied address/items (that let
+ * anyone book real shipments to arbitrary addresses). It resolves the real
+ * order from Firestore by its orderNumber and builds the courier payload from
+ * the server-stored data. It is idempotent (won't double-book) and writes the
+ * resulting shipping record back to the order server-side — which also fixes
+ * guest orders, whose client can't update the order doc under the rules.
+ */
 
-const addressSchema = z.object({
-  fullName: z.string().min(2),
-  email: z.string().email(),
-  phone: z.string().min(10),
-  line1: z.string().min(3),
-  line2: z.string().optional(),
-  city: z.string().min(2),
-  state: z.string().min(2),
-  pincode: z.string().regex(/^\d{6}$/),
-});
-
-const pricingSchema = z.object({
-  subtotal: z.number().nonnegative(),
-  discount: z.number().nonnegative(),
-  shipping: z.number().nonnegative(),
-  total: z.number().nonnegative(),
-  advancePaid: z.number().nonnegative().optional(),
-});
-
-const bodySchema = z.object({
-  orderNumber: z.string().regex(/^[A-Z0-9]{6,16}$/),
-  paymentMethod: z.enum(["cod", "online"]),
-  items: z.array(itemSchema).min(1),
-  shippingAddress: addressSchema,
-  pricing: pricingSchema,
-});
+function str(v: unknown, fallback = ""): string {
+  return typeof v === "string" ? v : fallback;
+}
+function num(v: unknown, fallback = 0): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
 
 export async function POST(request: Request) {
   const blocked = guardWriteRequest(request, {
     bucketName: "create-order",
-    // Order placement is expensive; cap aggressively per IP.
     limit: 10,
     windowMs: 60_000,
   });
   if (blocked) return blocked;
 
-  let parsed: z.infer<typeof bodySchema>;
+  let rawBody: { orderNumber?: unknown };
   try {
-    const json = await request.json();
-    parsed = bodySchema.parse(json);
-  } catch (e) {
+    rawBody = (await request.json()) as { orderNumber?: unknown };
+  } catch {
     return NextResponse.json(
-      {
-        error: "invalid_request",
-        message: e instanceof Error ? e.message : "Invalid request body",
-      },
+      { error: "invalid_request", message: "Invalid request body" },
+      { status: 400 }
+    );
+  }
+  const orderNumber = str(rawBody?.orderNumber);
+  if (!/^[A-Z0-9]{6,16}$/.test(orderNumber)) {
+    return NextResponse.json(
+      { error: "invalid_request", message: "A valid orderNumber is required." },
       { status: 400 }
     );
   }
 
+  let db;
+  try {
+    db = requireAdminFirestore();
+  } catch (e) {
+    if (e instanceof AdminNotConfiguredError) {
+      return NextResponse.json(
+        { error: "server_not_configured", message: e.message },
+        { status: 503 }
+      );
+    }
+    throw e;
+  }
+
+  // Resolve the real order — never trust client-supplied address/items.
+  const q = await db
+    .collection("orders")
+    .where("orderNumber", "==", orderNumber)
+    .limit(1)
+    .get();
+  if (q.empty) {
+    return NextResponse.json(
+      { error: "order_not_found", message: "No order matches that number." },
+      { status: 404 }
+    );
+  }
+  const orderDoc = q.docs[0]!;
+  const order = orderDoc.data() as Record<string, unknown>;
+
+  // Idempotent: if already booked, return the existing record.
+  const existing = order.shipping as Record<string, unknown> | undefined;
+  if (existing && existing.status === "created") {
+    return NextResponse.json({ ok: true, shipping: existing, alreadyBooked: true });
+  }
+
+  const addr = (order.shippingAddress ?? {}) as Record<string, unknown>;
+  const itemsRaw = Array.isArray(order.items) ? order.items : [];
+  const pricing = (order.pricing ?? {}) as Record<string, unknown>;
+  const paymentMethod: "cod" | "online" =
+    order.paymentMethod === "cod" ? "cod" : "online";
+
+  if (itemsRaw.length === 0 || !str(addr.pincode)) {
+    return NextResponse.json(
+      { error: "order_incomplete", message: "Order is missing items or address." },
+      { status: 422 }
+    );
+  }
+
   const input: BuildPayloadInput = {
-    ...parsed,
+    orderNumber,
     createdAt: new Date(),
+    paymentMethod,
+    items: itemsRaw.map((raw) => {
+      const r = (raw ?? {}) as Record<string, unknown>;
+      return {
+        productId: str(r.productId) || undefined,
+        name: str(r.name, "Item"),
+        price: num(r.price),
+        quantity: Math.max(1, Math.floor(num(r.quantity, 1))),
+        size: str(r.size) || undefined,
+        color: str(r.color) || undefined,
+      };
+    }),
+    shippingAddress: {
+      fullName: str(addr.fullName, "Customer"),
+      email: str(addr.email),
+      phone: str(addr.phone),
+      line1: str(addr.line1),
+      line2: str(addr.line2) || undefined,
+      city: str(addr.city),
+      state: str(addr.state),
+      pincode: str(addr.pincode),
+    },
+    pricing: {
+      subtotal: num(pricing.subtotal),
+      discount: num(pricing.discount),
+      shipping: num(pricing.shipping),
+      total: num(pricing.total),
+      advancePaid: num(pricing.advancePaid),
+    },
   };
 
   try {
@@ -88,11 +156,24 @@ export async function POST(request: Request) {
       courierName: result.courier_name ?? null,
       createdAt: new Date().toISOString(),
     };
+
+    // Persist authoritatively (works for guests too — Admin SDK bypasses rules).
+    await orderDoc.ref.set({ shipping: record }, { merge: true });
+    const uid = str(order.userId, "guest");
+    if (uid !== "guest") {
+      await db
+        .collection("users")
+        .doc(uid)
+        .collection("orders")
+        .doc(orderDoc.id)
+        .set({ shipping: record }, { merge: true })
+        .catch(() => {});
+    }
+
     return NextResponse.json({ ok: true, shipping: record });
   } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Shiprocket request failed";
-    const status = e instanceof ShiprocketError ? e.status : 502;
+    const message = e instanceof Error ? e.message : "Shiprocket request failed";
+    const status = e instanceof ShiprocketError ? e.status || 502 : 502;
     console.error("[shiprocket] create-order failed", e);
     const record: OrderShippingRecord = {
       provider: "shiprocket",
@@ -100,9 +181,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
       error: message,
     };
-    return NextResponse.json(
-      { ok: false, error: message, shipping: record },
-      { status }
-    );
+    await orderDoc.ref.set({ shipping: record }, { merge: true }).catch(() => {});
+    return NextResponse.json({ ok: false, error: message, shipping: record }, { status });
   }
 }

@@ -36,6 +36,20 @@ export type CashfreeCheckoutInput = {
    * "advance" — collect only the COD prepayment; the rest is collected by courier.
    */
   mode?: "full" | "advance";
+  /** Full delivery address, persisted server-side so an orphaned capture can
+   *  be reconciled / recreated if the browser dies before /orders/place. */
+  shippingAddress?: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  /** Applied coupon code, if any (persisted on the pending snapshot). */
+  couponCode?: string | null;
 };
 
 export type CashfreeCheckoutResult = {
@@ -85,6 +99,8 @@ export async function runCashfreeCheckout(
       mode: input.mode ?? "full",
       customer: input.customer,
       deliveryPincode: input.deliveryPincode,
+      shippingAddress: input.shippingAddress,
+      couponCode: input.couponCode,
     }),
   });
   const createJson = (await createRes.json().catch(() => null)) as
