@@ -441,7 +441,7 @@ function VariantDraftCard({
       </div>
 
       <div className="mt-4 space-y-2">
-        <div className="flex items-center justify-between">
+        <div data-photo-actions className="flex items-center justify-between">
           <Label className="text-xs">
             Photos for this color
             {draft.images.length > 0 && (
@@ -502,7 +502,7 @@ function VariantDraftCard({
             </p>
           </button>
         ) : (
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+          <div data-photo-grid className="grid grid-cols-4 gap-2 sm:grid-cols-5">
             {draft.images.map((img, i) => {
               const src = img.kind === "existing" ? img.url : img.preview;
               return (
@@ -588,7 +588,7 @@ function VariantDraftCard({
             Pick a department + style above to choose sizes.
           </p>
         ) : (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          <div data-stock-grid className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {sizeOptions.map((size) => {
               const qty = draft.sizes[size] ?? 0;
               const inUse = qty > 0;
@@ -621,6 +621,8 @@ function VariantDraftCard({
                     <Input
                       type="number"
                       min={0}
+                      aria-label={`Stock for size ${size}`}
+                      inputMode="numeric"
                       value={qty}
                       onChange={(e) =>
                         onSizeChange(size, parseInt(e.target.value, 10) || 0)

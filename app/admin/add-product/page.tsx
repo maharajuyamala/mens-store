@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./AddProduct.module.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -68,7 +69,7 @@ function QrSuccessScreen({
   onDone: () => void;
 }) {
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 py-6">
+    <div className={styles.receipt}>
       <style>{`
         @page { margin: 0.25in; size: auto; }
         @media print {
@@ -87,7 +88,7 @@ function QrSuccessScreen({
         }
       `}</style>
 
-      <div className="flex flex-col items-center gap-3 text-center print:hidden">
+      <div className={`${styles.confirmation} print:hidden`}>
         <div className="rounded-full bg-emerald-500/10 p-3">
           <CheckCircle2 className="h-10 w-10 text-emerald-500" />
         </div>
@@ -117,13 +118,6 @@ function QrSuccessScreen({
         </p>
       </div>
 
-      <VariantQrSheet
-        productId={product.productId}
-        productName={product.name}
-        price={product.price}
-        variants={product.variants}
-      />
-
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center print:hidden">
         <Button
           type="button"
@@ -137,12 +131,19 @@ function QrSuccessScreen({
         <Button
           type="button"
           onClick={onDone}
-          className="gap-2 bg-orange-600 text-white hover:bg-orange-500"
+          className={styles.nextProduct}
         >
           <PlusCircle className="h-4 w-4" />
           Add another product
         </Button>
       </div>
+
+      <VariantQrSheet
+        productId={product.productId}
+        productName={product.name}
+        price={product.price}
+        variants={product.variants}
+      />
     </div>
   );
 }
@@ -277,20 +278,19 @@ export default function AddProductPage() {
     }
     const hasDupes = Array.from(nameCounts.values()).some((c) => c > 1);
 
-    if (
-      !productName ||
-      !price ||
-      Number.isNaN(finalPrice) ||
-      usableDrafts.length === 0 ||
-      !selectedAudience ||
-      !itemSelection ||
-      hasDupes
-    ) {
-      const msg = hasDupes
-        ? "Two colors share the same name. Give each color a unique name."
-        : "Fill every section: department, item selection, and at least one color with photos AND per-size stock.";
-      setError(msg);
-      toast.error("Complete the form", { description: msg });
+    const issue =
+      !productName.trim() ? { target: "ap-name", message: "Enter a product name." } :
+      !price || Number.isNaN(finalPrice) ? { target: "ap-price", message: "Enter the selling price." } :
+      !selectedAudience ? { target: "ap-department", message: "Choose a department." } :
+      !itemSelection ? { target: "ap-item", message: "Choose an item type." } :
+      hasDupes ? { target: "ap-inventory", message: "Give each color a unique name." } :
+      usableDrafts.length === 0 ? { target: "ap-inventory", message: "Add a photo and stock for at least one size of the same color." } :
+      null;
+
+    if (issue) {
+      setError(issue.message);
+      document.getElementById(issue.target)?.focus();
+      toast.error("Complete the form", { description: issue.message });
       return;
     }
 
@@ -419,14 +419,18 @@ export default function AddProductPage() {
 
   // ── QR success screen ────────────────────────────────────────────────────
   if (createdProduct) {
-    return <QrSuccessScreen product={createdProduct} onDone={resetForm} />;
+    return (
+      <div className={styles.page}>
+        <QrSuccessScreen product={createdProduct} onDone={resetForm} />
+      </div>
+    );
   }
 
   // ── Form ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-2xl pb-16">
-      <h1 className="mb-6 text-2xl font-bold tracking-tight">
-        Add new product
+    <div className={styles.page}>
+      <h1 className={styles.title}>
+        Add product
       </h1>
 
       <form
@@ -434,148 +438,161 @@ export default function AddProductPage() {
         className="space-y-6"
       >
         {/* ── Name & Price ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ap-name">Product name</Label>
-            <Input
-              id="ap-name"
-              placeholder="e.g. Onyx silk-blend shirt"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              className="border-border bg-background"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ap-price">Price (₹)</Label>
-            <Input
-              id="ap-price"
-              type="number"
-              placeholder="e.g. 1200"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="border-border bg-background"
-            />
-          </div>
-        </div>
-
-        {/* ── Description ───────────────────────────────────────────── */}
-        <div className="space-y-2">
-          <Label htmlFor="ap-description">Description</Label>
-          <Textarea
-            id="ap-description"
-            placeholder="Fabric, fit, styling notes… shown on the product page and used for SEO."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="border-border bg-background"
-          />
-        </div>
-
-        {/* ── Department ────────────────────────────────────────────── */}
-        <div className="space-y-2">
-          <Label>Department</Label>
-          <Select
-            value={selectedAudience || undefined}
-            onValueChange={(v) => {
-              setSelectedAudience(v as AudienceId);
-              setItemSelection("");
-              setSelectedCategories([]);
-            }}
-          >
-            <SelectTrigger className="w-full border-border bg-background">
-              <SelectValue placeholder="Men, Women, or Kids" />
-            </SelectTrigger>
-            <SelectContent>
-              {QUICK_ADD_AUDIENCES.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* ── Item selection ───────────────────────────────────────── */}
-        {selectedAudience ? (
-          <div className="space-y-2">
-            <Label>Item selection</Label>
-            <Select
-              value={itemSelection || undefined}
-              onValueChange={(v) => {
-                setItemSelection(v as ItemSelection);
-                setSelectedCategories([]);
-              }}
-            >
-              <SelectTrigger className="w-full border-border bg-background">
-                <SelectValue placeholder="Top, Bottom, Set…" />
-              </SelectTrigger>
-              <SelectContent>
-                {ITEM_SELECTIONS.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-
-        {/* ── Category chips (multi-select) ────────────────────────── */}
-        {selectedAudience && itemSelection ? (
-          categoryOptions.length > 0 ? (
+        <section className={styles.panel} aria-labelledby="ap-details">
+          <h2 id="ap-details">Product details</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Categories (select one or more)</Label>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {categoryOptions.map((cat) => {
-                  const active = selectedCategories.includes(cat);
-                  return (
-                    <button
-                      type="button"
-                      key={cat}
-                      onClick={() =>
-                        setSelectedCategories((prev) =>
-                          prev.includes(cat)
-                            ? prev.filter((c) => c !== cat)
-                            : [...prev, cat]
-                        )
-                      }
-                      className={cn(
-                        "rounded-full px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
-                        active
-                          ? "bg-orange-600 text-white shadow-md"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  );
-                })}
-              </div>
+              <Label htmlFor="ap-name">Product name</Label>
+              <Input
+                id="ap-name"
+                placeholder="e.g. Onyx silk-blend shirt"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                className="border-border bg-background"
+              />
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No predefined categories for this combination.
-            </p>
-          )
-        ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="ap-price">Price (₹)</Label>
+              <Input
+                id="ap-price"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                placeholder="e.g. 1200"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="border-border bg-background"
+              />
+            </div>
+          </div>
 
-        {/* ── Colors, photos & per-color sizes ──────────────────────── */}
-        <ColorVariantsEditor
-          drafts={colorDrafts}
-          onChange={setColorDrafts}
-          sizeOptions={sizeOptions}
-          sizeGroupLabel={sizeGroupLabel}
-          disabled={isLoading}
-          defaultModelSubject={
-            selectedAudience === "women"
-              ? "woman"
-              : selectedAudience === "kids"
-                ? "boy"
-                : "man"
-          }
-          itemSelection={itemSelection || undefined}
-        />
+          {/* ── Description ───────────────────────────────────────────── */}
+          <div className="space-y-2">
+            <Label htmlFor="ap-description">Description</Label>
+            <Textarea
+              id="ap-description"
+              placeholder="Describe the fabric, fit and finish."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="border-border bg-background"
+            />
+          </div>
 
+        </section>
+        <section className={styles.panel} aria-labelledby="ap-classification">
+          <h2 id="ap-classification">Classification</h2>
+          {/* ── Department ────────────────────────────────────────────── */}
+          <div className="space-y-2">
+            <fieldset>
+              <legend>Department</legend>
+              <div className={styles.departments}>
+                {QUICK_ADD_AUDIENCES.map((audience) => (
+                  <label key={audience.id}>
+                    <input
+                      type="radio"
+                      id={audience.id === QUICK_ADD_AUDIENCES[0]?.id ? "ap-department" : undefined}
+                      name="department"
+                      value={audience.id}
+                      checked={selectedAudience === audience.id}
+                      onChange={() => {
+                        setSelectedAudience(audience.id);
+                        setItemSelection("");
+                        setSelectedCategories([]);
+                      }}
+                    />
+                    <span>{audience.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+
+          {/* ── Item selection ───────────────────────────────────────── */}
+          {selectedAudience ? (
+            <div className="space-y-2">
+              <Label htmlFor="ap-item">Item type</Label>
+              <Select
+                value={itemSelection || undefined}
+                onValueChange={(v) => {
+                  setItemSelection(v as ItemSelection);
+                  setSelectedCategories([]);
+                }}
+              >
+                <SelectTrigger id="ap-item" className="w-full border-border bg-background">
+                  <SelectValue placeholder="Top, Bottom, Set…" />
+                </SelectTrigger>
+                <SelectContent className={styles.menu}>
+                  {ITEM_SELECTIONS.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {/* ── Category chips (multi-select) ────────────────────────── */}
+          {selectedAudience && itemSelection ? (
+            categoryOptions.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Categories (select one or more)</Label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {categoryOptions.map((cat) => {
+                    const active = selectedCategories.includes(cat);
+                    return (
+                      <button
+                        type="button"
+                        key={cat}
+                        aria-pressed={active}
+                        onClick={() =>
+                          setSelectedCategories((prev) =>
+                            prev.includes(cat)
+                              ? prev.filter((c) => c !== cat)
+                              : [...prev, cat]
+                          )
+                        }
+                        className={cn(
+                          "rounded-full px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+                          active
+                            ? "bg-orange-600 text-white shadow-md"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No predefined categories for this combination.
+              </p>
+            )
+          ) : null}
+
+        </section>
+        <section className={styles.panel} id="ap-inventory" tabIndex={-1} aria-label="Color inventory">
+          {/* ── Colors, photos & per-color sizes ──────────────────────── */}
+          <ColorVariantsEditor
+            drafts={colorDrafts}
+            onChange={setColorDrafts}
+            sizeOptions={sizeOptions}
+            sizeGroupLabel={sizeGroupLabel}
+            disabled={isLoading}
+            defaultModelSubject={
+              selectedAudience === "women"
+                ? "woman"
+                : selectedAudience === "kids"
+                  ? "boy"
+                  : "man"
+            }
+            itemSelection={itemSelection || undefined}
+          />
+
+        </section>
         {/* ── Error ─────────────────────────────────────────────────── */}
         {error && (
           <p
@@ -590,7 +607,7 @@ export default function AddProductPage() {
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full mb-8 bg-orange-600 text-white hover:bg-orange-500 sm:w-auto"
+          className={styles.submit}
           size="lg"
         >
           {isLoading ? (
