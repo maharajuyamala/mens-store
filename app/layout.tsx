@@ -8,6 +8,7 @@ import { StoreChrome } from "@/components/StoreChrome";
 import { GlobalSearchCommand } from "@/components/search/GlobalSearchCommand";
 import { SearchDialogProvider } from "@/components/search/SearchDialogContext";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { siteBaseUrl } from "@/lib/site";
 
 const geistSans = Geist({
@@ -40,11 +41,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var p="system";try{var s=localStorage.getItem("secondskin-theme");if(s==="light"||s==="dark"||s==="system")p=s;}catch(e){}var d=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";})()` }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-background text-foreground antialiased`}
       >
         <ChunkErrorReloader />
+        <ThemeProvider>
         <AuthProvider>
           <SearchDialogProvider>
             <StoreChrome>
@@ -62,6 +67,7 @@ export default function RootLayout({
             <Toaster richColors closeButton position="top-center" />
           </SearchDialogProvider>
         </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

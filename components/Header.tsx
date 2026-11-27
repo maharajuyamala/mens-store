@@ -1,5 +1,7 @@
 "use client";
 
+import { ThemeControl } from "@/components/ThemeProvider";
+
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
@@ -144,6 +146,7 @@ export function Header() {
         </motion.nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
+          <ThemeControl className="hidden md:inline-flex" />
           <motion.button
             type="button"
             whileHover={{ scale: 1.1 }}
@@ -266,31 +269,31 @@ export function Header() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 380, damping: 36, mass: 0.85 }}
-              className="absolute top-0 right-0 flex h-[100dvh] w-[min(88vw,400px)] flex-col overflow-hidden border-l border-white/10 bg-zinc-950 shadow-[0_0_80px_-12px_rgba(0,0,0,0.85)]"
+              className="absolute top-0 right-0 flex h-[100dvh] w-[min(88vw,400px)] flex-col overflow-hidden border-l border-border bg-background shadow-[0_0_80px_-12px_rgba(0,0,0,0.85)]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
               <div className="pointer-events-none absolute inset-x-8 top-24 h-40 rounded-full bg-orange-500/10 blur-3xl" />
 
-              <div className="relative shrink-0 border-b border-white/[0.08] bg-gradient-to-b from-zinc-900/95 to-zinc-950 px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))]">
+              <div className="relative shrink-0 border-b border-border bg-gradient-to-b from-card/95 to-background px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))]">
                 <div className="flex items-start justify-between gap-3 pt-4">
                   <div className="min-w-0 pt-0.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-orange-400/95">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-brand">
                       Second Skin
                     </p>
-                    <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-white">
+                    <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
                       Menu
                     </h2>
                     {user?.email ? (
-                      <p className="mt-2 truncate text-xs text-zinc-500">{user.email}</p>
+                      <p className="mt-2 truncate text-xs text-muted-foreground">{user.email}</p>
                     ) : (
-                      <p className="mt-2 text-xs text-zinc-500">Signed out · browse freely</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Signed out · browse freely</p>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsMenuOpen(false)}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition-colors hover:border-orange-500/35 hover:bg-white/[0.1] hover:text-white"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-muted/50 text-foreground transition-colors hover:border-orange-500/35 hover:bg-muted/50 hover:text-foreground"
                     aria-label="Close menu"
                   >
                     <X className="h-5 w-5" strokeWidth={2} />
@@ -299,7 +302,8 @@ export function Header() {
               </div>
 
               <nav className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5">
-                <p className="mb-2.5 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                <div className="mb-5 flex items-center justify-between gap-2 px-2"><span className="text-sm text-muted-foreground">Appearance</span><ThemeControl /></div>
+                <p className="mb-2.5 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   Browse
                 </p>
                 <motion.ul
@@ -320,15 +324,15 @@ export function Header() {
                             "group flex items-center gap-3.5 rounded-xl border px-2.5 py-3 transition-all duration-200",
                             active
                               ? "border-orange-500/35 bg-orange-500/[0.12] text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
-                              : "border-transparent bg-white/[0.03] text-zinc-200 hover:border-white/10 hover:bg-white/[0.06]"
+                              : "border-transparent bg-muted/50 text-foreground hover:border-border hover:bg-muted/50"
                           )}
                         >
                           <span
                             className={cn(
                               "flex size-11 shrink-0 items-center justify-center rounded-xl border transition-colors duration-200",
                               active
-                                ? "border-orange-500/40 bg-orange-500/20 text-orange-200"
-                                : "border-white/10 bg-zinc-900 text-zinc-400 group-hover:border-orange-500/30 group-hover:text-orange-200/90"
+                                ? "border-orange-500/40 bg-orange-500/20 text-brand"
+                                : "border-border bg-card text-muted-foreground group-hover:border-orange-500/30 group-hover:text-brand"
                             )}
                           >
                             <Icon className="size-[1.15rem]" strokeWidth={1.65} aria-hidden />
@@ -338,7 +342,7 @@ export function Header() {
                               {item.label}
                             </span>
                             {item.hint ? (
-                              <span className="mt-0.5 block text-xs leading-snug text-zinc-500 group-hover:text-zinc-400">
+                              <span className="mt-0.5 block text-xs leading-snug text-muted-foreground group-hover:text-muted-foreground">
                                 {item.hint}
                               </span>
                             ) : null}
@@ -347,8 +351,8 @@ export function Header() {
                             className={cn(
                               "size-4 shrink-0 transition-transform duration-200",
                               active
-                                ? "text-orange-400/80"
-                                : "text-zinc-600 group-hover:translate-x-0.5 group-hover:text-zinc-400"
+                                ? "text-brand"
+                                : "text-muted-foreground group-hover:translate-x-0.5 group-hover:text-muted-foreground"
                             )}
                             aria-hidden
                           />
@@ -360,7 +364,7 @@ export function Header() {
 
                 {isAdmin ? (
                   <>
-                    <p className="mb-2.5 mt-8 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                    <p className="mb-2.5 mt-8 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                       Admin
                     </p>
                     <motion.ul
@@ -408,15 +412,15 @@ export function Header() {
                                 "group flex items-center gap-3.5 rounded-xl border px-2.5 py-3 transition-all duration-200",
                                 active
                                   ? "border-orange-500/35 bg-orange-500/[0.12] text-white"
-                                  : "border-transparent bg-white/[0.03] text-zinc-200 hover:border-orange-500/20 hover:bg-orange-500/[0.07]"
+                                  : "border-transparent bg-muted/50 text-foreground hover:border-orange-500/20 hover:bg-orange-500/[0.07]"
                               )}
                             >
                               <span
                                 className={cn(
                                   "flex size-11 shrink-0 items-center justify-center rounded-xl border transition-colors duration-200",
                                   active
-                                    ? "border-orange-500/40 bg-orange-500/20 text-orange-200"
-                                    : "border-orange-500/15 bg-zinc-900 text-orange-300/70 group-hover:text-orange-200"
+                                    ? "border-orange-500/40 bg-orange-500/20 text-brand"
+                                    : "border-orange-500/15 bg-card text-brand group-hover:text-brand"
                                 )}
                               >
                                 <Icon className="size-[1.15rem]" strokeWidth={1.65} aria-hidden />
@@ -425,12 +429,12 @@ export function Header() {
                                 <span className="block text-[15px] font-semibold leading-tight tracking-tight">
                                   {item.label}
                                 </span>
-                                <span className="mt-0.5 block text-xs text-zinc-500 group-hover:text-zinc-400">
+                                <span className="mt-0.5 block text-xs text-muted-foreground group-hover:text-muted-foreground">
                                   {item.hint}
                                 </span>
                               </span>
                               <ChevronRight
-                                className="size-4 shrink-0 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-400"
+                                className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground"
                                 aria-hidden
                               />
                             </Link>
@@ -441,7 +445,7 @@ export function Header() {
                   </>
                 ) : null}
 
-                <p className="mb-2.5 mt-8 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                <p className="mb-2.5 mt-8 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   Bag
                 </p>
                 <motion.button
@@ -453,16 +457,16 @@ export function Header() {
                     setIsMenuOpen(false);
                     setCartOpen(true);
                   }}
-                  className="group flex w-full items-center gap-3.5 rounded-xl border border-transparent bg-white/[0.03] px-2.5 py-3 text-left text-zinc-200 transition-all duration-200 hover:border-white/10 hover:bg-white/[0.06]"
+                  className="group flex w-full items-center gap-3.5 rounded-xl border border-transparent bg-muted/50 px-2.5 py-3 text-left text-foreground transition-all duration-200 hover:border-border hover:bg-muted/50"
                 >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-zinc-400 transition-colors group-hover:border-orange-500/30 group-hover:text-orange-200/90">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors group-hover:border-orange-500/30 group-hover:text-brand">
                     <ShoppingCart className="size-[1.15rem]" strokeWidth={1.65} aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-semibold leading-tight tracking-tight">
                       Your cart
                     </span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
                       {cartCount > 0 ? `${cartCount} item${cartCount === 1 ? "" : "s"} ready` : "Tap to open drawer"}
                     </span>
                   </span>
@@ -472,13 +476,13 @@ export function Header() {
                     </span>
                   ) : (
                     <ChevronRight
-                      className="size-4 shrink-0 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-400"
+                      className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground"
                       aria-hidden
                     />
                   )}
                 </motion.button>
 
-                <div className="mt-auto border-t border-white/[0.08] pt-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <div className="mt-auto border-t border-border pt-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
                   {!loading && !user ? (
                     <Link
                       href="/auth/sign-in"
@@ -494,16 +498,16 @@ export function Header() {
                       <Link
                         href="/account"
                         onClick={() => setIsMenuOpen(false)}
-                        className="group flex items-center gap-3.5 rounded-xl border border-transparent bg-white/[0.03] px-2.5 py-3 text-zinc-200 transition-all hover:border-white/10 hover:bg-white/[0.06]"
+                        className="group flex items-center gap-3.5 rounded-xl border border-transparent bg-muted/50 px-2.5 py-3 text-foreground transition-all hover:border-border hover:bg-muted/50"
                       >
-                        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-zinc-400 group-hover:text-zinc-200">
+                        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground group-hover:text-foreground">
                           <User className="size-[1.15rem]" strokeWidth={1.65} aria-hidden />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[15px] font-semibold tracking-tight">Account</span>
-                          <span className="mt-0.5 block truncate text-xs text-zinc-500">Orders & profile</span>
+                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">Orders & profile</span>
                         </span>
-                        <ChevronRight className="size-4 shrink-0 text-zinc-600 group-hover:translate-x-0.5" aria-hidden />
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground group-hover:translate-x-0.5" aria-hidden />
                       </Link>
                       <button
                         type="button"

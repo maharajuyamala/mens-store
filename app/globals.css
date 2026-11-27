@@ -5,6 +5,7 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-brand: var(--brand);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -44,6 +45,11 @@
 }
 
 :root {
+  color-scheme: light;
+  --brand: #98521e;
+  --catalog-price: #815538;
+  --catalog-action: #30251b;
+  --catalog-action-text: #fffaf3;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -79,6 +85,11 @@
 }
 
 .dark {
+  color-scheme: dark;
+  --brand: #f2b678;
+  --catalog-price: #ead7b8;
+  --catalog-action: #f2e5d2;
+  --catalog-action-text: #231e18;
   /* Near-black zinc store + admin shell */
   --background: oklch(0.09 0.006 285);
   --foreground: oklch(0.97 0.004 285);
