@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, ListFilter, Search, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import styles from "./MobileProduct.module.css";
 import { ExploreProductCard } from "@/components/explore/ExploreProductCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -733,7 +734,7 @@ function ExploreCatalog({
                   className="min-h-0 h-full"
                 >
                   <ExploreProductCard
-                    className="h-full"
+                    className={styles.card}
                     product={p}
                     onQuickAdd={onQuickAdd}
                     imagePriority={i < 6}
