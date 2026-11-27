@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { ProductImage, ProductImagePlaceholder } from "@/components/ProductImage";
 import { imageKitLoaderFor } from "@/lib/uploads/imagekit-loader";
 import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
@@ -10,10 +10,6 @@ import { swatchColor } from "@/lib/explore/color-swatches";
 import { cn, inr } from "@/lib/utils";
 import { useWishlistStore } from "@/store/wishlistStore";
 
-// 1×1 dark-zinc PNG so the Image element fades in from the card background
-// instead of flashing white before the remote photo decodes.
-const BLUR_DATA_URL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=";
 
 type Props = {
   product: ExploreProduct;
@@ -159,13 +155,13 @@ export function ExploreProductCard({
               if (!shouldRender) return null;
               return (
                 <div
-                  key={src}
+                  key={`${src}-${i}`}
                   className={cn(
                     "absolute inset-0 transition-opacity duration-500 ease-out",
                     i === activeIndex ? "z-0 opacity-100" : "z-0 opacity-0"
                   )}
                 >
-                  <Image
+                  <ProductImage
                     src={src}
                     loader={imageKitLoaderFor(src)}
                     alt={
@@ -181,17 +177,14 @@ export function ExploreProductCard({
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     priority={imagePriority && i === 0}
                     fetchPriority={imagePriority && i === 0 ? "high" : "auto"}
-                    placeholder="blur"
-                    blurDataURL={BLUR_DATA_URL}
+
                   />
                 </div>
               );
             })}
           </>
         ) : (
-          <div className="flex aspect-[3/4] w-full items-center justify-center text-xs text-zinc-600">
-            No image
-          </div>
+          <ProductImagePlaceholder />
         )}
 
         {/* Readability wash */}

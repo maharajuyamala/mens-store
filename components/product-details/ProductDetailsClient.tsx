@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DocumentData } from "firebase/firestore";
 import styles from "../explore/MobileProduct.module.css";
-import Image from "next/image";
+import { ProductImage, ProductImagePlaceholder } from "@/components/ProductImage";
 import { imageKitLoaderFor } from "@/lib/uploads/imagekit-loader";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -38,10 +38,6 @@ import { cn, inr as currency } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { useRecentlyViewedStore } from "@/store/recentlyViewedStore";
 
-// 1×1 dark-zinc PNG used as a blur placeholder so the main image fades in
-// from the card background instead of flashing white.
-const BLUR_DATA_URL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 
@@ -348,7 +344,7 @@ function ProductDetailContent({
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.28, ease: "easeInOut" }}
                   >
-                    <Image
+                    <ProductImage
                       src={mainSrc}
                       loader={imageKitLoaderFor(mainSrc)}
                       alt={product.name}
@@ -356,20 +352,19 @@ function ProductDetailContent({
                       className="object-cover object-top"
                       sizes="(max-width: 1024px) 100vw, 50vw"
                       priority={mainIndex === 0}
-                      placeholder="blur"
-                      blurDataURL={BLUR_DATA_URL}
+
                     />
                   </motion.div>
                 ) : (
                   <motion.div
                     key="placeholder"
-                    className="flex h-full min-h-[200px] items-center justify-center text-muted-foreground"
+                    className="absolute inset-0"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    No image
+                    <ProductImagePlaceholder />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -390,11 +385,12 @@ function ProductDetailContent({
                     aria-pressed={i === mainIndex}
                     aria-label={`Show image ${i + 1}`}
                   >
-                    <Image
+                    <ProductImage
                       src={src}
                       alt=""
                       width={64}
                       height={64}
+                      compact
                       className="h-full w-full object-cover object-top"
                     />
                   </button>
