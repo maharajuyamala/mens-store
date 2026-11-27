@@ -1,11 +1,37 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./theme.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-brand: var(--brand);
+  --color-primary-hover: var(--primary-hover);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-foreground: var(--tertiary-foreground);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-danger-surface: var(--danger-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+  --color-photo-surface: var(--photo-surface);
+  --color-photo-foreground: var(--photo-foreground);
+  --color-on-photo: var(--on-photo);
+  --color-on-photo-accent: var(--on-photo-accent);
+  --color-orange-50: var(--brand-50);
+  --color-orange-100: var(--brand-100);
+  --color-orange-200: var(--brand-200);
+  --color-orange-300: var(--brand-300);
+  --color-orange-400: var(--brand-400);
+  --color-orange-500: var(--brand-500);
+  --color-orange-600: var(--brand-600);
+  --color-orange-700: var(--brand-700);
+  --color-orange-800: var(--brand-800);
+  --color-orange-900: var(--brand-900);
+  --color-orange-950: var(--brand-950);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -42,86 +68,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-}
-
-:root {
-  color-scheme: light;
-  --brand: #98521e;
-  --catalog-price: #815538;
-  --catalog-action: #30251b;
-  --catalog-action-text: #fffaf3;
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  color-scheme: dark;
-  --brand: #f2b678;
-  --catalog-price: #ead7b8;
-  --catalog-action: #f2e5d2;
-  --catalog-action-text: #231e18;
-  /* Near-black zinc store + admin shell */
-  --background: oklch(0.09 0.006 285);
-  --foreground: oklch(0.97 0.004 285);
-  --card: oklch(0.13 0.008 285);
-  --card-foreground: oklch(0.97 0.004 285);
-  --popover: oklch(0.12 0.008 285);
-  --popover-foreground: oklch(0.97 0.004 285);
-  --primary: oklch(0.97 0.004 285);
-  --primary-foreground: oklch(0.12 0.008 285);
-  --secondary: oklch(0.18 0.012 285);
-  --secondary-foreground: oklch(0.97 0.004 285);
-  --muted: oklch(0.17 0.01 285);
-  --muted-foreground: oklch(0.62 0.02 285);
-  --accent: oklch(0.2 0.012 285);
-  --accent-foreground: oklch(0.97 0.004 285);
-  --destructive: oklch(0.58 0.2 25);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.72 0.16 55);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.1 0.008 285);
-  --sidebar-foreground: oklch(0.96 0.004 285);
-  --sidebar-primary: oklch(0.7 0.16 55);
-  --sidebar-primary-foreground: oklch(0.1 0.01 285);
-  --sidebar-accent: oklch(0.17 0.012 285);
-  --sidebar-accent-foreground: oklch(0.97 0.004 285);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.65 0.14 55);
 }
 
 @layer base {

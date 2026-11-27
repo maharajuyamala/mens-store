@@ -1,0 +1,131 @@
+/* Single source of truth for all theme colors. Change role values here.
+   UI code should consume semantic tokens, not hard-coded palette values. */
+:root {
+  color-scheme: light;
+  /* Brand roles: primary actions, secondary surfaces, tertiary editorial accents. */
+  --primary-hover: #713615;
+  --tertiary: #815538;
+  --tertiary-foreground: #ffffff;
+  --success: #236342;
+  --success-surface: #e6f3e9;
+  --warning: #8a520b;
+  --warning-surface: #fff0d5;
+  --danger-surface: #fff0ed;
+  --info: #245e91;
+  --info-surface: #e8f0fa;
+  /* Media/print colors are deliberately stable across themes. */
+  --photo-surface: #e8e4de;
+  --photo-foreground: #66594b;
+  --photo-control: #fbf7f0;
+  --photo-control-foreground: #332a22;
+  --photo-selected: #815538;
+  --photo-overlay: #28231e;
+  --on-photo: #ffffff;
+  --on-photo-accent: #f0d6b0;
+  --campaign-scrim: rgba(21,19,16,.68);
+  --print-paper: #ffffff;
+  --print-ink: #171614;
+  /* Legacy brand utilities: centralized until callers migrate to semantic roles.
+     The solid 600/700 steps retain a dark background for white CTA text. */
+  --brand-50: #fff4e7;
+  --brand-100: #f9e2c8;
+  --brand-200: #efcda9;
+  --brand-300: #ae7548;
+  --brand-400: #98521e;
+  --brand-500: #a85b26;
+  --brand-600: #8b461e;
+  --brand-700: #713615;
+  --brand-800: #602b12;
+  --brand-900: #4c210f;
+  --brand-950: #321509;
+  --brand: var(--tertiary);
+  --catalog-price: var(--tertiary);
+  --catalog-action: var(--primary);
+  --catalog-action-text: var(--primary-foreground);
+  --radius: 0.625rem;
+  --background: #faf9f6;
+  --foreground: #231f1b;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: #8b461e;
+  --primary-foreground: #ffffff;
+  --secondary: #eee8df;
+  --secondary-foreground: #30251b;
+  --muted: #f0ede7;
+  --muted-foreground: #655e55;
+  --accent: #e9e2d7;
+  --accent-foreground: var(--foreground);
+  --destructive: #a82d2d;
+  --border: #ddd6cc;
+  --input: #bdb3a5;
+  --ring: #98521e;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
+  color-scheme: dark;
+  --primary-hover: #f8d6ae;
+  --tertiary: #ead7b8;
+  --tertiary-foreground: #25190f;
+  --success: #9bdbb2;
+  --success-surface: #203b2a;
+  --warning: #f2c177;
+  --warning-surface: #40301a;
+  --danger-surface: #412622;
+  --info: #a8d1fc;
+  --info-surface: #20364b;
+  --brand-300: #f3cca6;
+  --brand-400: #efb87e;
+  --brand-500: #c9894e;
+  --brand: var(--tertiary);
+  --catalog-price: var(--tertiary);
+  --catalog-action: var(--primary);
+  --catalog-action-text: var(--primary-foreground);
+  /* Near-black zinc store + admin shell */
+  --background: #171614;
+  --foreground: #faf4e9;
+  --card: #211f1b;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: #efc28f;
+  --primary-foreground: #25190f;
+  --secondary: #302b25;
+  --secondary-foreground: #f4e8d7;
+  --muted: #292622;
+  --muted-foreground: #c1b6a6;
+  --accent: #393129;
+  --accent-foreground: var(--foreground);
+  --destructive: #f28b82;
+  --border: #403a32;
+  --input: #62574a;
+  --ring: #efc28f;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+

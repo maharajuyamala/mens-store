@@ -37,7 +37,7 @@ export function ProductImagePlaceholder({
   return (
     <div
       data-product-image-placeholder
-      className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-hidden bg-[#e8e4de] px-2 text-center text-[#66594b]"
+      className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-hidden bg-photo-surface px-2 text-center text-photo-foreground"
       role="img"
       aria-label={loading ? "Product photo loading" : "Product photo unavailable"}
     >
