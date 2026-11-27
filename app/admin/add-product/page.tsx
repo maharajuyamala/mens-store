@@ -69,7 +69,7 @@ function QrSuccessScreen({
   onDone: () => void;
 }) {
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 py-6">
+    <div className={styles.receipt}>
       <style>{`
         @page { margin: 0.25in; size: auto; }
         @media print {
@@ -88,7 +88,7 @@ function QrSuccessScreen({
         }
       `}</style>
 
-      <div className="flex flex-col items-center gap-3 text-center print:hidden">
+      <div className={`${styles.confirmation} print:hidden`}>
         <div className="rounded-full bg-emerald-500/10 p-3">
           <CheckCircle2 className="h-10 w-10 text-emerald-500" />
         </div>
@@ -118,13 +118,6 @@ function QrSuccessScreen({
         </p>
       </div>
 
-      <VariantQrSheet
-        productId={product.productId}
-        productName={product.name}
-        price={product.price}
-        variants={product.variants}
-      />
-
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center print:hidden">
         <Button
           type="button"
@@ -138,12 +131,19 @@ function QrSuccessScreen({
         <Button
           type="button"
           onClick={onDone}
-          className="gap-2 bg-orange-600 text-white hover:bg-orange-500"
+          className={styles.nextProduct}
         >
           <PlusCircle className="h-4 w-4" />
           Add another product
         </Button>
       </div>
+
+      <VariantQrSheet
+        productId={product.productId}
+        productName={product.name}
+        price={product.price}
+        variants={product.variants}
+      />
     </div>
   );
 }
@@ -278,20 +278,19 @@ export default function AddProductPage() {
     }
     const hasDupes = Array.from(nameCounts.values()).some((c) => c > 1);
 
-    if (
-      !productName ||
-      !price ||
-      Number.isNaN(finalPrice) ||
-      usableDrafts.length === 0 ||
-      !selectedAudience ||
-      !itemSelection ||
-      hasDupes
-    ) {
-      const msg = hasDupes
-        ? "Two colors share the same name. Give each color a unique name."
-        : "Fill every section: department, item selection, and at least one color with photos AND per-size stock.";
-      setError(msg);
-      toast.error("Complete the form", { description: msg });
+    const issue =
+      !productName.trim() ? { target: "ap-name", message: "Enter a product name." } :
+      !price || Number.isNaN(finalPrice) ? { target: "ap-price", message: "Enter the selling price." } :
+      !selectedAudience ? { target: "ap-department", message: "Choose a department." } :
+      !itemSelection ? { target: "ap-item", message: "Choose an item type." } :
+      hasDupes ? { target: "ap-inventory", message: "Give each color a unique name." } :
+      usableDrafts.length === 0 ? { target: "ap-inventory", message: "Add a photo and stock for at least one size of the same color." } :
+      null;
+
+    if (issue) {
+      setError(issue.message);
+      document.getElementById(issue.target)?.focus();
+      toast.error("Complete the form", { description: issue.message });
       return;
     }
 
@@ -492,6 +491,7 @@ export default function AddProductPage() {
                   <label key={audience.id}>
                     <input
                       type="radio"
+                      id={audience.id === QUICK_ADD_AUDIENCES[0]?.id ? "ap-department" : undefined}
                       name="department"
                       value={audience.id}
                       checked={selectedAudience === audience.id}
@@ -574,7 +574,7 @@ export default function AddProductPage() {
           ) : null}
 
         </section>
-        <section className={styles.panel} aria-label="Color inventory">
+        <section className={styles.panel} id="ap-inventory" tabIndex={-1} aria-label="Color inventory">
           {/* ── Colors, photos & per-color sizes ──────────────────────── */}
           <ColorVariantsEditor
             drafts={colorDrafts}
